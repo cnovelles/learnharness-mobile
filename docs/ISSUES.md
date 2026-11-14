@@ -68,7 +68,7 @@ Found in the check and fixed:
 - iOS changes typed straight quotes to curly quotes, also with `autoCorrect={false}`. The parser refused the text ("This is not a LearnHarness pairing code."). `parsePairingPayload` now changes curly double quotes back to straight quotes (test in `tests/pairing.test.ts`).
 - The paste field placeholder showed `{"lh":1,...}`. It now shows `{"lh":2,...}`.
 
-## 03 First teaching turn on the phone (mode 1) `todo`
+## 03 First teaching turn on the phone (mode 1) `doing`
 
 Blocked by: 02.
 
@@ -79,6 +79,17 @@ Blocked by: 02.
 - Maestro E2E with the fake provider: start a session, answer one probe, see the next turn.
 
 Acceptance: E2E passes; one real lesson turn works with the Claude Code CLI on the Mac.
+
+Notes from the first read (2026-11-14, no code changed yet):
+
+- Shared code to use (fork `components/session-core.ts`, about 1,250 lines, no React): `SessionModel` takes `{chatId, initialMessages, initialError?, fetch, onChange?, onReattachSettled?}`. Use `remoteFetch(...)` from `src/lib/pairing.ts` as `fetch`. Methods: `getState()` (`messages` are view messages from `projectView`, `status` is ready, submitted, streaming or error), `send(input)`, `submitAnswer(tool, toolCallId, answer)`, `resumeStream()`, `readRecord()`, `stop()`. The web hook `components/session.ts` is the model for a React Native hook: re-render on `onChange`, `resumeStream(false)` on mount when `turnInFlight`, `stop()` on unmount.
+- `ChatInput` (`src/core/input-events.ts`): first message `{type:"text", text}`; answer `{type:"answer", toolCallId, answer}`.
+- Questions (`src/core/question-core.ts`): `questionDataForCall(toolName, toolCallId, input)` is already in `src/core` (moved in the fork). `buildAnswer(qd, req, tool)` with `AnswerRequest {dontKnow, values, other, text, thinking, confidence}`. `toolQuestionKind`: probe and quiz are "quiz", recall and explain are "explain", others are "ask". Confidence uses `CONFIDENCE_STOPS` [0,30,50,70,90,100], default index `DEFAULT_CONFIDENCE_INDEX` (50). Always send confidence on quiz answers; `buildAnswer` drops it on "I don't know". Selection helpers: `emptyDockSelection`, `toggleOption`, `toggleOther`. The web dock is `components/question-dock.tsx` (lines 280–420 show the submit path).
+- Pending question: `pendingQuestionOf(messages)` in `src/core/native-messages.ts`.
+- API: `GET /api/chats` gives `{chats: ChatListItem[]}` (`src/core/contracts/chat.ts:318`, with `busy` and `compacting`). `POST /api/chats {title}` gives `{id, title}`. `GET /api/chats/:id` gives the record with `messages`, `turnInFlight`, `turnError`. `SessionModel` also calls `GET /api/jobs?chatId=`. All these routes are in the gateway allowlist (`electron/phone-access.cjs:41`).
+- Polyfills already in `src/shims/polyfills.ts`: `crypto.getRandomValues`, `randomUUID`, `DOMException`. Still to check on Hermes: `TextDecoder` (used by `sseEvents`), streaming response bodies through the native PinnedFetch module, `AbortSignal.any`.
+- Metro (`metro.config.js`) already has `watchFolders` for the fork, the fork `node_modules` and the `node:crypto` shim. First step: import `SessionModel` in the app and run `npx expo export --platform ios` to find bundle errors.
+- Still to check: whether Maestro is installed (`which maestro`; it needs Java).
 
 ## 04 Full teach cycle `todo`
 

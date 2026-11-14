@@ -46,7 +46,7 @@ Last update: 2026-11-14 (Simulator check for 01b and 02 passed).
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 03. Open follow-up from 01b: show `wrongCertificate` on the home screen. See `docs/ISSUES.md`.
+**Next step:** issue 03 (started: the first read is done and its notes are in `docs/ISSUES.md`; no code changed). Open follow-up from 01b: show `wrongCertificate` on the home screen. See `docs/ISSUES.md`.
 
 **Facts found during the work**
 
