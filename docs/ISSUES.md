@@ -119,14 +119,18 @@ Each slice lists its error states (`AGENTS.md`, "Error states"). Every error on 
 
 **0. Error states and no raw text: done (2026-11-14, `25a442c`).** `src/lib/user-error.ts` (`UserMessage`, `userMessage`, `UserFacingError`, `describeError`), `ErrorText` takes only a `UserMessage`, ESLint blocks the ways around it, and the rule is in `AGENTS.md`. A text that the Mac refuses before it saves it goes back to the composer, and Try again sends it again; `retry` only for a saved turn that failed. Screen tests: refused opening text, failed saved turn, gateway 403.
 
-**A. Check questions, explain and ask.**
+**A. Check questions, explain and ask: done (2026-11-14, `d5d4581`).** `src/lib/reveal.ts` (`revealPlan`, `followsQuestion`), `RevealBar` and drafts in `src/components/question-dock.tsx`, `readingThinking` in `answerFor`. The hook (`use-session.ts`) keeps the last unsent input (text or answer), and Try again sends it again; the waiting question stays open when the status is `error`. Drafts live in `SessionModel` (they survive a dock remount, not a screen reopen). Explain and ask already worked from issue 03.
 
 - A teach-phase check (`questionNeedsReveal`) arrives closed: "Check your understanding", a short preview, and Open. While it is closed, the reading-thinking field ("Whatever comes to mind as you read.") shows under the teaching text. It opens by itself when it follows another question (desktop `revealArrival`). A `predict` question arrives open.
 - The answer carries `readingThinking` when it is not empty. Explain answers (text) and ask questions (single, multi, Other, text) use the same dock.
-- Drafts: the form and the reading thinking survive a reopen of the screen (`saveQuestionDraft`).
+- Drafts: the form and the reading thinking survive a dock remount while the screen is open (`saveQuestionDraft`).
 - Error states: an answer that the Mac refuses or that fails keeps the form and the reading thinking, and shows the mapped message; submit is off while the session compacts ("The Mac is making the history shorter…").
 
-**B. Lesson map, phase and answered cards.**
+**B. Lesson map, phase and answered cards (next).** Notes for the next session, from a map of the desktop code (2026-11-14):
+
+- Phase: `phaseAt3Lh(nativeMessages)` (exported in `src/lib/shared.ts`). Header labels from the desktop `PhaseChip` (`components/phase-divider.tsx:41`). The seams: `phaseTimeline` or `phaseAt3Lh(messages, i)`; the plan divider reads the node count (`planNodeCount`, `phase-divider.tsx:84`, a React file: copy the small logic).
+- Plan tree: the last `tool-plan_*` view part in `output-available` with `output.tree.nodes` (desktop `latestTree`, `components/plan-block.tsx:715`, a React file: copy). Types `PlanTree`, `PlanNode` and `derivePlanStatusesLh(tree, nativeMessages)` are exported. Now `transcriptRows` turns `plan_init` into a plain tool row and skips `data-plan-block` parts.
+- Answered cards: `answerForPresentation(answer, input)` (exported) gives `questionText`, `explanation`, `committed`, `correctIndices`, `options`. The desktop card: `components/answered-card.tsx`. Extend the `question` row in `src/lib/transcript.ts` and the card in `src/components/transcript.tsx`.
 
 - Phase in the header: Probing, Planning, Teaching (`phaseAt3`). A divider at the plan seam ("Plan · N steps") and at the teach seam.
 - Lesson map: the latest plan tree (the last `plan_*` result with `tree.nodes`), each step marked current, done or upcoming (`derivePlanStatuses`). User decision (2026-11-14): a "Plan" button in the session header opens a sheet with the steps as an indented list; the diagram comes in issue 05.

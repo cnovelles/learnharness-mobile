@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (issue 03 done; issue 04 started).
+Last update: 2026-11-14 (issue 04 slice A done; slice B next).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-14 (issue 03 done; issue 04 started).
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 04 (full teach cycle). It starts from the error-state work in `25a442c` (`describeError`, the `AGENTS.md` rule "Error states"). Issue 03 is done: the Maestro E2E and the real lesson turn passed. Sessions share one checkout: read `CLAIMS.md` in the shared notes folder (memory `learnharness-session-sync`) before work. The 01b follow-up is done: the home screen shows `wrongCertificate`.
+**Next step:** issue 04 slice B (lesson map as a list sheet, phase, answered cards), then C (steer, Stop in the header, Skip in the dock, retry gate, foreground), D (compaction, one error banner), E (Maestro probe → plan → teach → check). Slice 0 (error states, `25a442c`) and slice A (checks behind the reveal, `d5d4581`) are done. The plan and the error states of each slice are in `docs/ISSUES.md` (issue 04). Jest: 196 pass. Not run since `25a442c`: `npm run test:integration` (needs the fork dev server stopped). Not checked on the Simulator yet: the new error texts and the reveal.
 
 **Facts found during the work**
 
