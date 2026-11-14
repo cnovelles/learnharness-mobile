@@ -127,7 +127,6 @@ Decisions
 ## Out of Scope
 
 - Android build (later).
-- ChatGPT subscription sign-in on the phone (needs a check that OpenAI accepts a mobile redirect).
 - Local file tools and the Claude Code CLI in mode 3.
 - Headless demo verification on the phone.
 - Graph canvas on the phone (list and chain table first).
@@ -135,6 +134,12 @@ Decisions
 - App Store distribution and the LearnHarness name or logo in public (needs the author's permission; AGPL source obligations apply if distributed).
 
 ## Further Notes
+
+- Decision 2026-11-14: the free path first. The app is free and open source, and learners bring their own model access:
+  - ChatGPT plan: "Sign in with ChatGPT" on the Mac (works upstream today). On the phone, issue 16 tests it.
+  - API keys for any provider (OpenAI, Anthropic and others).
+  - Claude subscriptions cannot be used: Anthropic allows Free, Pro and Max sign-ins only in Claude Code and claude.ai. Claude models use an API key.
+- Later idea, not decided: our own paid plan (we pay API prices and charge a subscription). It needs separate decisions: a server with accounts, payments and usage caps; the cost risk of heavy users; privacy of lesson content on our server; OpenAI approval for ChatGPT sign-in in a paid or hosted app (interest form); Apple in-app purchase rules; the upstream author's permission for the name. Nothing in the free path blocks it.
 
 - Measured data: largest session 2.1 MB (407 messages), all sessions 2.8 MB, graph 160 KB. Storage on the phone is not a problem.
 - Measured cost of the user's 3 sessions at API prices: about $22 (Claude Sonnet 5.5), about $1.30 (Claude Haiku 5.5). Cache writes are 75% of it.

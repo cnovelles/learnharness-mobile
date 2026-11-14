@@ -4,6 +4,7 @@ Parent: `docs/PRD.md`. Labels: `needs-triage` on all. Status: `todo`, `doing`, `
 Each issue is a vertical slice: it is done only when its tests pass and the upstream suite in the fork still passes (except the known upstream failure in `tests/subscription-auth.test.ts`).
 
 Order: 01 → 01b → 02 → 03 → 04 → (05, 06, 07, 08 in any order) → 09 → 10 → 11 → 12 → (13, 14) → 15.
+16 (ChatGPT sign-in test on the iPhone) can run at any time after a development build runs on the user's iPhone. Its result decides the sign-in part of 12.
 
 ---
 
@@ -169,3 +170,29 @@ Blocked by: 04.
 - Unsigned local build of the fork for the user's Mac (no upstream notarization profile). Phone install with a development build or TestFlight (user's Apple account; the user does the sign-in).
 - Guide: install Tailscale on Mac and iPhone (the user creates the account), turn on Phone Access, pair.
   Acceptance: the user pairs a real iPhone and does one lesson away from home.
+
+## 16 ChatGPT sign-in on a real iPhone (test) `todo`
+
+Blocked by: a development build on the user's iPhone (needs Xcode 26.4 or later).
+
+Goal: find out if "Sign in with ChatGPT" works inside the phone app, so that mode 3 can use the learner's ChatGPT plan with no API key.
+
+Facts (OpenAI SIWC docs for open-source and local apps, read 2026-11-14):
+
+- Self-serve: start with `client_id=dynamic_agent_client`, `ext_agent_host_id` and `agent_name_hint`; save the issued `oaiapp_...` client ID. No client secret and no partner key.
+- PKCE S256, a new `state` and OIDC `nonce` for each attempt.
+- The return address must be an HTTP loopback address on `127.0.0.1` (not `localhost`). Only the port can change later. Custom app links and HTTPS return addresses are not supported. The docs do not mention mobile apps.
+- Requests: `POST https://api.openai.com/v1/responses` with `stream: true` and `store: false`. No `temperature`, `max_output_tokens` or system role items (use `instructions`). Never call ChatGPT `backend-api` endpoints.
+
+Work:
+
+- Small test screen in a development build: start a loopback server on `127.0.0.1` in the app, open the OpenAI sign-in page in an in-app browser sheet (ASWebAuthenticationSession or SFSafariViewController), catch the return code, exchange it, store the tokens in the Keychain.
+- Then list models (`GET /v1/models`, `visibility == "list"`) and stream one short Responses request.
+- Test the fallback: the learner copies the final address from the browser and pastes it into the app (pi-ai already accepts a pasted callback URL).
+- Test the refresh token after the app was in the background and after a restart.
+
+Acceptance:
+
+- On the user's real iPhone (not only the Simulator): sign-in completes, one streamed reply arrives, and the token refresh works.
+- A short report in this issue: works / works only with the paste fallback / does not work, with the iOS version and the steps. If it does not work, mode 3 uses API keys only, and the learner signs in to ChatGPT on the Mac for mode 1.
+- No real tokens in the repository, logs or tests. Automatic tests use a fake OAuth server.
