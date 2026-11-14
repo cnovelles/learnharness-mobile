@@ -44,7 +44,7 @@ State (fork `8c1744d`, phone see PRD Status): all code and tests done.
 - Phone library: a local Swift Expo module (`modules/pinned-fetch`). The library option does not fit (TrustKit refuses self-signed certificates and hooks only React Native networking).
 - Tests: fork 22 + 7 + 9 integration; phone 86 Jest; `npm run test:native-pin` checks the Swift pin check and URLSession on macOS against a real HTTPS server.
 - Simulator check (2026-11-14, Xcode 26.6, iOS 26.5 SDK): the iOS build compiles `PinnedFetchModule.swift` with 0 errors. Pairing works over HTTPS with the pin: the app reached the Mac, got "connected", and the Mac listed the phone.
-- Follow-up for the 02 screens: show `wrongCertificate` (another device at the Mac's address, or a new certificate on the Mac) on the home screen. `src/app` was not changed in 01b.
+- Follow-up for the 02 screens (done 2026-11-14): the home screen shows a specific message for `wrongCertificate` (another device at the Mac's address, or a new certificate on the Mac). Tests: `tests/home-status.test.ts` and the pin test in `tests/app-pairing.test.tsx`.
 
 ## 02 Phone pairing `done`
 

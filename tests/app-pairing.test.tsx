@@ -167,7 +167,11 @@ describe("a paired phone", () => {
 	it("another certificate at the Mac's address gets no token, and the pairing stays", async () => {
 		mockMacPin = `sha256/${"B".repeat(42)}Q=`;
 		await renderRouter(APP, { initialUrl: "/" });
-		expect(await screen.findByText(/The phone cannot reach Studio Mac/)).toBeTruthy();
+		expect(
+			await screen.findByText(
+				/A device answered at the address of Studio Mac, but it is not Studio Mac/,
+			),
+		).toBeTruthy();
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(mockKeychain.size).toBe(1);
 	});

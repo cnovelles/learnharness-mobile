@@ -20,6 +20,12 @@ export function statusText(state: ConnectionState): {
 				tone: "muted",
 			};
 		case "unreachable":
+			if (state.wrongCertificate)
+				return {
+					label: "Not connected",
+					detail: `A device answered at the address of ${state.connection.name}, but it is not ${state.connection.name}. The phone sent nothing to it. If you made a new certificate on the Mac, pair again. If not, check the network.`,
+					tone: "danger",
+				};
 			return {
 				label: "Not connected",
 				detail: `The phone cannot reach ${state.connection.name}. Make sure that the Mac is on, LearnHarness is open, and Phone Access is on. The phone and the Mac must be on the same Wi-Fi or both on Tailscale.`,
