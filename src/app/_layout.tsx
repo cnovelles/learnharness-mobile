@@ -1,18 +1,35 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+// Polyfills first: the shared LearnHarness code expects these web APIs.
+import "@/shims/polyfills";
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 
-SplashScreen.preventAutoHideAsync();
+import { Loading, usePalette } from "@/components/ui";
+import { ConnectionProvider, useConnection } from "@/lib/connection-context";
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
-  );
+function RootStack() {
+	const { state } = useConnection();
+	const c = usePalette();
+	if (state.status === "loading") return <Loading />;
+	const paired = state.status !== "unpaired";
+	return (
+		<Stack screenOptions={{ headerStyle: { backgroundColor: c.bg }, headerTintColor: c.text, contentStyle: { backgroundColor: c.bg } }}>
+			<Stack.Protected guard={paired}>
+				<Stack.Screen name="index" options={{ title: "LearnHarness" }} />
+				<Stack.Screen name="settings" options={{ title: "Settings" }} />
+			</Stack.Protected>
+			<Stack.Protected guard={!paired}>
+				<Stack.Screen name="pair" options={{ title: "Pair with your Mac" }} />
+			</Stack.Protected>
+		</Stack>
+	);
+}
+
+export default function RootLayout() {
+	return (
+		<ConnectionProvider>
+			<StatusBar style="auto" />
+			<RootStack />
+		</ConnectionProvider>
+	);
 }
