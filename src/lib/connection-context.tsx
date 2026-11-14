@@ -2,16 +2,38 @@
  * React access to the connection monitor. One monitor for the app: it reads
  * the Keychain on start, pings the Mac and follows the app's foreground state.
  */
-import { createContext, use, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+	createContext,
+	use,
+	useEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type ReactNode,
+} from "react";
 import { AppState } from "react-native";
-import { createConnectionMonitor, type ConnectionMonitor, type ConnectionState } from "./connection-monitor";
+import {
+	createConnectionMonitor,
+	type ConnectionMonitor,
+	type ConnectionState,
+} from "./connection-monitor";
 import { secureConnectionStore } from "./connection-store";
 import { nativePinnedFetch } from "./native-pinned-fetch";
 
 const MonitorContext = createContext<ConnectionMonitor | null>(null);
 
-export function ConnectionProvider({ children, monitor: injected }: { children: ReactNode; monitor?: ConnectionMonitor }) {
-	const [monitor] = useState(() => injected ?? createConnectionMonitor({ store: secureConnectionStore, fetchImpl: nativePinnedFetch() }));
+export function ConnectionProvider({
+	children,
+	monitor: injected,
+}: {
+	children: ReactNode;
+	monitor?: ConnectionMonitor;
+}) {
+	const [monitor] = useState(
+		() =>
+			injected ??
+			createConnectionMonitor({ store: secureConnectionStore, fetchImpl: nativePinnedFetch() }),
+	);
 	// The monitor lives as long as the app. Start it once, even when React
 	// runs the effect twice in development.
 	const started = useRef(false);

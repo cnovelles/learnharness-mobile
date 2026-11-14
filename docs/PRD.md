@@ -8,6 +8,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 Last update: 2026-11-14.
 
 **Done**
+
 - Investigation and approved plan: `~/.claude/plans/there-is-this-open-source-ethereal-pearl.md`.
 - Desktop fork: branch `mobile/phone-access` in `~/Development/learnharness`. Commits `4800177` (gateway), `2657a55` (issue 01), `78bb2bf` (security fixes), `5a7a216` (merge of upstream v0.6.1), `82fdb3e` (CI job), `8c1744d` (issue 01b: HTTPS with the certificate pin). Upstream sync and GitHub fork: see `docs/UPSTREAM-SYNC.md`.
   - Upstream v0.6.1 is merged. After the merge: `npm ci`; `npm test` 5354 of 5361 pass (the 3 known upstream failures: `passive-tooltip`, `plugin-document-proxy`, `subscription-auth`; `headless-helper-lifecycle` fails only under full-suite load and passes alone); typecheck 0 errors; lint 0 errors; integration test passes against the v0.6.1 server.
@@ -39,6 +40,7 @@ Last update: 2026-11-14.
 **Next step:** finish issue 01b on a device: build the app (needs a newer Xcode), then check pairing over HTTPS with the pin. Then finish issue 02: build the development app on the Simulator (needs a newer Xcode, see "Blocked" above), then do the Simulator pairing check (paste field, "connected", removal on the Mac asks to pair again). Then issue 03. See `docs/ISSUES.md`.
 
 **Facts found during the work**
+
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.
 - `components/session-core.ts` (`SessionModel`) is pure TypeScript with an injectable fetch. The phone uses it unchanged with `remoteFetch`.
 - The only Node import reachable from `SessionModel` is `node:crypto` in `src/core/coverage.ts` (via the barrel).
@@ -67,6 +69,7 @@ The phone keeps a full local copy of the user's data. It syncs with the desktop 
 ## User Stories
 
 Pairing and connection
+
 1. As a learner, I want to turn on Phone Access in the desktop app, so that my phone can connect only when I allow it.
 2. As a learner, I want to pair my phone by scanning a QR code, so that I do not type addresses or secrets.
 3. As a learner, I want to paste the pairing text when the camera is not available, so that I can pair from the Simulator or with a broken camera.
@@ -77,56 +80,18 @@ Pairing and connection
 8. As a learner, I want the phone to know when its pairing was removed, so that it asks me to pair again.
 9. As a learner, I want credentials, keys, subscriptions and prompts to stay desktop-only, so that a stolen phone token cannot read my API keys.
 
-Sessions (mode 1 and 2)
-10. As a learner, I want to see my session list with phase and "waiting for your answer" marks, so that I can continue where I stopped.
-11. As a learner, I want to start a new teaching session with a goal, so that I can learn something new on the phone.
-12. As a learner, I want to start a practice session, so that I can practice on the phone.
-13. As a learner, I want the teacher's text to stream in as it is written, so that the phone feels as fast as the desktop.
-14. As a learner, I want to answer probe and quiz questions with options, confidence and a thinking field, so that the agent gets the same picture as on the desktop.
-15. As a learner, I want to answer recall and explain questions in my own words, so that free recall works on the phone.
-16. As a learner, I want to read the teaching prose before a check question appears, with a reading-thinking field, so that the teach cycle is the same as on the desktop.
-17. As a learner, I want to see the lesson map, so that I know where I am in the plan.
-18. As a learner, I want to see answered cards with the correct answer and explanation, so that I learn from mistakes.
-19. As a learner, I want to work on practice problems with the thinking dock and see the solution at the end, so that practice works on the phone.
-20. As a learner, I want to steer the agent with a message while it works, so that I can redirect it.
-21. As a learner, I want to stop a running turn, so that I can correct a wrong direction.
-22. As a learner, I want to retry a failed answer, so that a provider error does not end my lesson.
-23. As a learner, I want the phone to reattach to a running turn after the app was in the background, so that I see the result.
-24. As a learner, I want math (KaTeX), Markdown and Mermaid diagrams to render, so that technical lessons are readable.
-25. As a learner, I want to see visuals and demos that the agent made, so that I get the full lesson.
-26. As a learner, I want to see the session cost and context use, so that I control my spending.
-27. As a learner, I want to rename a session, so that I can find it later.
-28. As a learner, I want to see my knowledge graph as a list of propositions and chains, so that I can review what I was taught.
+Sessions (mode 1 and 2) 10. As a learner, I want to see my session list with phase and "waiting for your answer" marks, so that I can continue where I stopped. 11. As a learner, I want to start a new teaching session with a goal, so that I can learn something new on the phone. 12. As a learner, I want to start a practice session, so that I can practice on the phone. 13. As a learner, I want the teacher's text to stream in as it is written, so that the phone feels as fast as the desktop. 14. As a learner, I want to answer probe and quiz questions with options, confidence and a thinking field, so that the agent gets the same picture as on the desktop. 15. As a learner, I want to answer recall and explain questions in my own words, so that free recall works on the phone. 16. As a learner, I want to read the teaching prose before a check question appears, with a reading-thinking field, so that the teach cycle is the same as on the desktop. 17. As a learner, I want to see the lesson map, so that I know where I am in the plan. 18. As a learner, I want to see answered cards with the correct answer and explanation, so that I learn from mistakes. 19. As a learner, I want to work on practice problems with the thinking dock and see the solution at the end, so that practice works on the phone. 20. As a learner, I want to steer the agent with a message while it works, so that I can redirect it. 21. As a learner, I want to stop a running turn, so that I can correct a wrong direction. 22. As a learner, I want to retry a failed answer, so that a provider error does not end my lesson. 23. As a learner, I want the phone to reattach to a running turn after the app was in the background, so that I see the result. 24. As a learner, I want math (KaTeX), Markdown and Mermaid diagrams to render, so that technical lessons are readable. 25. As a learner, I want to see visuals and demos that the agent made, so that I get the full lesson. 26. As a learner, I want to see the session cost and context use, so that I control my spending. 27. As a learner, I want to rename a session, so that I can find it later. 28. As a learner, I want to see my knowledge graph as a list of propositions and chains, so that I can review what I was taught.
 
-Dictation
-29. As a learner, I want to dictate into the thinking and answer fields, so that I can think out loud while walking.
-30. As a learner, I want free on-device speech recognition by default, so that I do not need a Deepgram key.
-31. As a learner, I want Deepgram as an option, so that I can use multilingual dictation.
+Dictation 29. As a learner, I want to dictate into the thinking and answer fields, so that I can think out loud while walking. 30. As a learner, I want free on-device speech recognition by default, so that I do not need a Deepgram key. 31. As a learner, I want Deepgram as an option, so that I can use multilingual dictation.
 
-Modes and sync
-32. As a learner, I want to choose the engine mode in Settings, so that I decide where the agents run.
-33. As a learner, I want mode 3 to work without the Mac, so that I can learn on a train.
-34. As a learner, I want my API key stored in the Keychain, so that it is safe.
-35. As a learner, I want the phone to sync with the Mac each time the desktop app is open and reachable, so that I do not think about sync.
-36. As a learner, I want a "Sync now" button, last sync time and the number of waiting changes, so that I can see the state.
-37. As a learner, I want a session that I continued on both devices to become two conflict copies, so that no work is overwritten.
-38. As a learner, I want deletes to sync, so that removed sessions do not come back.
-39. As a learner, I want a session with a running turn to be locked on the other device, so that two engines do not write the same session.
-40. As a learner, I want every message saved on the phone before it is shown as sent, so that a crash loses nothing.
-41. As a learner, I want unsynced changes to stay until the Mac confirms each one, so that a long session is never lost.
-42. As a learner, I want "Export all data" as a desktop-format folder, so that I have a backup.
-43. As a learner, I want my graph extraction to run in mode 3 too, so that phone lessons grow the same graph.
-44. As a learner, I want the cloud host as a Docker image with a deploy guide, so that I can run mode 2 for about $5 per month.
+Modes and sync 32. As a learner, I want to choose the engine mode in Settings, so that I decide where the agents run. 33. As a learner, I want mode 3 to work without the Mac, so that I can learn on a train. 34. As a learner, I want my API key stored in the Keychain, so that it is safe. 35. As a learner, I want the phone to sync with the Mac each time the desktop app is open and reachable, so that I do not think about sync. 36. As a learner, I want a "Sync now" button, last sync time and the number of waiting changes, so that I can see the state. 37. As a learner, I want a session that I continued on both devices to become two conflict copies, so that no work is overwritten. 38. As a learner, I want deletes to sync, so that removed sessions do not come back. 39. As a learner, I want a session with a running turn to be locked on the other device, so that two engines do not write the same session. 40. As a learner, I want every message saved on the phone before it is shown as sent, so that a crash loses nothing. 41. As a learner, I want unsynced changes to stay until the Mac confirms each one, so that a long session is never lost. 42. As a learner, I want "Export all data" as a desktop-format folder, so that I have a backup. 43. As a learner, I want my graph extraction to run in mode 3 too, so that phone lessons grow the same graph. 44. As a learner, I want the cloud host as a Docker image with a deploy guide, so that I can run mode 2 for about $5 per month.
 
-Other users and maintenance
-45. As another LearnHarness user, I want sync to be off by default and limited to my own paired devices, so that my data goes nowhere.
-46. As another user without a desktop, I want to start fresh on the phone, so that I need no Mac.
-47. As the maintainer, I want the fork changes kept in few new files plus small hooks, so that upstream releases merge easily.
-48. As the maintainer, I want the upstream test suite to keep passing in the fork, so that the fork does not break the desktop app.
+Other users and maintenance 45. As another LearnHarness user, I want sync to be off by default and limited to my own paired devices, so that my data goes nowhere. 46. As another user without a desktop, I want to start fresh on the phone, so that I need no Mac. 47. As the maintainer, I want the fork changes kept in few new files plus small hooks, so that upstream releases merge easily. 48. As the maintainer, I want the upstream test suite to keep passing in the fork, so that the fork does not break the desktop app.
 
 ## Implementation Decisions
 
 Modules (deep modules first)
+
 - **Phone gateway (desktop fork, main process).** Interface: start, stop, start pairing, revoke, pairing payload. Pairing: one-use code, 5-minute expiry, rate limit of 10 failed attempts per minute. Device tokens: 32 random bytes, stored only as SHA-256 hashes, owner-only file. Route allowlist (method + path). Allowed requests stream to the loopback server with the per-launch desktop secret added. Phone headers (authorization, cookie, origin, forged desktop header) are removed. Phone disconnect closes the upstream request. Protocol version 1.
 - **Phone access window.** Local page with its own minimal preload. It never receives device tokens.
 - **Shared question data.** `questionDataForCall(tool, toolCallId, input)` in the shared core, used by the desktop dock and the phone dock.
@@ -140,6 +105,7 @@ Modules (deep modules first)
 - **Cloud host.** The fork in browser mode in Docker, with the same gateway and sync service, behind `tailscale serve`.
 
 Decisions
+
 - Expo (React Native) + TypeScript, iOS first. Shared code is imported from the fork folder through Metro (later a git submodule).
 - The phone uses the same HTTP protocol as the desktop browser UI. No new server API for mode 1, except the gateway's pairing and ping routes and, later, sync routes.
 - Only one process owns the desktop data folder: the desktop app. No always-on agent.

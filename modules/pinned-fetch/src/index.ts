@@ -8,11 +8,27 @@
 import { PinMismatchError, type PinnedFetch } from "../../../src/lib/pairing";
 
 export interface NativePinnedFetch {
-	start(id: string, url: string, method: string, headers: Record<string, string>, body: string | null, pin: string): Promise<void>;
+	start(
+		id: string,
+		url: string,
+		method: string,
+		headers: Record<string, string>,
+		body: string | null,
+		pin: string,
+	): Promise<void>;
 	cancel(id: string): void;
-	addListener(event: "pinnedFetchResponse", fn: (e: { id: string; status: number; headers: string[][] }) => void): { remove(): void };
-	addListener(event: "pinnedFetchData", fn: (e: { id: string; data: string }) => void): { remove(): void };
-	addListener(event: "pinnedFetchEnd", fn: (e: { id: string; error?: string }) => void): { remove(): void };
+	addListener(
+		event: "pinnedFetchResponse",
+		fn: (e: { id: string; status: number; headers: string[][] }) => void,
+	): { remove(): void };
+	addListener(
+		event: "pinnedFetchData",
+		fn: (e: { id: string; data: string }) => void,
+	): { remove(): void };
+	addListener(
+		event: "pinnedFetchEnd",
+		fn: (e: { id: string; error?: string }) => void,
+	): { remove(): void };
 }
 
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -57,7 +73,8 @@ class AbortError extends Error {
 /** The body: chunks from native, read once, as a stream or as a whole. */
 class BodyQueue {
 	private chunks: Uint8Array[] = [];
-	private waiting: ((r: { chunk?: Uint8Array; done: boolean; error?: Error }) => void) | null = null;
+	private waiting: ((r: { chunk?: Uint8Array; done: boolean; error?: Error }) => void) | null =
+		null;
 	private ended = false;
 	private failure: Error | null = null;
 
@@ -172,7 +189,11 @@ export function createPinnedFetch(native: NativePinnedFetch): PinnedFetch {
 		const p = pending.get(id);
 		if (!p || p.answered) return;
 		p.answered = true;
-		p.resolve(new PinnedResponse(status, headers, p.url, p.queue, () => native.cancel(id)) as unknown as Response);
+		p.resolve(
+			new PinnedResponse(status, headers, p.url, p.queue, () =>
+				native.cancel(id),
+			) as unknown as Response,
+		);
 	});
 	native.addListener("pinnedFetchData", ({ id, data }) => {
 		pending.get(id)?.queue.push(decodeBase64(data));
@@ -198,7 +219,8 @@ export function createPinnedFetch(native: NativePinnedFetch): PinnedFetch {
 	});
 
 	return (url, init) => {
-		if (!/^https:\/\//i.test(url)) return Promise.reject(new TypeError(`pinned fetch: only https URLs are allowed: ${url}`));
+		if (!/^https:\/\//i.test(url))
+			return Promise.reject(new TypeError(`pinned fetch: only https URLs are allowed: ${url}`));
 		if (init.body !== undefined && init.body !== null && typeof init.body !== "string") {
 			return Promise.reject(new TypeError("pinned fetch: only string bodies are supported"));
 		}
@@ -208,13 +230,29 @@ export function createPinnedFetch(native: NativePinnedFetch): PinnedFetch {
 		return new Promise<Response>((resolve, reject) => {
 			const onAbort = () => native.cancel(id);
 			signal?.addEventListener("abort", onAbort);
-			const entry: Pending = { resolve, reject, url, queue: new BodyQueue(), answered: false, cleanup: () => signal?.removeEventListener("abort", onAbort) };
+			const entry: Pending = {
+				resolve,
+				reject,
+				url,
+				queue: new BodyQueue(),
+				answered: false,
+				cleanup: () => signal?.removeEventListener("abort", onAbort),
+			};
 			pending.set(id, entry);
-			native.start(id, url, (init.method ?? "GET").toUpperCase(), headersRecord(init.headers), (init.body as string | null | undefined) ?? null, init.pin).catch((err: unknown) => {
-				pending.delete(id);
-				entry.cleanup();
-				reject(err instanceof Error ? err : new TypeError(String(err)));
-			});
+			native
+				.start(
+					id,
+					url,
+					(init.method ?? "GET").toUpperCase(),
+					headersRecord(init.headers),
+					(init.body as string | null | undefined) ?? null,
+					init.pin,
+				)
+				.catch((err: unknown) => {
+					pending.delete(id);
+					entry.cleanup();
+					reject(err instanceof Error ? err : new TypeError(String(err)));
+				});
 		});
 	};
 }

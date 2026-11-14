@@ -5,15 +5,37 @@ const mockItems = new Map<string, string>();
 const mockOptionsSeen: unknown[] = [];
 jest.mock("expo-secure-store", () => ({
 	WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6,
-	getItemAsync: jest.fn(async (key: string, options: unknown) => (mockOptionsSeen.push(options), mockItems.get(key) ?? null)),
-	setItemAsync: jest.fn(async (key: string, value: string, options: unknown) => (mockOptionsSeen.push(options), void mockItems.set(key, value))),
-	deleteItemAsync: jest.fn(async (key: string, options: unknown) => (mockOptionsSeen.push(options), void mockItems.delete(key))),
+	getItemAsync: jest.fn(
+		async (key: string, options: unknown) => (
+			mockOptionsSeen.push(options),
+			mockItems.get(key) ?? null
+		),
+	),
+	setItemAsync: jest.fn(
+		async (key: string, value: string, options: unknown) => (
+			mockOptionsSeen.push(options),
+			void mockItems.set(key, value)
+		),
+	),
+	deleteItemAsync: jest.fn(
+		async (key: string, options: unknown) => (
+			mockOptionsSeen.push(options),
+			void mockItems.delete(key)
+		),
+	),
 }));
 
 // eslint-disable-next-line import/first
 import { secureConnectionStore as store } from "@/lib/connection-store";
 
-const CONNECTION: Connection = { name: "Studio Mac", urls: ["https://100.64.0.5:47821"], pin: `sha256/${"A".repeat(42)}Q=`, token: "t".repeat(43), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00.000Z" };
+const CONNECTION: Connection = {
+	name: "Studio Mac",
+	urls: ["https://100.64.0.5:47821"],
+	pin: `sha256/${"A".repeat(42)}Q=`,
+	token: "t".repeat(43),
+	deviceId: "dev_1",
+	pairedAt: "2026-11-14T00:00:00.000Z",
+};
 
 beforeEach(() => {
 	mockItems.clear();
@@ -50,10 +72,16 @@ it("removes a damaged record and reports no connection", async () => {
 
 it("removes a protocol 1 record (plain HTTP, no pin): it can never connect safely", async () => {
 	const { pin: _pin, ...withoutPin } = CONNECTION;
-	mockItems.set("lh.connection.v1", JSON.stringify({ ...withoutPin, urls: ["http://100.64.0.5:47821"] }));
+	mockItems.set(
+		"lh.connection.v1",
+		JSON.stringify({ ...withoutPin, urls: ["http://100.64.0.5:47821"] }),
+	);
 	expect(await store.load()).toBeNull();
 	expect(mockItems.size).toBe(0);
-	mockItems.set("lh.connection.v1", JSON.stringify({ ...CONNECTION, urls: ["http://100.64.0.5:47821"] }));
+	mockItems.set(
+		"lh.connection.v1",
+		JSON.stringify({ ...CONNECTION, urls: ["http://100.64.0.5:47821"] }),
+	);
 	expect(await store.load()).toBeNull();
 	expect(mockItems.size).toBe(0);
 });

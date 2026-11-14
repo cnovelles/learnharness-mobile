@@ -5,12 +5,20 @@ import { Body, Button, Panel, Screen, Title, usePalette } from "@/components/ui"
 import { useConnection } from "@/lib/connection-context";
 import type { ConnectionState } from "@/lib/connection-monitor";
 
-export function statusText(state: ConnectionState): { label: string; detail: string; tone: "ok" | "muted" | "danger" } {
+export function statusText(state: ConnectionState): {
+	label: string;
+	detail: string;
+	tone: "ok" | "muted" | "danger";
+} {
 	switch (state.status) {
 		case "connected":
 			return { label: "Connected", detail: `Connected to ${state.connection.name}.`, tone: "ok" };
 		case "checking":
-			return { label: "Connecting", detail: `Looking for ${state.connection.name}…`, tone: "muted" };
+			return {
+				label: "Connecting",
+				detail: `Looking for ${state.connection.name}…`,
+				tone: "muted",
+			};
 		case "unreachable":
 			return {
 				label: "Not connected",
@@ -31,8 +39,17 @@ export default function Home() {
 		<Screen>
 			<Panel>
 				<Title>{status.label}</Title>
-				<Body testID="connection-status" style={{ color }}>{status.detail}</Body>
-				{state.status === "unreachable" ? <Button title="Try again" kind="plain" onPress={() => void monitor.check()} testID="retry" /> : null}
+				<Body testID="connection-status" style={{ color }}>
+					{status.detail}
+				</Body>
+				{state.status === "unreachable" ? (
+					<Button
+						title="Try again"
+						kind="plain"
+						onPress={() => void monitor.check()}
+						testID="retry"
+					/>
+				) : null}
 			</Panel>
 			<Panel>
 				<Body muted>Your sessions will show here in a later version.</Body>

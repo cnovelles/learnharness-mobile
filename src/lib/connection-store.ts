@@ -8,7 +8,9 @@ import * as SecureStore from "expo-secure-store";
 import { gatewayOrigin, isValidPin, type Connection } from "./pairing";
 
 const KEY = "lh.connection.v1";
-const OPTIONS: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
+const OPTIONS: SecureStore.SecureStoreOptions = {
+	keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
 
 export interface ConnectionStore {
 	load(): Promise<Connection | null>;
@@ -48,7 +50,8 @@ export const secureConnectionStore: ConnectionStore = {
 		return null;
 	},
 	async save(connection) {
-		if (!isConnection(connection)) throw new Error("connection store: refusing an incomplete connection");
+		if (!isConnection(connection))
+			throw new Error("connection store: refusing an incomplete connection");
 		await SecureStore.setItemAsync(KEY, JSON.stringify(connection), OPTIONS);
 	},
 	async forget() {

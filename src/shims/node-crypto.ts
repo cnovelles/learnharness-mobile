@@ -24,14 +24,17 @@ class Sha256Hash {
 }
 
 export function createHash(algorithm: string): Sha256Hash {
-	if (algorithm.toLowerCase() !== "sha256") throw new Error(`createHash: only sha256 is available on the phone, not ${algorithm}`);
+	if (algorithm.toLowerCase() !== "sha256")
+		throw new Error(`createHash: only sha256 is available on the phone, not ${algorithm}`);
 	return new Sha256Hash();
 }
 
 class RandomBytes extends Uint8Array {
 	toString(encoding?: string): string {
 		if (encoding === "hex") return bytesToHex(this);
-		throw new Error(`randomBytes().toString: only "hex" is available on the phone, not ${encoding}`);
+		throw new Error(
+			`randomBytes().toString: only "hex" is available on the phone, not ${encoding}`,
+		);
 	}
 }
 

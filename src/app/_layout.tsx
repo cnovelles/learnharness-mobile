@@ -13,7 +13,13 @@ function RootStack() {
 	if (state.status === "loading") return <Loading />;
 	const paired = state.status !== "unpaired";
 	return (
-		<Stack screenOptions={{ headerStyle: { backgroundColor: c.bg }, headerTintColor: c.text, contentStyle: { backgroundColor: c.bg } }}>
+		<Stack
+			screenOptions={{
+				headerStyle: { backgroundColor: c.bg },
+				headerTintColor: c.text,
+				contentStyle: { backgroundColor: c.bg },
+			}}
+		>
 			<Stack.Protected guard={paired}>
 				<Stack.Screen name="index" options={{ title: "LearnHarness" }} />
 				<Stack.Screen name="settings" options={{ title: "Settings" }} />

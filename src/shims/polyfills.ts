@@ -11,7 +11,8 @@ const g = globalThis as unknown as {
 
 g.crypto ??= {};
 if (typeof g.crypto.getRandomValues !== "function") {
-	g.crypto.getRandomValues = <T extends ArrayBufferView>(array: T): T => ExpoCrypto.getRandomValues(array as never) as T;
+	g.crypto.getRandomValues = <T extends ArrayBufferView>(array: T): T =>
+		ExpoCrypto.getRandomValues(array as never) as T;
 }
 if (typeof g.crypto.randomUUID !== "function") {
 	g.crypto.randomUUID = () => ExpoCrypto.randomUUID();

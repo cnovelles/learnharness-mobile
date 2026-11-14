@@ -3,11 +3,23 @@
  * every 30 s), 401 → forget + "pair again", pairing and forgetting.
  */
 import type { ConnectionStore } from "@/lib/connection-store";
-import { createConnectionMonitor, PING_INTERVAL_MS, REMOVED_MESSAGE, type ConnectionState } from "@/lib/connection-monitor";
+import {
+	createConnectionMonitor,
+	PING_INTERVAL_MS,
+	REMOVED_MESSAGE,
+	type ConnectionState,
+} from "@/lib/connection-monitor";
 import { PinMismatchError, type Connection } from "@/lib/pairing";
 
 const PIN = `sha256/${"A".repeat(42)}Q=`;
-const CONNECTION: Connection = { name: "Studio Mac", urls: ["https://100.64.0.5:47821", "https://192.168.1.20:47821"], pin: PIN, token: "t".repeat(43), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00.000Z" };
+const CONNECTION: Connection = {
+	name: "Studio Mac",
+	urls: ["https://100.64.0.5:47821", "https://192.168.1.20:47821"],
+	pin: PIN,
+	token: "t".repeat(43),
+	deviceId: "dev_1",
+	pairedAt: "2026-11-14T00:00:00.000Z",
+};
 
 function memoryStore(initial: Connection | null = null) {
 	let value = initial;
@@ -33,8 +45,20 @@ function mac(initial: number | "down" | "impostor" = 200) {
 		}
 		if (url.endsWith("/phone/v1/pair")) {
 			const body = JSON.parse(String(init.body));
-			if (body.code !== "c".repeat(24)) return new Response(JSON.stringify({ error: "The pairing code is not valid or has expired." }), { status: 401 });
-			return new Response(JSON.stringify({ token: "n".repeat(43), deviceId: "dev_new", protocol: 2, server: { name: "Studio Mac" } }), { status: 200 });
+			if (body.code !== "c".repeat(24))
+				return new Response(
+					JSON.stringify({ error: "The pairing code is not valid or has expired." }),
+					{ status: 401 },
+				);
+			return new Response(
+				JSON.stringify({
+					token: "n".repeat(43),
+					deviceId: "dev_new",
+					protocol: 2,
+					server: { name: "Studio Mac" },
+				}),
+				{ status: 200 },
+			);
 		}
 		throw new Error(`unexpected ${url}`);
 	};
@@ -61,7 +85,10 @@ it("starts unpaired when nothing is stored, and does not ping", async () => {
 
 it("pings on start and reports connected with the address in use", async () => {
 	const m = mac();
-	const monitor = createConnectionMonitor({ store: memoryStore(CONNECTION), fetchImpl: m.fetchImpl });
+	const monitor = createConnectionMonitor({
+		store: memoryStore(CONNECTION),
+		fetchImpl: m.fetchImpl,
+	});
 	const seen: ConnectionState["status"][] = [];
 	monitor.subscribe((s) => seen.push(s.status));
 	await monitor.start();
@@ -72,7 +99,10 @@ it("pings on start and reports connected with the address in use", async () => {
 
 it("pings every 30 seconds in the foreground, not in the background, and at once on return", async () => {
 	const m = mac();
-	const monitor = createConnectionMonitor({ store: memoryStore(CONNECTION), fetchImpl: m.fetchImpl });
+	const monitor = createConnectionMonitor({
+		store: memoryStore(CONNECTION),
+		fetchImpl: m.fetchImpl,
+	});
 	await monitor.start();
 	expect(m.pings).toHaveLength(1);
 	await jest.advanceTimersByTimeAsync(PING_INTERVAL_MS);
@@ -90,7 +120,10 @@ it("pings every 30 seconds in the foreground, not in the background, and at once
 
 it("reports unreachable, then connected again when the Mac comes back", async () => {
 	const m = mac("down");
-	const monitor = createConnectionMonitor({ store: memoryStore(CONNECTION), fetchImpl: m.fetchImpl });
+	const monitor = createConnectionMonitor({
+		store: memoryStore(CONNECTION),
+		fetchImpl: m.fetchImpl,
+	});
 	await monitor.start();
 	expect(monitor.state().status).toBe("unreachable");
 	m.set(200);
@@ -116,7 +149,10 @@ it("a 401 deletes the stored token, asks to pair again and stops pinging", async
 
 it("two checks at the same time send one ping", async () => {
 	const m = mac();
-	const monitor = createConnectionMonitor({ store: memoryStore(CONNECTION), fetchImpl: m.fetchImpl });
+	const monitor = createConnectionMonitor({
+		store: memoryStore(CONNECTION),
+		fetchImpl: m.fetchImpl,
+	});
 	await monitor.start();
 	await Promise.all([monitor.check(), monitor.check()]);
 	expect(m.pings).toHaveLength(2);
@@ -128,7 +164,16 @@ it("pairs from pairing text, saves the connection and starts pinging", async () 
 	const store = memoryStore();
 	const monitor = createConnectionMonitor({ store, fetchImpl: m.fetchImpl });
 	await monitor.start();
-	await monitor.pairWith(JSON.stringify({ lh: 2, name: "Studio Mac", urls: ["https://192.168.1.20:47821"], pin: PIN, code: "c".repeat(24) }), "Sim iPhone");
+	await monitor.pairWith(
+		JSON.stringify({
+			lh: 2,
+			name: "Studio Mac",
+			urls: ["https://192.168.1.20:47821"],
+			pin: PIN,
+			code: "c".repeat(24),
+		}),
+		"Sim iPhone",
+	);
 	expect(monitor.state()).toMatchObject({ status: "connected", url: "https://192.168.1.20:47821" });
 	expect(store.value()).toMatchObject({ token: "n".repeat(43), deviceId: "dev_new" });
 	await jest.advanceTimersByTimeAsync(PING_INTERVAL_MS);
@@ -141,7 +186,18 @@ it("a refused pairing keeps the unpaired state and stores nothing", async () => 
 	const store = memoryStore();
 	const monitor = createConnectionMonitor({ store, fetchImpl: m.fetchImpl });
 	await monitor.start();
-	await expect(monitor.pairWith(JSON.stringify({ lh: 2, name: "Mac", urls: ["https://192.168.1.20:47821"], pin: PIN, code: "x".repeat(24) }), "iPhone")).rejects.toThrow("not valid");
+	await expect(
+		monitor.pairWith(
+			JSON.stringify({
+				lh: 2,
+				name: "Mac",
+				urls: ["https://192.168.1.20:47821"],
+				pin: PIN,
+				code: "x".repeat(24),
+			}),
+			"iPhone",
+		),
+	).rejects.toThrow("not valid");
 	expect(monitor.state().status).toBe("unpaired");
 	expect(store.value()).toBeNull();
 	monitor.stop();

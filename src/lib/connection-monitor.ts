@@ -10,7 +10,13 @@
  * "unreachable" with `wrongCertificate`; the pairing stays.
  */
 import type { ConnectionStore } from "./connection-store";
-import { findReachableUrl, pair, parsePairingPayload, type Connection, type PinnedFetch } from "./pairing";
+import {
+	findReachableUrl,
+	pair,
+	parsePairingPayload,
+	type Connection,
+	type PinnedFetch,
+} from "./pairing";
 
 export const PING_INTERVAL_MS = 30_000;
 
@@ -21,7 +27,12 @@ export type ConnectionState =
 	| { status: "unpaired"; message?: string }
 	| { status: "checking"; connection: Connection; url?: string }
 	| { status: "connected"; connection: Connection; url: string; checkedAt: string }
-	| { status: "unreachable"; connection: Connection; checkedAt: string; wrongCertificate?: boolean };
+	| {
+			status: "unreachable";
+			connection: Connection;
+			checkedAt: string;
+			wrongCertificate?: boolean;
+	  };
 
 export interface ConnectionMonitor {
 	state(): ConnectionState;
@@ -83,7 +94,13 @@ export function createConnectionMonitor({
 		if (mine !== generation || stopped) return;
 		const checkedAt = now().toISOString();
 		if (result.kind === "ok") set({ status: "connected", connection, url: result.url, checkedAt });
-		else if (result.kind === "unreachable") set({ status: "unreachable", connection, checkedAt, ...(result.wrongCertificate ? { wrongCertificate: true } : {}) });
+		else if (result.kind === "unreachable")
+			set({
+				status: "unreachable",
+				connection,
+				checkedAt,
+				...(result.wrongCertificate ? { wrongCertificate: true } : {}),
+			});
 		else {
 			generation++;
 			await store.forget();
@@ -129,7 +146,12 @@ export function createConnectionMonitor({
 			const connection = await pair(payload, deviceName, fetchImpl);
 			await store.save(connection);
 			generation++;
-			set({ status: "connected", connection, url: connection.urls[0]!, checkedAt: now().toISOString() });
+			set({
+				status: "connected",
+				connection,
+				url: connection.urls[0]!,
+				checkedAt: now().toISOString(),
+			});
 			schedule();
 		},
 		async forget() {

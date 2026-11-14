@@ -23,7 +23,7 @@ const shimHex = (...parts: (string | Uint8Array)[]) => {
 	return h.digest("hex");
 };
 
-describe("createHash(\"sha256\")", () => {
+describe('createHash("sha256")', () => {
 	it.each([
 		["empty", [""]],
 		["ascii", ["hello world"]],
@@ -32,7 +32,9 @@ describe("createHash(\"sha256\")", () => {
 		["bytes", [new Uint8Array([0, 1, 2, 255])]],
 		["long input", ["x".repeat(100_000)]],
 	])("matches Node for %s", (_name, parts) => {
-		expect(shimHex(...(parts as (string | Uint8Array)[]))).toBe(nodeHex(...(parts as (string | Uint8Array)[])));
+		expect(shimHex(...(parts as (string | Uint8Array)[]))).toBe(
+			nodeHex(...(parts as (string | Uint8Array)[])),
+		);
 	});
 
 	it("returns raw bytes without an encoding", () => {
@@ -51,11 +53,13 @@ describe("randomBytes and randomUUID", () => {
 		const b = shim.randomBytes(6).toString("hex");
 		expect(a).toMatch(/^[0-9a-f]{12}$/);
 		expect(a).not.toBe(b);
-		expect(() => shim.randomBytes(2).toString("base64")).toThrow("only \"hex\"");
+		expect(() => shim.randomBytes(2).toString("base64")).toThrow('only "hex"');
 	});
 
 	it("gives a v4 UUID", () => {
-		expect(shim.randomUUID()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+		expect(shim.randomUUID()).toMatch(
+			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+		);
 	});
 });
 
@@ -65,7 +69,11 @@ describe("the fork's coverage fingerprint", () => {
 	// exact strings they hash. The shim must give the same digest.
 	it("is identical with the shim for every golden message", () => {
 		const script = path.join(__dirname, "helpers/fork-fingerprints.mts");
-		const stdout = execFileSync(path.join(FORK, "node_modules/.bin/tsx"), [script, FORK], { cwd: FORK, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+		const stdout = execFileSync(path.join(FORK, "node_modules/.bin/tsx"), [script, FORK], {
+			cwd: FORK,
+			encoding: "utf8",
+			maxBuffer: 64 * 1024 * 1024,
+		});
 		const pairs = JSON.parse(stdout) as { input: string; digest: string }[];
 		expect(pairs.length).toBeGreaterThan(10);
 		for (const { input, digest } of pairs) expect(shimHex(input)).toBe(digest);

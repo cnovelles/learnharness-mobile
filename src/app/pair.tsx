@@ -50,7 +50,10 @@ export default function PairScreen() {
 		if (answer.granted) {
 			handled.current = false;
 			setScanning(true);
-		} else setError("LearnHarness cannot use the camera. Allow the camera in Settings, or paste the pairing text below.");
+		} else
+			setError(
+				"LearnHarness cannot use the camera. Allow the camera in Settings, or paste the pairing text below.",
+			);
 	}
 
 	return (
@@ -58,16 +61,35 @@ export default function PairScreen() {
 			{removedMessage ? <ErrorText testID="removed-message">{removedMessage}</ErrorText> : null}
 			<Panel>
 				<Title>Scan the QR code</Title>
-				<Body muted>{'On your Mac, open LearnHarness. Select "Phone Access…" in the LearnHarness menu, turn it on, and click "Show QR code".'}</Body>
+				<Body muted>
+					{
+						'On your Mac, open LearnHarness. Select "Phone Access…" in the LearnHarness menu, turn it on, and click "Show QR code".'
+					}
+				</Body>
 				{scanning ? (
 					<View style={styles.camera}>
-						<CameraView style={StyleSheet.absoluteFill} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={onScanned} />
+						<CameraView
+							style={StyleSheet.absoluteFill}
+							facing="back"
+							barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+							onBarcodeScanned={onScanned}
+						/>
 					</View>
 				) : null}
 				{scanning ? (
-					<Button title="Stop scan" kind="plain" onPress={() => setScanning(false)} testID="stop-scan" />
+					<Button
+						title="Stop scan"
+						kind="plain"
+						onPress={() => setScanning(false)}
+						testID="stop-scan"
+					/>
 				) : (
-					<Button title="Scan QR code" onPress={() => void startScan()} disabled={busy} testID="scan" />
+					<Button
+						title="Scan QR code"
+						onPress={() => void startScan()}
+						disabled={busy}
+						testID="scan"
+					/>
 				)}
 			</Panel>
 			<Panel>
@@ -85,7 +107,13 @@ export default function PairScreen() {
 					multiline
 					style={[styles.input, { color: c.text, borderColor: c.line, backgroundColor: c.bg }]}
 				/>
-				<Button title="Pair" onPress={() => void submit(text)} disabled={!text.trim()} busy={busy} testID="pair" />
+				<Button
+					title="Pair"
+					onPress={() => void submit(text)}
+					disabled={!text.trim()}
+					busy={busy}
+					testID="pair"
+				/>
 			</Panel>
 			{error ? <ErrorText testID="pair-error">{error}</ErrorText> : null}
 		</Screen>
@@ -94,5 +122,13 @@ export default function PairScreen() {
 
 const styles = StyleSheet.create({
 	camera: { aspectRatio: 1, borderRadius: 10, overflow: "hidden", backgroundColor: "#000" },
-	input: { minHeight: 90, borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 13, fontFamily: "Menlo", textAlignVertical: "top" },
+	input: {
+		minHeight: 90,
+		borderWidth: 1,
+		borderRadius: 10,
+		padding: 10,
+		fontSize: 13,
+		fontFamily: "Menlo",
+		textAlignVertical: "top",
+	},
 });
