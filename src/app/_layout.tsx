@@ -24,6 +24,8 @@ function RootStack() {
 			<Stack.Protected guard={paired}>
 				<Stack.Screen name="index" options={{ title: "LearnHarness" }} />
 				<Stack.Screen name="settings" options={{ title: "Settings" }} />
+				<Stack.Screen name="new-session" options={{ title: "New session" }} />
+				<Stack.Screen name="session/[id]" options={{ title: "Session" }} />
 			</Stack.Protected>
 			<Stack.Protected guard={!paired}>
 				<Stack.Screen name="pair" options={{ title: "Pair with your Mac" }} />

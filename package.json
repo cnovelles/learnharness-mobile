@@ -55,7 +55,9 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:native-pin": "sh modules/pinned-fetch/tests/run-pin-check-test.sh"
+    "test:native-pin": "sh modules/pinned-fetch/tests/run-pin-check-test.sh",
+    "test:integration": "../learnharness/node_modules/.bin/tsx --test --test-concurrency=1 tests/integration/*.test.ts",
+    "e2e:mac": "../learnharness/node_modules/.bin/tsx scripts/e2e-mac.ts"
   },
   "private": true,
   "jest": {
@@ -64,6 +66,17 @@
       "<rootDir>/tests/**/*.test.ts?(x)"
     ],
     "moduleNameMapper": {
+      "^katex$": "<rootDir>/../learnharness/node_modules/katex/dist/katex.js",
+      "^micromark-extension-math$": "<rootDir>/tests/.cache/esm-cjs/micromark-extension-math.cjs",
+      "^mdast-util-math$": "<rootDir>/tests/.cache/esm-cjs/mdast-util-math.cjs",
+      "^mdast-util-from-markdown$": "<rootDir>/tests/.cache/esm-cjs/mdast-util-from-markdown.cjs",
+      "^d3-force$": "<rootDir>/tests/.cache/esm-cjs/d3-force.cjs",
+      "^typebox$": "<rootDir>/tests/.cache/esm-cjs/typebox.cjs",
+      "^typebox/compile$": "<rootDir>/tests/.cache/esm-cjs/typebox-compile.cjs",
+      "^typebox/format$": "<rootDir>/tests/.cache/esm-cjs/typebox-format.cjs",
+      "^typebox/system$": "<rootDir>/tests/.cache/esm-cjs/typebox-system.cjs",
+      "^typebox/value$": "<rootDir>/tests/.cache/esm-cjs/typebox-value.cjs",
+      "^@lh/(.*)$": "<rootDir>/../learnharness/$1",
       "^@/(.*)$": "<rootDir>/src/$1"
     },
     "transformIgnorePatterns": [
@@ -71,6 +84,11 @@
     ],
     "transform": {
       "^.+\\.mjs$": "babel-jest"
-    }
+    },
+    "globalSetup": "<rootDir>/tests/setup/esm-to-cjs.cjs",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/tests/integration/"
+    ]
   }
 }

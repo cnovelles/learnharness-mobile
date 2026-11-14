@@ -18,22 +18,29 @@ import {
 	type ConnectionState,
 } from "./connection-monitor";
 import { secureConnectionStore } from "./connection-store";
+import { createMacFetch } from "./mac-fetch";
 import { nativePinnedFetch } from "./native-pinned-fetch";
+import type { PinnedFetch } from "./pairing";
 
 const MonitorContext = createContext<ConnectionMonitor | null>(null);
+const MacFetchContext = createContext<typeof globalThis.fetch | null>(null);
 
 export function ConnectionProvider({
 	children,
 	monitor: injected,
+	pinnedFetch,
 }: {
 	children: ReactNode;
 	monitor?: ConnectionMonitor;
+	/** The pinned fetch for the Mac fetch. Default: the native module. */
+	pinnedFetch?: PinnedFetch;
 }) {
 	const [monitor] = useState(
 		() =>
 			injected ??
 			createConnectionMonitor({ store: secureConnectionStore, fetchImpl: nativePinnedFetch() }),
 	);
+	const [macFetch] = useState(() => createMacFetch(monitor, pinnedFetch ?? nativePinnedFetch()));
 	// The monitor lives as long as the app. Start it once, even when React
 	// runs the effect twice in development.
 	const started = useRef(false);
@@ -45,7 +52,18 @@ export function ConnectionProvider({
 		const sub = AppState.addEventListener("change", (s) => monitor.setForeground(s === "active"));
 		return () => sub.remove();
 	}, [monitor]);
-	return <MonitorContext value={monitor}>{children}</MonitorContext>;
+	return (
+		<MonitorContext value={monitor}>
+			<MacFetchContext value={macFetch}>{children}</MacFetchContext>
+		</MonitorContext>
+	);
+}
+
+/** The fetch to the paired Mac (relative paths, for example "/api/chats"). Stable. */
+export function useMacFetch(): typeof globalThis.fetch {
+	const macFetch = use(MacFetchContext);
+	if (!macFetch) throw new Error("useMacFetch must be used inside ConnectionProvider");
+	return macFetch;
 }
 
 export function useConnection(): { state: ConnectionState; monitor: ConnectionMonitor } {

@@ -6,6 +6,7 @@ import {
 	ScrollView,
 	StyleSheet,
 	Text,
+	TextInput,
 	useColorScheme,
 	View,
 	type TextStyle,
@@ -157,6 +158,45 @@ export function Button({
 	);
 }
 
+/** A text field in the app style. Pass `multiline` for long text. */
+export function Field({
+	value,
+	onChangeText,
+	label,
+	placeholder,
+	multiline,
+	editable = true,
+	testID,
+}: {
+	value: string;
+	onChangeText: (text: string) => void;
+	/** The accessibility label (read by VoiceOver; the screen shows its own label). */
+	label: string;
+	placeholder?: string;
+	multiline?: boolean;
+	editable?: boolean;
+	testID?: string;
+}) {
+	const c = usePalette();
+	return (
+		<TextInput
+			testID={testID}
+			accessibilityLabel={label}
+			value={value}
+			onChangeText={onChangeText}
+			placeholder={placeholder}
+			placeholderTextColor={c.muted}
+			multiline={multiline}
+			editable={editable}
+			style={[
+				styles.field,
+				multiline ? styles.fieldMulti : null,
+				{ color: c.text, borderColor: c.line, backgroundColor: c.bg },
+			]}
+		/>
+	);
+}
+
 export function Loading() {
 	const c = usePalette();
 	return (
@@ -173,6 +213,14 @@ const styles = StyleSheet.create({
 	panel: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 16, gap: 10 },
 	title: { fontSize: 20, fontWeight: "600" },
 	body: { fontSize: 15, lineHeight: 21 },
+	field: {
+		borderWidth: StyleSheet.hairlineWidth,
+		borderRadius: 10,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		fontSize: 15,
+	},
+	fieldMulti: { minHeight: 72, textAlignVertical: "top" },
 	button: {
 		borderWidth: 1,
 		borderRadius: 10,

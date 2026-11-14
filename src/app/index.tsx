@@ -1,6 +1,7 @@
-/** Home: the connection to the paired Mac. The session list comes in issue 03. */
+/** Home: the connection to the paired Mac and the Mac's sessions. */
 import { Link } from "expo-router";
 
+import { SessionList } from "@/components/session-list";
 import { Body, Button, Panel, Screen, Title, usePalette } from "@/components/ui";
 import { useConnection } from "@/lib/connection-context";
 import type { ConnectionState } from "@/lib/connection-monitor";
@@ -57,9 +58,7 @@ export default function Home() {
 					/>
 				) : null}
 			</Panel>
-			<Panel>
-				<Body muted>Your sessions will show here in a later version.</Body>
-			</Panel>
+			<SessionList enabled={state.status === "connected"} />
 			<Link href="/settings" asChild>
 				<Button title="Settings" kind="plain" onPress={() => {}} testID="open-settings" />
 			</Link>

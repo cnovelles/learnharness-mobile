@@ -7,7 +7,7 @@ const prettierConfig = require("eslint-config-prettier/flat");
 module.exports = defineConfig([
 	expoConfig,
 	{
-		ignores: ["dist/*"],
+		ignores: ["dist/*", "tests/.cache/*"],
 	},
 	prettierConfig,
 ]);
