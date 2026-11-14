@@ -22,6 +22,7 @@ import {
 } from "@/components/ui";
 import { useMacFetch } from "@/lib/connection-context";
 import type { SessionRecord } from "@/lib/sessions";
+import { revealPlan } from "@/lib/reveal";
 import { transcriptRows } from "@/lib/transcript";
 import { useSessionModel, useSessionRecord } from "@/lib/use-session";
 import { describeError } from "@/lib/user-error";
@@ -83,6 +84,8 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		[state.messages, malformed, pending, running],
 	);
 	const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
+	// The check that the learner opened. It stays open while a refused answer is sent again.
+	const [openedKey, setOpenedKey] = useState<string | null>(null);
 
 	return (
 		<SafeAreaView
@@ -117,8 +120,14 @@ function SessionBody({ record }: { record: SessionRecord }) {
 				) : null}
 				{!running && pending ? (
 					<QuestionDock
+						key={pending.key}
 						call={pending}
-						onSubmit={(answer) => session.answer(pending.tool, pending.toolCallId, answer)}
+						reveal={revealPlan(state.nativeMessages, pending)}
+						opened={openedKey === pending.key}
+						onOpen={() => setOpenedKey(pending.key)}
+						draft={session.draft(pending.key)}
+						onDraft={(draft) => session.saveDraft(pending.key, draft)}
+						onSubmit={(answer) => session.answer(pending.toolCallId, answer, pending.key)}
 					/>
 				) : null}
 				{!running && malformed ? (

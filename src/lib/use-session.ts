@@ -6,10 +6,11 @@
  * hook does (fork components/session.ts):
  * - A turn that runs on the Mac: reattach to its stream.
  * - A new session: send the opening text once (OpeningPrompts).
- * - A text that the Mac refuses before it saves it (for example, no model
- *   is set) is not a failed turn: SessionModel removes its bubble, the
- *   text goes back to the composer, and Try again sends the same text. A
- *   `retry` is only for a saved turn that failed.
+ * - A text or an answer that the Mac refuses before it saves it (for
+ *   example, no model is set) is not a failed turn. A refused text goes
+ *   back to the composer; a refused answer keeps its form (the question
+ *   draft). Try again sends the same input again. A `retry` is only for a
+ *   saved turn that failed.
  * - Otherwise: continue a turn that the record still owes (for example,
  *   a background job result that came in while no screen was open).
  * - When a reattached turn settles: read the record again.
@@ -25,9 +26,16 @@ import {
 	malformedQuestionsOf,
 	pendingQuestionOf,
 	type QuestionAnswerData,
+	type QuestionDraft,
 	type SessionState,
 } from "./shared";
+
 import { describeError, type UserMessage } from "./user-error";
+
+/** An input that the Mac did not accept. Try again sends it again. */
+type Unsent =
+	| { kind: "text"; text: string }
+	| { kind: "answer"; toolCallId: string; answer: QuestionAnswerData; key: string };
 
 export type SessionLoad =
 	| { status: "loading" }
@@ -66,7 +74,11 @@ export interface SessionControls {
 	sendText(text: string): Promise<boolean>;
 	/** The last text that the Mac did not accept. The composer shows it again. */
 	unsentText: string | null;
-	answer(tool: string, toolCallId: string, answer: QuestionAnswerData): Promise<void>;
+	/** Send an answer. `key` is the pending question's key (its draft). */
+	answer(toolCallId: string, answer: QuestionAnswerData, key: string): Promise<boolean>;
+	/** The question's draft (form and reading thinking), kept while the screen is open. */
+	draft(key: string): QuestionDraft | undefined;
+	saveDraft(key: string, draft: Partial<QuestionDraft>): void;
 	/** Send the unsent text again, or retry the failed saved turn. */
 	retry(): Promise<boolean>;
 	/** Ask the teacher again for a malformed question (the desktop's "retry-question"). */
@@ -113,14 +125,27 @@ export function useSessionModel(
 	const { model } = store;
 	const attached = useRef(false);
 	const hub = useEventHub();
-	const [unsentText, setUnsentText] = useState<string | null>(null);
+	const [unsent, setUnsent] = useState<Unsent | null>(null);
 
 	const sendText = useCallback(
 		async (text: string) => {
 			// onAccepted makes SessionModel remove the text's own bubble when the
 			// Mac does not accept it, as the desktop does for its opening text.
 			const accepted = await model.send({ type: "text", text }, () => {});
-			setUnsentText(accepted ? null : text);
+			setUnsent(accepted ? null : { kind: "text", text });
+			return accepted;
+		},
+		[model],
+	);
+
+	const answer = useCallback(
+		async (toolCallId: string, answerData: QuestionAnswerData, key: string) => {
+			const accepted = await model.send(
+				{ type: "answer", toolCallId, answer: answerData },
+				undefined,
+				key,
+			);
+			setUnsent(accepted ? null : { kind: "answer", toolCallId, answer: answerData, key });
 			return accepted;
 		},
 		[model],
@@ -147,7 +172,7 @@ export function useSessionModel(
 			else if (opening)
 				void model
 					.send({ type: "text", text: opening }, () => {})
-					.then((accepted) => !accepted && setUnsentText(opening));
+					.then((accepted) => !accepted && setUnsent({ kind: "text", text: opening }));
 			else void model.continueIfOwed(record.messages);
 		}
 		return () => model.stop();
@@ -157,12 +182,16 @@ export function useSessionModel(
 
 	const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 	const pending = useMemo(
-		() => (state.status === "ready" ? pendingQuestionOf(state.nativeMessages) : null),
+		// After an error the question still waits (for example, a refused answer).
+		() =>
+			state.status === "ready" || state.status === "error"
+				? pendingQuestionOf(state.nativeMessages)
+				: null,
 		[state],
 	);
 	const malformed = useMemo(
 		() =>
-			state.status === "ready" && !pending
+			(state.status === "ready" || state.status === "error") && !pending
 				? (malformedQuestionsOf(state.nativeMessages)[0] ?? null)
 				: null,
 		[state, pending],
@@ -173,9 +202,16 @@ export function useSessionModel(
 		pending,
 		malformed,
 		sendText,
-		unsentText,
-		answer: (tool, toolCallId, answer) => model.submitAnswer(tool, toolCallId, answer),
-		retry: () => (unsentText !== null ? sendText(unsentText) : model.send({ type: "retry" })),
+		unsentText: unsent?.kind === "text" ? unsent.text : null,
+		answer,
+		draft: (key) => model.questionDraft(key),
+		saveDraft: (key, draft) => model.saveQuestionDraft(key, draft),
+		retry: () =>
+			unsent?.kind === "text"
+				? sendText(unsent.text)
+				: unsent?.kind === "answer"
+					? answer(unsent.toolCallId, unsent.answer, unsent.key)
+					: model.send({ type: "retry" }),
 		retryQuestion: () =>
 			malformed
 				? model.send({

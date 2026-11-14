@@ -150,3 +150,24 @@ describe("ask_user_question with options and Other", () => {
 		expect(canSubmit(ask, { ...other, other: "  " })).toBe(false);
 	});
 });
+
+describe("reading thinking (a teach-phase check)", () => {
+	const check = questionDataForCall("quiz", "call_check_1", {
+		...PROBE,
+		type: "check",
+		nodeId: "n1",
+	});
+
+	it("adds the trimmed reading thinking to the answer", () => {
+		const form = chooseOption(check, newQuestionForm(), indexOf("moon"));
+		expect(answerFor(check, form, "quiz", "  The near side is pulled more.  ")).toMatchObject({
+			readingThinking: "The near side is pulled more.",
+		});
+	});
+
+	it("leaves it out when it is empty", () => {
+		const form = chooseOption(check, newQuestionForm(), indexOf("moon"));
+		expect(answerFor(check, form, "quiz", "   ").readingThinking).toBeUndefined();
+		expect(answerFor(check, form, "quiz").readingThinking).toBeUndefined();
+	});
+});

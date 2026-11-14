@@ -3,11 +3,17 @@
  * recall, explain, ask). The rules are in src/lib/question-form.ts; the
  * question data and the answer record come from the shared code, so the
  * Mac gets the same answer as from the desktop dock.
+ *
+ * A teach-phase check waits closed behind "Check your understanding" with
+ * the reading-thinking field (src/lib/reveal.ts). The form and the reading
+ * thinking are kept in the session's question draft, so a refused answer
+ * or a turn that interrupts the dock does not lose them.
  */
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
+	type QuestionForm,
 	answerFor,
 	canSubmit,
 	chooseOption,
@@ -16,11 +22,13 @@ import {
 	setConfidence,
 	setDontKnow,
 } from "@/lib/question-form";
+import type { RevealPlan } from "@/lib/reveal";
 import {
 	CONFIDENCE_STOPS,
 	questionDataForCall,
 	type QuestionAnswerData,
 	type QuestionData,
+	type QuestionDraft,
 } from "@/lib/shared";
 import { Body, Button, Field, Panel, usePalette } from "./ui";
 
@@ -28,6 +36,8 @@ export interface PendingQuestionCall {
 	tool: string;
 	toolCallId: string;
 	input: unknown;
+	/** The pending question's key (the shared pendingQuestionOf), for its draft. */
+	key: string;
 }
 
 function Choice({
@@ -101,13 +111,21 @@ function Confidence({ index, onChange }: { index: number; onChange: (index: numb
 function DockForm({
 	qd,
 	tool,
+	draft,
+	onDraft,
 	onSubmit,
 }: {
 	qd: QuestionData;
 	tool: string;
-	onSubmit: (answer: QuestionAnswerData) => Promise<void>;
+	draft: QuestionDraft | undefined;
+	onDraft: (draft: Partial<QuestionDraft>) => void;
+	onSubmit: (answer: QuestionAnswerData) => Promise<boolean>;
 }) {
-	const [form, setForm] = useState(newQuestionForm);
+	const [form, setFormState] = useState(() => draft?.form ?? newQuestionForm());
+	function setForm(next: QuestionForm) {
+		setFormState(next);
+		onDraft({ form: next });
+	}
 	const [sending, setSending] = useState(false);
 	const multi = qd.mode === "multi-select";
 	const ask = qd.kind === "ask";
@@ -117,7 +135,7 @@ function DockForm({
 		if (!ready || sending) return;
 		setSending(true);
 		try {
-			await onSubmit(answerFor(qd, form, tool));
+			await onSubmit(answerFor(qd, form, tool, draft?.readingThinking));
 		} finally {
 			setSending(false);
 		}
@@ -205,12 +223,57 @@ function DockForm({
 	);
 }
 
+/** The closed check: a short preview and Open, with the reading-thinking field. */
+function RevealBar({
+	qd,
+	readingThinking,
+	onReadingThinking,
+	onOpen,
+}: {
+	qd: QuestionData;
+	readingThinking: string;
+	onReadingThinking: (text: string) => void;
+	onOpen: () => void;
+}) {
+	const preview = qd.question.length > 90 ? `${qd.question.slice(0, 90)}…` : qd.question;
+	return (
+		<>
+			<Field
+				value={readingThinking}
+				onChangeText={onReadingThinking}
+				label="Your thinking while you read"
+				placeholder="Whatever comes to mind as you read."
+				multiline
+				testID="reading-thinking"
+			/>
+			<Panel>
+				<View testID="reveal-check" style={{ gap: 6 }}>
+					<Body style={{ fontWeight: "600" }}>Check your understanding</Body>
+					<Body muted>{preview}</Body>
+				</View>
+				<Button title="Open" onPress={onOpen} testID="reveal-open" />
+			</Panel>
+		</>
+	);
+}
+
 export function QuestionDock({
 	call,
+	reveal,
+	opened,
+	onOpen,
+	draft,
+	onDraft,
 	onSubmit,
 }: {
 	call: PendingQuestionCall;
-	onSubmit: (answer: QuestionAnswerData) => Promise<void>;
+	reveal: RevealPlan;
+	/** The learner opened this check. */
+	opened: boolean;
+	onOpen: () => void;
+	draft: QuestionDraft | undefined;
+	onDraft: (draft: Partial<QuestionDraft>) => void;
+	onSubmit: (answer: QuestionAnswerData) => Promise<boolean>;
 }) {
 	const qd = useMemo(
 		() =>
@@ -219,8 +282,31 @@ export function QuestionDock({
 			),
 		[call.tool, call.toolCallId, call.input],
 	);
-	// A new question gets a new, empty form.
-	return <DockForm key={call.toolCallId} qd={qd} tool={call.tool} onSubmit={onSubmit} />;
+	const [readingThinking, setReadingThinking] = useState(draft?.readingThinking ?? "");
+	const closed = reveal.needsReveal && !reveal.openOnArrival && !opened;
+	if (closed)
+		return (
+			<RevealBar
+				qd={qd}
+				readingThinking={readingThinking}
+				onReadingThinking={(text) => {
+					setReadingThinking(text);
+					onDraft({ readingThinking: text });
+				}}
+				onOpen={onOpen}
+			/>
+		);
+	// A new question gets a new form (or its draft).
+	return (
+		<DockForm
+			key={call.key}
+			qd={qd}
+			tool={call.tool}
+			draft={draft}
+			onDraft={onDraft}
+			onSubmit={onSubmit}
+		/>
+	);
 }
 
 const styles = StyleSheet.create({

@@ -68,7 +68,7 @@ export function canSubmit(qd: QuestionData, form: QuestionForm): boolean {
 	return sel.dontKnow || sel.selected.size > 0 || (sel.otherSelected && form.other.trim() !== "");
 }
 
-function requestFor(qd: QuestionData, form: QuestionForm): AnswerRequest {
+function requestFor(qd: QuestionData, form: QuestionForm, readingThinking?: string): AnswerRequest {
 	const sel = form.selection;
 	return {
 		dontKnow: sel.dontKnow,
@@ -77,10 +77,20 @@ function requestFor(qd: QuestionData, form: QuestionForm): AnswerRequest {
 		text: qd.mode === "text" ? form.text : undefined,
 		thinking: qd.mode !== "text" ? form.thinking.trim() || undefined : undefined,
 		confidence: qd.kind === "quiz" ? CONFIDENCE_STOPS[form.confidenceIndex] : undefined,
+		readingThinking: readingThinking?.trim() || undefined,
 	};
 }
 
-/** The answer record for submitAnswer: the same record as the desktop dock makes. */
-export function answerFor(qd: QuestionData, form: QuestionForm, tool: string): QuestionAnswerData {
-	return buildAnswer(qd, requestFor(qd, form), tool);
+/**
+ * The answer record for submitAnswer: the same record as the desktop dock
+ * makes. `readingThinking` is the text from the field under the teaching
+ * text of a teach-phase check (empty text is left out).
+ */
+export function answerFor(
+	qd: QuestionData,
+	form: QuestionForm,
+	tool: string,
+	readingThinking?: string,
+): QuestionAnswerData {
+	return buildAnswer(qd, requestFor(qd, form, readingThinking), tool);
 }

@@ -401,3 +401,86 @@ describe("error states", () => {
 		expect(screen.getByTestId("composer").props.value).toBe("Why?");
 	});
 });
+
+describe("teach-phase checks", () => {
+	const CHECK = { ...PROBE, type: "check", nodeId: "bulges" };
+
+	/** A session in the teach phase whose last turn taught and then asked a check. */
+	function teachSession() {
+		const id = mac.add("Tides", [
+			{ role: "user", id: "u_1", content: "Teach me tides.", timestamp: 1 },
+		]);
+		const chat = mac.chats.get(id)!;
+		const done = mac.assistant([
+			{ type: "toolCall", id: "pd", name: "probe_done", arguments: { assessment: {} } },
+		]);
+		chat.messages.push(
+			done,
+			{
+				role: "toolResult",
+				id: "r_pd",
+				toolCallId: "pd",
+				toolName: "probe_done",
+				content: [{ type: "text", text: "ok" }],
+				details: { ok: true },
+				isError: false,
+				timestamp: 2,
+			},
+			{ role: "user", id: "u_2", content: "The plan is fine.", timestamp: 3 },
+			mac.assistant([
+				{ type: "text", text: "The Moon pulls the near side of the ocean more." },
+				{ type: "toolCall", id: "call_check", name: "quiz", arguments: CHECK },
+			]),
+		);
+		return id;
+	}
+
+	it("waits behind Check your understanding with the reading field; the answer carries the reading thinking", async () => {
+		const id = teachSession();
+		mac.turns.push(() => [mac.assistant([{ type: "text", text: "Right. Next step." }])]);
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+
+		expect(await screen.findByText("Check your understanding")).toBeTruthy();
+		expect(screen.queryByTestId("dock-question")).toBeNull();
+		await fireEvent.changeText(
+			screen.getByTestId("reading-thinking"),
+			"The near side is pulled more.",
+		);
+		await fireEvent.press(screen.getByTestId("reveal-open"));
+
+		expect(await screen.findByTestId("dock-question")).toBeTruthy();
+		expect(screen.queryByTestId("reading-thinking")).toBeNull();
+		await fireEvent.press(screen.getByTestId("option-moon"));
+		await fireEvent.press(screen.getByTestId("submit-answer"));
+
+		expect(await screen.findByText("Right. Next step.")).toBeTruthy();
+		expect(mac.inputs[0]).toMatchObject({ type: "answer", toolCallId: "call_check" });
+		expect((mac.inputs[0]!.answer as Rec).readingThinking).toBe("The near side is pulled more.");
+	});
+
+	it("an answer that the Mac refuses keeps the open check, the choice and the reading thinking", async () => {
+		const id = teachSession();
+		mac.refuseNext = {
+			status: 503,
+			body: { error: "x", code: "models_not_configured", missing: ["strong"] },
+		};
+		mac.turns.push(() => [mac.assistant([{ type: "text", text: "Right. Next step." }])]);
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+
+		await fireEvent.changeText(await screen.findByTestId("reading-thinking"), "Near side.");
+		await fireEvent.press(screen.getByTestId("reveal-open"));
+		await fireEvent.press(await screen.findByTestId("option-moon"));
+		await fireEvent.press(screen.getByTestId("submit-answer"));
+
+		expect(await screen.findByText(/Your Mac has no Strong model set\./)).toBeTruthy();
+		expect(await screen.findByTestId("dock-question")).toBeTruthy();
+		expect(screen.getByTestId("option-moon").props.accessibilityState).toMatchObject({
+			selected: true,
+		});
+
+		// The second send carries the same reading thinking.
+		await fireEvent.press(screen.getByTestId("submit-answer"));
+		expect(await screen.findByText("Right. Next step.")).toBeTruthy();
+		expect((mac.inputs[1]!.answer as Rec).readingThinking).toBe("Near side.");
+	});
+});
