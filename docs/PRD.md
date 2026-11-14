@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (issue 03: Maestro E2E passed; the real lesson check is open).
+Last update: 2026-11-14 (issue 03 done; issue 04 started).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-14 (issue 03: Maestro E2E passed; the real lesson check is 
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** finish issue 03: the Maestro E2E passed (2026-11-14); the user does one real lesson turn with the Claude Code CLI on the Mac. Then issue 04. Sessions share one checkout: read `CLAIMS.md` in the shared notes folder (memory `learnharness-session-sync`) before work. The 01b follow-up is done: the home screen shows `wrongCertificate`.
+**Next step:** issue 04 (full teach cycle). It starts from the error-state work in `25a442c` (`describeError`, the `AGENTS.md` rule "Error states"). Issue 03 is done: the Maestro E2E and the real lesson turn passed. Sessions share one checkout: read `CLAIMS.md` in the shared notes folder (memory `learnharness-session-sync`) before work. The 01b follow-up is done: the home screen shows `wrongCertificate`.
 
 **Facts found during the work**
 

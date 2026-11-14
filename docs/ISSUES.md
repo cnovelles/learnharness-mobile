@@ -68,7 +68,7 @@ Found in the check and fixed:
 - iOS changes typed straight quotes to curly quotes, also with `autoCorrect={false}`. The parser refused the text ("This is not a LearnHarness pairing code."). `parsePairingPayload` now changes curly double quotes back to straight quotes (test in `tests/pairing.test.ts`).
 - The paste field placeholder showed `{"lh":1,...}`. It now shows `{"lh":2,...}`.
 
-## 03 First teaching turn on the phone (mode 1) `doing`
+## 03 First teaching turn on the phone (mode 1) `done`
 
 Blocked by: 02.
 
@@ -83,7 +83,7 @@ Acceptance: E2E passes; one real lesson turn works with the Claude Code CLI on t
 State (2026-11-14, commits `38b25db`, `41714af` and the follow-up commit): code and automatic tests are done. Two acceptance steps are open:
 
 1. **Maestro E2E: passed (2026-11-14).** `e2e/first-turn.yaml` passed all 23 steps against the test Mac. Maestro 2.12.1 is in `~/.maestro` (official script; the Homebrew install built the whole openjdk chain from source on this Intel Mac and was stopped). It uses the installed Java 17. `npm run e2e:test` adds `~/.maestro/bin` to PATH. Two fixes from the run: `hideKeyboard` fails for a multiline field on iOS, so the flow taps static text (the screen uses `keyboardShouldPersistTaps="handled"`); the new-session prompt has the `testID` `new-session-prompt`, because its text is the same as the field's accessibility label.
-2. **Real lesson turn:** one turn in the real desktop app with the Claude Code CLI. The user does this with the real app and the phone build (do not use the real data folder yourself).
+2. **Real lesson turn: passed (2026-11-14).** The user paired the Simulator with the fork desktop app (dev shell, repo `data/` folder) and ran a lesson with the Claude Code CLI. The prober called `list_sessions` (it reads the knowledge graph first, as on the desktop), then the probe streamed into the dock, and the answered probes show on the desktop too. Findings, moved to later issues: raw error text on screen (fixed in `25a442c`, see issue 04), the refused-send retry bug (fixed in `25a442c`), plain look and raw Markdown (issues 05 and 18).
 
 To run the E2E: `npm run e2e:mac` in the background (wait for "Test Mac ready"), then `LANG=en_US.UTF-8 npx expo start --clear --port 8081` in the background, then `npm run e2e:test`. Stop both servers after the run: the test Mac holds the fork's `.next/dev` lock. Each `e2e:mac` start makes a new one-use pairing code. The code expires after 5 minutes (`PAIRING_TTL_MS`), so run `npm run e2e:test` soon after "Test Mac ready".
 
