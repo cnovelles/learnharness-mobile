@@ -9,7 +9,11 @@ Last update: 2026-11-14.
 
 **Done**
 - Investigation and approved plan: `~/.claude/plans/there-is-this-open-source-ethereal-pearl.md`.
-- Desktop fork: branch `mobile/phone-access` in `~/Development/learnharness`. Commits `3b5307d` (gateway) and `2657a55` (issue 01).
+- Desktop fork: branch `mobile/phone-access` in `~/Development/learnharness`. Commits `4800177` (gateway), `2657a55` (issue 01), `78bb2bf` (security fixes), `5a7a216` (merge of upstream v0.6.1), `82fdb3e` (CI job). Upstream sync and GitHub fork: see `docs/UPSTREAM-SYNC.md`.
+  - Upstream v0.6.1 is merged. After the merge: `npm ci`; `npm test` 5354 of 5361 pass (the 3 known upstream failures: `passive-tooltip`, `plugin-document-proxy`, `subscription-auth`; `headless-helper-lifecycle` fails only under full-suite load and passes alone); typecheck 0 errors; lint 0 errors; integration test passes against the v0.6.1 server.
+  - Security fixes (from an automatic review): wrong pairing codes count against the active code only, and the 10th cancels it (no global lockout); `revoke()` closes the device's open streams on both sides.
+  - CI: job `phone-integration` in `.github/workflows/ci.yml` runs `npm run test:phone-integration` next to the `quality` job. Not run on GitHub yet (see `docs/UPSTREAM-SYNC.md`).
+  - Open question for a later issue: v0.6.1 added routes (side chats, chat images, plugins, themes). The gateway refuses them (403). Ask the user before the phone uses any of them.
   - `electron/phone-access.cjs`: phone gateway (pairing, token gate, route allowlist, streaming proxy, `onPaired` callback). The allowlist matches the real routes (chat settings is `PUT` only, `artifact-ui` is `POST`).
   - `electron/phone-access-window.cjs`, `phone-access-preload.cjs`, `phone-access.html`, `phone-access.js`: "Phone Access…" menu window (on/off, QR, "Copy pairing text", device list). Checked in the real Electron window (issue 01).
   - `electron/main.cjs`: gateway wiring, menu item, upstream auto-update off (`LH_FORK_UPSTREAM_UPDATES=1` turns it on for the upstream updater tests).
@@ -29,7 +33,7 @@ Last update: 2026-11-14.
   - Tests: Jest via jest-expo, `npm test`, 52 pass (pairing, crypto shim against the fork's real fingerprints, store, monitor, app shell with `expo-router/testing-library`). `npx tsc --noEmit` and `npx expo lint` are clean.
   - **Blocked:** `npx expo run:ios` fails with Xcode 26.3 (Swift 6.2): `expo-modules-jsi` 58.0.23 (also 58.0.22) does not compile (`JavaScriptObject.swift:946`, "sending 'slot' risks causing data races"). Expo's current SDK 58 packages probably need Xcode 26.4 or later. Run CocoaPods with `LANG=en_US.UTF-8`, or `pod install` fails with an encoding error.
 
-**Next step:** finish issue 02: build the development app on the Simulator (needs a newer Xcode, see "Blocked" above), then do the Simulator pairing check (paste field, "connected", removal on the Mac asks to pair again). Then issue 03. See `docs/ISSUES.md`.
+**Next step:** issue 01b (HTTPS with certificate pinning), then finish issue 02: build the development app on the Simulator (needs a newer Xcode, see "Blocked" above), then do the Simulator pairing check (paste field, "connected", removal on the Mac asks to pair again). Then issue 03. See `docs/ISSUES.md`.
 
 **Facts found during the work**
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.
@@ -137,7 +141,7 @@ Decisions
 - The phone uses the same HTTP protocol as the desktop browser UI. No new server API for mode 1, except the gateway's pairing and ping routes and, later, sync routes.
 - Only one process owns the desktop data folder: the desktop app. No always-on agent.
 - Upstream auto-update is off in the fork. Upstream releases are merged manually.
-- Plain HTTP on the LAN is allowed for convenience; Tailscale (WireGuard) is the recommended path outside the home.
+- Transport security (user decision, 2026-11-14: "Tailscale + LAN TLS now"): the gateway serves only HTTPS, on every address (LAN and Tailscale), with a self-signed certificate made once and kept in userData (key file mode 0600). The QR payload carries the certificate's SPKI SHA-256 pin. The phone stores the pin with the connection and checks it on every request (pair, ping, API, streams). The token never goes to a server that fails the pin, and a 401 from such a server never deletes the pairing. A new certificate means pairing again. Phone URLs are checked with `new URL()` (no user info, query or fragment; http(s) only). Tailscale stays the recommended path outside the home. Issue 01b.
 
 ## Testing Decisions
 
