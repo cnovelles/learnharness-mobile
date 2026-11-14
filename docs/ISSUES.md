@@ -80,16 +80,32 @@ Blocked by: 02.
 
 Acceptance: E2E passes; one real lesson turn works with the Claude Code CLI on the Mac.
 
-Notes from the first read (2026-11-14, no code changed yet):
+State (2026-11-14, commits `38b25db`, `41714af` and the follow-up commit): code and automatic tests are done. Two acceptance steps are open:
 
-- Shared code to use (fork `components/session-core.ts`, about 1,250 lines, no React): `SessionModel` takes `{chatId, initialMessages, initialError?, fetch, onChange?, onReattachSettled?}`. Use `remoteFetch(...)` from `src/lib/pairing.ts` as `fetch`. Methods: `getState()` (`messages` are view messages from `projectView`, `status` is ready, submitted, streaming or error), `send(input)`, `submitAnswer(tool, toolCallId, answer)`, `resumeStream()`, `readRecord()`, `stop()`. The web hook `components/session.ts` is the model for a React Native hook: re-render on `onChange`, `resumeStream(false)` on mount when `turnInFlight`, `stop()` on unmount.
-- `ChatInput` (`src/core/input-events.ts`): first message `{type:"text", text}`; answer `{type:"answer", toolCallId, answer}`.
-- Questions (`src/core/question-core.ts`): `questionDataForCall(toolName, toolCallId, input)` is already in `src/core` (moved in the fork). `buildAnswer(qd, req, tool)` with `AnswerRequest {dontKnow, values, other, text, thinking, confidence}`. `toolQuestionKind`: probe and quiz are "quiz", recall and explain are "explain", others are "ask". Confidence uses `CONFIDENCE_STOPS` [0,30,50,70,90,100], default index `DEFAULT_CONFIDENCE_INDEX` (50). Always send confidence on quiz answers; `buildAnswer` drops it on "I don't know". Selection helpers: `emptyDockSelection`, `toggleOption`, `toggleOther`. The web dock is `components/question-dock.tsx` (lines 280–420 show the submit path).
-- Pending question: `pendingQuestionOf(messages)` in `src/core/native-messages.ts`.
-- API: `GET /api/chats` gives `{chats: ChatListItem[]}` (`src/core/contracts/chat.ts:318`, with `busy` and `compacting`). `POST /api/chats {title}` gives `{id, title}`. `GET /api/chats/:id` gives the record with `messages`, `turnInFlight`, `turnError`. `SessionModel` also calls `GET /api/jobs?chatId=`. All these routes are in the gateway allowlist (`electron/phone-access.cjs:41`).
-- Polyfills already in `src/shims/polyfills.ts`: `crypto.getRandomValues`, `randomUUID`, `DOMException`. Still to check on Hermes: `TextDecoder` (used by `sseEvents`), streaming response bodies through the native PinnedFetch module, `AbortSignal.any`.
-- Metro (`metro.config.js`) already has `watchFolders` for the fork, the fork `node_modules` and the `node:crypto` shim. First step: import `SessionModel` in the app and run `npx expo export --platform ios` to find bundle errors.
-- Still to check: whether Maestro is installed (`which maestro`; it needs Java).
+1. **Maestro E2E:** the flow is `e2e/first-turn.yaml` (`npm run e2e:mac`, then Metro, then `npm run e2e:test`). Maestro is not installed yet. The Homebrew install builds Maestro and a JDK from source on this Intel Mac, and that needs current Command Line Tools. The old copy in `/Library/Developer/CommandLineTools` has only the 10.14 and 10.15 SDKs. The user updates the tools (needs `sudo`), then: `HOMEBREW_NO_AUTO_UPDATE=1 brew install mobile-dev-inc/tap/maestro` (the tap and the trust step are done).
+2. **Real lesson turn:** one turn in the real desktop app with the Claude Code CLI. The user does this with the real app and the phone build.
+
+The same steps passed by hand in the Simulator (2026-11-14) against the test Mac: pair, new session, the streamed probe, the answer (the Moon, 90%), the answered card ("Correct"), `probe_done`, and the teacher's wake turn without a reopen. This also proves streaming through the native pinned fetch on Hermes (`TextDecoder` and `ReadableStream` work).
+
+What was built:
+
+- Shared code: `src/lib/shared.ts` is the one place that imports from the fork (`@lh/*` alias in `tsconfig.json` and Jest). Metro bundles it with no change. Jest cannot load the fork's ES-only packages (typebox, d3-force, mdast, micromark), so `tests/setup/esm-to-cjs.cjs` bundles them once into CommonJS with the fork's esbuild (`tests/.cache`, not in git).
+- `src/lib/mac-fetch.ts`: one stable fetch that uses the address in use, or the last address that worked (`useMacFetch()`).
+- `src/lib/sessions.ts`: list, start (the opening text is kept in memory and sent once by the session screen, as on the desktop), read.
+- `src/lib/use-session.ts`: the hooks over `SessionModel` (an external store for `useSyncExternalStore`; reattach on mount when a turn runs; `continueIfOwed`; stop on unmount).
+- `src/lib/question-form.ts` and `src/components/question-dock.tsx`: probe and quiz (options, "I don't know", confidence stops, thinking), recall and explain (text), ask (options, Other).
+- `src/lib/transcript.ts` and `src/components/transcript.tsx`: text, reasoning (closed by default), question cards with answer, grade and confidence, a short line for other tools. The question in the dock is not shown twice.
+- Malformed questions: a question call that the shared check finds malformed shows "Ask again", which sends `retry-question` (as on the desktop).
+- Events: `src/lib/events-channel.ts` reads `/api/events` through the Mac fetch (reconnect 1, 2, 5, 10 s; 60 s silence is a drop; 401 stops). `src/lib/session-events.ts`: `turn-started` attaches, `turn-settled` and `record-changed` read the record, a reconnect reads it again. Without this, the teacher's turn after the probe showed only after a reopen. The session list also reads again on these events.
+- Screens: home (session list with phase and marks), `new-session`, `session/[id]`.
+- Tests: Jest 159 (unit, screen tests with a fake Mac, a wake-turn test). `npm run test:integration` (4 tests) runs the phone code against the real fork server through the HTTPS gateway with the fake model, also in CI (job `integration`).
+- `scripts/e2e-mac.ts` (`npm run e2e:mac`): a test Mac for the Simulator (temporary data folder, scripted lesson, gateway on 127.0.0.1). It writes the pairing text to `e2e/.pairing.txt` (not in git).
+
+Notes:
+
+- `next dev` compiles a route on its first request. A short fake turn can end before the phone attaches, so the integration test warms up the stream route first.
+- After `probe_done`, the phase is "plan" until the first teaching question.
+- Metro warns about two require cycles in the fork's `src/core` (upstream code; harmless).
 
 ## 04 Full teach cycle `todo`
 

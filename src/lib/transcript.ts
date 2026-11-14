@@ -39,9 +39,16 @@ function isAnswer(value: unknown): value is QuestionAnswerData {
 	return typeof value === "object" && value !== null && "kind" in value && "answers" in value;
 }
 
+export interface TranscriptOptions {
+	/** Question calls with bad input (the shared malformedQuestionsOf). */
+	malformedCallIds?: ReadonlySet<string>;
+	/** The question that the dock shows now. The transcript leaves it out, as on the desktop. */
+	dockCallId?: string;
+}
+
 export function transcriptRows(
 	messages: readonly LhViewMessage[],
-	malformedCallIds: ReadonlySet<string> = new Set(),
+	{ malformedCallIds = new Set(), dockCallId }: TranscriptOptions = {},
 ): TranscriptRow[] {
 	const rows: TranscriptRow[] = [];
 	for (const m of messages) {
@@ -59,6 +66,12 @@ export function transcriptRows(
 			} else if (part.type.startsWith("tool-")) {
 				const name = part.type.slice("tool-".length);
 				if (isQuestionTool(name)) {
+					if (
+						dockCallId !== undefined &&
+						part.toolCallId === dockCallId &&
+						part.state !== "output-available"
+					)
+						return;
 					const input = (part.input ?? {}) as { question?: unknown };
 					const output = part.state === "output-available" ? part.output : undefined;
 					const answer = isAnswer(output) ? output : null;

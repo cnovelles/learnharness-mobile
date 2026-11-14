@@ -128,6 +128,20 @@ it("leaves out empty text and unknown parts", () => {
 });
 
 it("marks a waiting question that the shared check found malformed", () => {
-	const rows = transcriptRows(projectView(probeTurn), new Set(["call_1"]));
+	const rows = transcriptRows(projectView(probeTurn), { malformedCallIds: new Set(["call_1"]) });
 	expect(rows.at(-1)).toMatchObject({ kind: "question", answer: null, malformed: true });
+});
+
+it("leaves out the question that the dock shows, but keeps it once answered", () => {
+	const rows = transcriptRows(projectView(probeTurn), { dockCallId: "call_1" });
+	expect(rows.map((r) => r.kind)).toEqual(["user", "reasoning", "text"]);
+	const qd = questionDataForCall("probe", "call_1", PROBE);
+	const answered = [
+		...probeTurn,
+		result("r1", "call_1", "probe", buildAnswer(qd, { values: ["moon"] }, "probe")),
+	];
+	expect(transcriptRows(projectView(answered), { dockCallId: "call_1" }).at(-1)).toMatchObject({
+		kind: "question",
+		answer: "The gravity of the Moon",
+	});
 });

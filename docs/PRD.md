@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (Simulator check for 01b and 02 passed).
+Last update: 2026-11-14 (issue 03 code and tests done; Maestro run and the real lesson check are open).
 
 **Done**
 
@@ -38,15 +38,16 @@ Last update: 2026-11-14 (Simulator check for 01b and 02 passed).
   - `src/lib/connection-store.ts` (Keychain, this device only), `src/lib/connection-monitor.ts` (ping on open, on foreground, every 30 s; 401 deletes the token), `src/lib/connection-context.tsx`.
   - Screens: `src/app/_layout.tsx` (polyfills first, `Stack.Protected` guards), `index.tsx` (status), `pair.tsx` (QR scan + paste), `settings.tsx` (Mac, address in use, "Forget this Mac"). `src/components/ui.tsx`.
   - `app.json`: bundle identifier `dev.local.learnharnessmobile`, camera text, local network text, ATS local networking.
-  - Tests: Jest via jest-expo, `npm test`, 107 pass (with the feature flag tests of issue 17; pairing with a fake pinned network, the module's JS side, crypto shim against the fork's real fingerprints, store, monitor, app shell with `expo-router/testing-library`). `npx tsc --noEmit` and `npx expo lint` are clean.
+  - Tests: Jest via jest-expo, `npm test`, 107 pass at issue 02 (with the feature flag tests of issue 17; pairing with a fake pinned network, the module's JS side, crypto shim against the fork's real fingerprints, store, monitor, app shell with `expo-router/testing-library`). `npx tsc --noEmit` and `npx expo lint` are clean.
   - **iOS build (2026-11-14):** Xcode 26.6 and the iOS 26.5 platform are installed (this Mac is Intel, x86_64). `LANG=en_US.UTF-8 npx expo run:ios --device 26DE96FB-EDAA-41B9-A3D4-132D0819A505 --no-bundler` builds with 0 errors, including `PinnedFetchModule.swift`. The Simulator is "iPhone 17 Pro Max" (`26DE96FB-EDAA-41B9-A3D4-132D0819A505`). Run CocoaPods with `LANG=en_US.UTF-8`, or `pod install` fails with an encoding error.
   - **Simulator check for 01b and 02 passed (2026-11-14):** pairing through the paste field over HTTPS with the pin, "connected", and after "Remove" on the Mac the app asks to pair again. Two fixes from the check: the parser accepts curly double quotes (iOS smart punctuation changes typed quotes, also with `autoCorrect={false}`), and the placeholder shows protocol 2.
   - **Manual check setup:** keep the test data in a temporary folder (`LH_DATA_DIR`, `LH_AUTH_FILE`). The dev shell keeps Phone Access state in the `LearnHarness-dev` userData folder, not in the real one. Electron waits only 30 s for `next dev`, and the first compile can take longer while an iOS build runs. So start `npm run dev` first, load `http://localhost:3000` once, then start `LH_DEV_URL=http://localhost:3000 npx electron .`. Start Metro with `npx expo start` (the app was built with `--no-bundler`).
+  - Issue 03 (commits `38b25db`, `41714af` and the follow-up): session list, new session, session screen with streaming, question dock, events channel. Jest 159 pass; `npm run test:integration` (4 tests) runs the phone code against the real fork server; CI has a new `integration` job. Details in `docs/ISSUES.md` (issue 03 State).
   - **Metro on this Mac does not see file changes** (no watchman, and the fallback watcher missed new and changed files). After a change, stop Metro, start it again with `npx expo start --clear`, and reload the app. In the Simulator, typing with the simulator tool is more reliable than the Paste menu.
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 03 (started: the first read is done and its notes are in `docs/ISSUES.md`; no code changed). The 01b follow-up is done: the home screen shows `wrongCertificate`.
+**Next step:** finish issue 03: (1) the user updates the Command Line Tools, then install Maestro and run `e2e/first-turn.yaml`; (2) the user does one real lesson turn with the Claude Code CLI on the Mac. Then issue 04. The 01b follow-up is done: the home screen shows `wrongCertificate`.
 
 **Facts found during the work**
 

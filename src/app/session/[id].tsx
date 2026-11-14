@@ -65,12 +65,16 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	const c = usePalette();
 	const session = useSessionModel(record, macFetch);
 	const { state, pending, malformed } = session;
+	const running = state.status === "submitted" || state.status === "streaming";
 	const rows = useMemo(
-		() => transcriptRows(state.messages, new Set(malformed ? [malformed.toolCallId] : [])),
-		[state.messages, malformed],
+		() =>
+			transcriptRows(state.messages, {
+				malformedCallIds: new Set(malformed ? [malformed.toolCallId] : []),
+				dockCallId: !running && pending ? pending.toolCallId : undefined,
+			}),
+		[state.messages, malformed, pending, running],
 	);
 	const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
-	const running = state.status === "submitted" || state.status === "streaming";
 
 	return (
 		<SafeAreaView
