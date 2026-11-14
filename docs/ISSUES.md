@@ -109,24 +109,49 @@ Notes:
 - After `probe_done`, the phase is "plan" until the first teaching question.
 - Metro warns about two require cycles in the fork's `src/core` (upstream code; harmless).
 
-## 04 Full teach cycle `todo`
+## 04 Full teach cycle `doing`
 
 Blocked by: 03.
 
-- Check questions behind the reveal (`questionNeedsReveal`) with the reading-thinking field; explain answers; ask questions (single, multi, other, text).
-- Lesson map (plan tree) and phase display.
-- Answered cards (correct answer, explanation, committed answer).
-- Steer, stop, retry, dismiss; 409 backoff; reattach when the app returns to the foreground.
-- Compaction running state; error banner.
-- **Error states first (user rule, 2026-11-14: every feature handles its error states, not only the happy path).** The phone never shows raw server text. Each state has a clear message and a Jest test (done 2026-11-14, see below):
-  - `models_not_configured` (503): name the missing slot and tell the user to select a model in LearnHarness settings on the Mac. Read it with the fork's `parseModelsRefusal` (`components/chat.tsx`) through `src/lib/shared.ts`.
-  - Provider key refusal (503): `parseProviderKeyRefusal`. Tell the user that the model's key is missing on the Mac.
-  - A refused send is not a failed turn. Bug found 2026-11-14: the gate refuses before it saves the message, `SessionModel.send()` returns `false`, and the phone ignores it. "Try again" then sends `retry`, and the server answers "retry input requires a failed turn to retry". Fix: when a send is not accepted, put the text back in the composer, and "Try again" sends the same text again. Send `retry` only for a saved turn that failed.
-  - 401: back to pairing (done in issue 02). 403 (route refused by the gateway): "The phone cannot do this yet." 409: backoff and reattach, no error shown.
-  - Mac unreachable or network drop: "Lost the connection to the Mac", with automatic retry. Stream dropped mid-turn: `STREAM_DROPPED` with Try again.
-  - Any other error: a plain message; the raw body goes to the log only.
-    - **Done 2026-11-14:** `src/lib/user-error.ts` (`UserMessage`, `userMessage`, `UserFacingError`, `describeError`) with `tests/user-error.test.ts`. `ErrorText` takes only a `UserMessage`; all 7 error displays use `describeError`. ESLint `no-restricted-syntax` blocks `.message` in JSX, casts to `UserMessage`, and non-literal text in `userMessage()`. Rule in `AGENTS.md` ("Error states"). The refused-send bug is fixed: SessionModel removes the bubble (`onAccepted`), the text goes back to the composer, and Try again sends it again; `retry` only for a saved failed turn. Screen tests: refused opening text, failed saved turn, gateway 403. Open: the Maestro case below, and a check of each state on the Simulator.
-      Acceptance: Maestro E2E for probe → plan → teach → check with the fake provider, and a Maestro case for `models_not_configured` (refusal, set the model, send again, the turn runs).
+Desktop reference: `questionNeedsReveal`, `phaseAt3`, `derivePlanStatuses`, `answerForPresentation`, `dismissedAnswer` and `endsInFailedTurn` are in the fork's `src/core` barrel. `SessionModel` has `steer`, `dismissQuestion`, `stop`, `questionDraft` and `saveQuestionDraft`, and it retries a 409 by itself (polls every 500 ms for up to 30 s). The gateway allows `/api/chat`, `/api/chats/:id/steer`, `/api/chats/:id/dismiss` and `/api/activity/abort`. Compaction has no client route: the Mac starts it, and the phone reads `compacting` from the record and the `compaction-changed` event.
+
+Each slice lists its error states (`AGENTS.md`, "Error states"). Every error on screen goes through `describeError`.
+
+**0. Error states and no raw text: done (2026-11-14, `25a442c`).** `src/lib/user-error.ts` (`UserMessage`, `userMessage`, `UserFacingError`, `describeError`), `ErrorText` takes only a `UserMessage`, ESLint blocks the ways around it, and the rule is in `AGENTS.md`. A text that the Mac refuses before it saves it goes back to the composer, and Try again sends it again; `retry` only for a saved turn that failed. Screen tests: refused opening text, failed saved turn, gateway 403.
+
+**A. Check questions, explain and ask.**
+
+- A teach-phase check (`questionNeedsReveal`) arrives closed: "Check your understanding", a short preview, and Open. While it is closed, the reading-thinking field ("Whatever comes to mind as you read.") shows under the teaching text. It opens by itself when it follows another question (desktop `revealArrival`). A `predict` question arrives open.
+- The answer carries `readingThinking` when it is not empty. Explain answers (text) and ask questions (single, multi, Other, text) use the same dock.
+- Drafts: the form and the reading thinking survive a reopen of the screen (`saveQuestionDraft`).
+- Error states: an answer that the Mac refuses or that fails keeps the form and the reading thinking, and shows the mapped message; submit is off while the session compacts ("The Mac is making the history shorter…").
+
+**B. Lesson map, phase and answered cards.**
+
+- Phase in the header: Probing, Planning, Teaching (`phaseAt3`). A divider at the plan seam ("Plan · N steps") and at the teach seam.
+- Lesson map: the latest plan tree (the last `plan_*` result with `tree.nodes`), each step marked current, done or upcoming (`derivePlanStatuses`). User decision (2026-11-14): a "Plan" button in the session header opens a sheet with the steps as an indented list; the diagram comes in issue 05.
+- Answered cards with `answerForPresentation`: the kind label (Probe, Recall, Prediction, Check, Explain, Question), correct, incorrect or didn't know, ✓ on the correct options and ✗ on a wrong choice, the confidence, "Your thinking", the reading thinking, the explanation behind "Why", and "The answer" for explain. A skipped question shows "skipped".
+- Error states: a plan call that failed (`output-error`) shows a failed tool row and no map; a plan with no nodes shows no map; a malformed answer record shows the plain answer line, never raw JSON.
+
+**C. Steer, stop, retry, dismiss, foreground.**
+
+- While a turn runs, the composer sends a steer (`SessionModel.steer`); queued steers show until the teacher takes them. If the Mac answers 409 (no turn runs anymore), SessionModel sends the text as an ordinary message.
+- Placement (user decision, 2026-11-14): Stop in the session header while a turn runs; Skip at the bottom of the question dock.
+- Stop: a confirm ("Stop this turn? The partial answer stays."), then `stop()` and `POST /api/activity/abort` `{kind:"turn", id}`.
+- Dismiss a waiting question: a confirm ("Skip this question? The teacher moves on without it."), then `dismissQuestion` with `dismissedAnswer`.
+- Retry shows only when `endsInFailedTurn` is true and the session does not compact.
+- Foreground: the events channel restarts and the session reads the record again, then reattaches or continues (exists; add tests). Stop the stream when the app goes to the background.
+- Error states: a refused steer puts its text back into the composer; an abort that fails says that the turn still runs on the Mac (a 409 `not_running` is not an error); a dismiss that fails keeps the question in the dock with the message; a record read that fails after the foreground shows the message with Try again.
+
+**D. Compaction state and error banner.**
+
+- `compacting` from the record and from `compaction-changed`: "Making the history shorter…" in the session; sends, answers and retry wait until it ends. The compaction dividers ("Context compacted") show in the transcript.
+- One error banner for the session (mapped text, Try again when it applies, Close).
+- Error states: a missed `compaction-changed` event is fixed by the record read on resync; a compaction that never ends does not lock the screen for good (Stop and reading still work).
+
+**E. Tests.** Jest for each slice and each error state. Maestro E2E with the fake provider: probe → plan → teach → check (through the reveal) → the answered card. A Maestro case for `models_not_configured` (refusal, set the model, send again, the turn runs).
+
+Acceptance: the Maestro E2E passes; each error state above has a Jest test; the user checks one real teach cycle on the Simulator.
 
 ## 05 Rich rendering `todo`
 
