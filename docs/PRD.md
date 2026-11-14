@@ -24,7 +24,7 @@ Last update: 2026-11-14.
   - Tests: `tests/phone-access.test.ts` (22), `tests/phone-access-window.test.ts` (7), `tests/helpers/pinned-fetch.ts` (a test client that checks the pin before it sends a byte), `tests/fake-openai-provider.test.ts` (4), `tests/question-data-for-call.test.ts`, `tests/automatic-updates.test.ts` (fork flag).
   - Integration: `npm run test:phone-integration` (9 tests, about 2 minutes; includes a server with a wrong certificate that gets no request). Not part of `npm test`. Stop `npm run desktop:dev` first: both use the `.next/dev` lock.
   - Full upstream suite: 3216 of 3217 pass. The 1 failure also fails on unchanged upstream (`tests/subscription-auth.test.ts`, pi-ai "No exports main").
-- Phone app: Expo SDK 58 project at `~/Development/learnharness-mobile`, branch `phase-1/pairing`. Commit `740dfa4` (issue 02 code).
+- Phone app: Expo SDK 58 project at `~/Development/learnharness-mobile`, branch `phase-1/pairing`. Commit `ce6da79` (issue 02 code).
   - `metro.config.js`: watches `../learnharness`, maps `node:crypto` to `src/shims/node-crypto.ts`.
   - `src/shims/node-crypto.ts` (SHA-256 via `@noble/hashes`), `src/shims/polyfills.ts` (crypto, DOMException).
   - `src/lib/pairing.ts`: parse QR payload (protocol 2: pin required, addresses checked with `new URL()`, https origins only), pair, find reachable address, `remoteFetch`. Every request goes through a `PinnedFetch`. A server that fails the pin gets nothing, and its answers never delete the pairing.

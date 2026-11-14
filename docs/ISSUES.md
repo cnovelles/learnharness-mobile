@@ -53,7 +53,7 @@ Blocked by: 01, 01b.
 
 Acceptance: in the iOS Simulator, pair with the fork through the paste field; ping shows "connected"; removing the device on the Mac makes the phone ask to pair again.
 
-State (commit `740dfa4`): all code and the 52 Jest tests are done, including an app-shell test of the same acceptance flow with a fake Mac. Left: the Simulator check. `npx expo run:ios` fails in `expo-modules-jsi` with Xcode 26.3; it probably needs Xcode 26.4 or later.
+State (commit `ce6da79`): all code and the 52 Jest tests are done, including an app-shell test of the same acceptance flow with a fake Mac. Left: the Simulator check. `npx expo run:ios` fails in `expo-modules-jsi` with Xcode 26.3; it probably needs Xcode 26.4 or later.
 
 ## 03 First teaching turn on the phone (mode 1) `todo`
 Blocked by: 02.
