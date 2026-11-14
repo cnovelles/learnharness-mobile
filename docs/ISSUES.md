@@ -41,7 +41,7 @@ State (fork `8c1744d`, phone see PRD Status): all code and tests done.
 - Certificate: own `node:crypto` code (user choice), P-256, no new dependency.
 - Phone library: a local Swift Expo module (`modules/pinned-fetch`). The library option does not fit (TrustKit refuses self-signed certificates and hooks only React Native networking).
 - Tests: fork 22 + 7 + 9 integration; phone 86 Jest; `npm run test:native-pin` checks the Swift pin check and URLSession on macOS against a real HTTPS server.
-- Left: compile `PinnedFetchModule.swift` in the iOS build and check pairing on the Simulator. Both wait for a newer Xcode (see 02).
+- Left: compile `PinnedFetchModule.swift` in the iOS build and check pairing on the Simulator. Xcode 26.6 is installed; the build waits for the iOS 26.5 platform (see PRD Status).
 - Follow-up for the 02 screens: show `wrongCertificate` (another device at the Mac's address, or a new certificate on the Mac) on the home screen. `src/app` was not changed in 01b.
 
 ## 02 Phone pairing `doing`
@@ -59,7 +59,7 @@ Blocked by: 01, 01b.
 
 Acceptance: in the iOS Simulator, pair with the fork through the paste field; ping shows "connected"; removing the device on the Mac makes the phone ask to pair again.
 
-State (commit `ce6da79`): all code and the 52 Jest tests are done, including an app-shell test of the same acceptance flow with a fake Mac. Left: the Simulator check. `npx expo run:ios` fails in `expo-modules-jsi` with Xcode 26.3; it probably needs Xcode 26.4 or later.
+State (commit `ce6da79`): all code and the 52 Jest tests are done, including an app-shell test of the same acceptance flow with a fake Mac. Left: the Simulator check. Xcode 26.6 is installed; the build waits for the iOS 26.5 platform (see PRD Status).
 
 ## 03 First teaching turn on the phone (mode 1) `todo`
 
