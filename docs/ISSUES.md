@@ -118,7 +118,14 @@ Blocked by: 03.
 - Answered cards (correct answer, explanation, committed answer).
 - Steer, stop, retry, dismiss; 409 backoff; reattach when the app returns to the foreground.
 - Compaction running state; error banner.
-  Acceptance: Maestro E2E for probe → plan → teach → check with the fake provider.
+- **Error states first (user rule, 2026-11-14: every feature handles its error states, not only the happy path).** The phone never shows raw server text. Each state has a clear message and a Jest test:
+  - `models_not_configured` (503): name the missing slot and tell the user to select a model in LearnHarness settings on the Mac. Read it with the fork's `parseModelsRefusal` (`components/chat.tsx`) through `src/lib/shared.ts`.
+  - Provider key refusal (503): `parseProviderKeyRefusal`. Tell the user that the model's key is missing on the Mac.
+  - A refused send is not a failed turn. Bug found 2026-11-14: the gate refuses before it saves the message, `SessionModel.send()` returns `false`, and the phone ignores it. "Try again" then sends `retry`, and the server answers "retry input requires a failed turn to retry". Fix: when a send is not accepted, put the text back in the composer, and "Try again" sends the same text again. Send `retry` only for a saved turn that failed.
+  - 401: back to pairing (done in issue 02). 403 (route refused by the gateway): "The phone cannot do this yet." 409: backoff and reattach, no error shown.
+  - Mac unreachable or network drop: "Lost the connection to the Mac", with automatic retry. Stream dropped mid-turn: `STREAM_DROPPED` with Try again.
+  - Any other error: a plain message; the raw body goes to the log only.
+    Acceptance: Maestro E2E for probe → plan → teach → check with the fake provider, and a Maestro case for `models_not_configured` (refusal, set the model, send again, the turn runs).
 
 ## 05 Rich rendering `todo`
 
