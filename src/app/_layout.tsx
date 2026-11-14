@@ -7,6 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { Loading, usePalette } from "@/components/ui";
 import { ConnectionProvider, useConnection } from "@/lib/connection-context";
 import { FlagsProvider } from "@/lib/flags-context";
+import { ServerEventsProvider } from "@/lib/server-events-context";
 
 function RootStack() {
 	const { state } = useConnection();
@@ -38,8 +39,10 @@ export default function RootLayout() {
 	return (
 		<FlagsProvider>
 			<ConnectionProvider>
-				<StatusBar style="auto" />
-				<RootStack />
+				<ServerEventsProvider>
+					<StatusBar style="auto" />
+					<RootStack />
+				</ServerEventsProvider>
 			</ConnectionProvider>
 		</FlagsProvider>
 	);

@@ -18,6 +18,7 @@ import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 
+import { openEventsChannel } from "../../src/lib/events-channel";
 import { createMacFetch } from "../../src/lib/mac-fetch";
 import {
 	pair,
@@ -41,6 +42,8 @@ import {
 	type LhMessage,
 	type SessionState,
 } from "../../src/lib/shared";
+import { createEventHub } from "../../src/lib/server-events";
+import { attachSessionEvents } from "../../src/lib/session-events";
 import { transcriptRows } from "../../src/lib/transcript";
 
 const FORK = process.env.LH_FORK_DIR
@@ -227,6 +230,16 @@ describe("issue 03: a teaching turn from the phone code (mode 1)", { concurrency
 		const seen: SessionState["status"][] = [];
 		let partialSeen = false;
 		const model = new SessionModel({ chatId, initialMessages: record.messages, fetch: macFetch });
+		// The events channel and the session rules, as the session screen uses them.
+		const hub = createEventHub();
+		const stopEvents = attachSessionEvents(model, hub);
+		let opened = 0;
+		const channel = openEventsChannel({
+			fetch: macFetch,
+			onEvent: hub.dispatch,
+			onOpen: () => (hub.resync(), opened++),
+		});
+		await waitFor("the events channel", () => (opened > 0 ? true : undefined));
 		model.onChange = () => {
 			const s = model.getState();
 			if (seen.at(-1) !== s.status) seen.push(s.status);
@@ -294,11 +307,18 @@ describe("issue 03: a teaching turn from the phone code (mode 1)", { concurrency
 		const proberAnswerRequest = fake.requests.filter((r) => r.role === "prober")[1]!;
 		assert.match(JSON.stringify(proberAnswerRequest.body.messages), /confidence\W+90/);
 
-		// The handoff wakes the teacher in a new turn on the Mac.
-		await waitFor("the teacher's text in the record", async () => {
-			const r = await readSession(macFetch, chatId);
-			return texts(r.messages).includes(TEACH_TEXT) && !r.turnInFlight ? true : undefined;
+		// The handoff wakes the teacher in a new turn on the Mac. The phone
+		// learns of it from /api/events and shows it in the same model.
+		await waitFor("the teacher's text in the phone's model", () => {
+			const s = model.getState();
+			return texts(s.nativeMessages).includes(TEACH_TEXT) && s.status === "ready"
+				? true
+				: undefined;
 		});
+		const r = await readSession(macFetch, chatId);
+		assert.ok(texts(r.messages).includes(TEACH_TEXT));
+		stopEvents();
+		channel.close();
 		model.stop();
 
 		// The probe is over. The phase is "plan" until the first teaching question.

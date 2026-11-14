@@ -8,6 +8,7 @@ import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useMacFetch } from "@/lib/connection-context";
+import { useServerEvent } from "@/lib/server-events-context";
 import { listSessions } from "@/lib/sessions";
 import type { ChatListItem } from "@/lib/shared";
 import { Body, Button, ErrorText, Panel, Title, usePalette } from "./ui";
@@ -49,6 +50,10 @@ export function SessionList({ enabled }: { enabled: boolean }) {
 	}, [enabled, macFetch]);
 
 	useFocusEffect(refresh);
+	// The list shows phases and marks: read it again when a session changes on the Mac.
+	useServerEvent("chats-changed", refresh);
+	useServerEvent("turn-started", refresh);
+	useServerEvent("turn-settled", refresh);
 
 	return (
 		<Panel>

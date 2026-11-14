@@ -49,6 +49,17 @@ class FakeMac {
 	inputs: Rec[] = [];
 	turns: ((chatId: string, input: Rec) => Rec[])[] = [];
 	private seq = 0;
+	private listeners: ReadableStreamDefaultController<Uint8Array>[] = [];
+
+	/** Send one event on every open /api/events connection. */
+	emit(type: string, payload: Rec) {
+		const bytes = new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`);
+		for (const c of this.listeners) c.enqueue(bytes);
+	}
+
+	get eventListeners() {
+		return this.listeners.length;
+	}
 
 	add(title: string, messages: Rec[] = []) {
 		const id = `chat_${++this.seq}`;
@@ -98,6 +109,12 @@ class FakeMac {
 		const method = (init?.method ?? "GET").toUpperCase();
 		const p = u.pathname;
 		if (p === "/phone/v1/ping") return this.json({ ok: true });
+		if (p === "/api/events") {
+			const body = new ReadableStream<Uint8Array>({
+				start: (c) => void this.listeners.push(c),
+			});
+			return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
+		}
 		if (p === "/api/chats" && method === "GET")
 			return this.json({
 				chats: [...this.chats].map(([id, c]) => ({
@@ -276,4 +293,34 @@ it("a malformed question shows Ask again, which sends retry-question; the new qu
 	expect(mac.inputs).toEqual([
 		{ type: "retry-question", messageId: bad.id, contentIndex: 0, toolCallId: "call_bad" },
 	]);
+});
+
+it("a turn that the Mac starts by itself (the teacher after the probe) shows without a reopen", async () => {
+	const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
+	mac.chats
+		.get(id)!
+		.messages.push(
+			mac.assistant([{ type: "toolCall", id: "call_probe", name: "probe", arguments: PROBE }]),
+		);
+	// The answer turn: the prober closes the probe. The Mac then wakes the teacher.
+	mac.turns.push(() => [
+		mac.assistant([{ type: "text", text: "Good. The teacher takes over now." }]),
+	]);
+
+	await renderRouter(APP, { initialUrl: `/session/${id}` });
+	await fireEvent.press(await screen.findByTestId("option-moon"));
+	await fireEvent.press(screen.getByTestId("submit-answer"));
+	expect(await screen.findByText("Good. The teacher takes over now.")).toBeTruthy();
+	await waitFor(() => expect(mac.eventListeners).toBeGreaterThan(0));
+
+	// The Mac's wake turn: it saves the teacher's text and announces the turn.
+	mac.chats
+		.get(id)!
+		.messages.push(mac.assistant([{ type: "text", text: "The Moon makes two bulges." }]));
+	await act(async () => {
+		mac.emit("turn-started", { chatId: id });
+		mac.emit("turn-settled", { chatId: id });
+	});
+	expect(await screen.findByText("The Moon makes two bulges.")).toBeTruthy();
+	expect(mac.inputs.map((i) => i.type)).toEqual(["answer"]);
 });

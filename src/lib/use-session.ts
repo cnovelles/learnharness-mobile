@@ -13,6 +13,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { useEventHub } from "./server-events-context";
+import { attachSessionEvents } from "./session-events";
 import { openingPrompts, readSession, type OpeningPrompts, type SessionRecord } from "./sessions";
 import {
 	SessionModel,
@@ -104,6 +106,10 @@ export function useSessionModel(
 	);
 	const { model } = store;
 	const attached = useRef(false);
+	const hub = useEventHub();
+
+	// Turns that the Mac starts by itself, and records that change without a turn.
+	useEffect(() => attachSessionEvents(model, hub), [model, hub]);
 
 	useEffect(() => {
 		model.setReattachSettled(() => {
