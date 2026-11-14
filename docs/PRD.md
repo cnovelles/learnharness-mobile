@@ -19,14 +19,17 @@ Last update: 2026-11-14.
   - Tests: `tests/phone-access.test.ts` (15), `tests/phone-access-window.test.ts` (6), `tests/fake-openai-provider.test.ts` (4), `tests/question-data-for-call.test.ts`, `tests/automatic-updates.test.ts` (fork flag).
   - Integration: `npm run test:phone-integration` (8 tests, about 1 minute). Not part of `npm test`. Stop `npm run desktop:dev` first: both use the `.next/dev` lock.
   - Full upstream suite: 3216 of 3217 pass. The 1 failure also fails on unchanged upstream (`tests/subscription-auth.test.ts`, pi-ai "No exports main").
-- Phone app: Expo SDK 58 project at `~/Development/learnharness-mobile` (no git repo yet).
-  - Template screens removed. `src/app/_layout.tsx` and `src/app/index.tsx` still hold template code and must be rewritten.
+- Phone app: Expo SDK 58 project at `~/Development/learnharness-mobile`, branch `phase-1/pairing`. Commit `740dfa4` (issue 02 code).
   - `metro.config.js`: watches `../learnharness`, maps `node:crypto` to `src/shims/node-crypto.ts`.
   - `src/shims/node-crypto.ts` (SHA-256 via `@noble/hashes`), `src/shims/polyfills.ts` (crypto, DOMException).
-  - `src/lib/pairing.ts`: parse QR payload, pair, find reachable address, `remoteFetch`. No tests yet.
-  - Installed: expo-camera, expo-secure-store, expo-crypto, @noble/hashes.
+  - `src/lib/pairing.ts`: parse QR payload, pair, find reachable address, `remoteFetch`.
+  - `src/lib/connection-store.ts` (Keychain, this device only), `src/lib/connection-monitor.ts` (ping on open, on foreground, every 30 s; 401 deletes the token), `src/lib/connection-context.tsx`.
+  - Screens: `src/app/_layout.tsx` (polyfills first, `Stack.Protected` guards), `index.tsx` (status), `pair.tsx` (QR scan + paste), `settings.tsx` (Mac, address in use, "Forget this Mac"). `src/components/ui.tsx`.
+  - `app.json`: bundle identifier `dev.local.learnharnessmobile`, camera text, local network text, ATS local networking.
+  - Tests: Jest via jest-expo, `npm test`, 52 pass (pairing, crypto shim against the fork's real fingerprints, store, monitor, app shell with `expo-router/testing-library`). `npx tsc --noEmit` and `npx expo lint` are clean.
+  - **Blocked:** `npx expo run:ios` fails with Xcode 26.3 (Swift 6.2): `expo-modules-jsi` 58.0.23 (also 58.0.22) does not compile (`JavaScriptObject.swift:946`, "sending 'slot' risks causing data races"). Expo's current SDK 58 packages probably need Xcode 26.4 or later. Run CocoaPods with `LANG=en_US.UTF-8`, or `pod install` fails with an encoding error.
 
-**Next step:** issue 02 (phone pairing). Issue 01 is done. The "Copy pairing text" button of issue 02 is already in the desktop window. See `docs/ISSUES.md`.
+**Next step:** finish issue 02: build the development app on the Simulator (needs a newer Xcode, see "Blocked" above), then do the Simulator pairing check (paste field, "connected", removal on the Mac asks to pair again). Then issue 03. See `docs/ISSUES.md`.
 
 **Facts found during the work**
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.

@@ -19,7 +19,7 @@ Acceptance: integration test passes; manual window check done; never touches the
 
 Result (fork commit `2657a55`): `npm run test:phone-integration` passes (8 tests). The window check found two bugs: the device list did not update after a pairing, and the spent QR code stayed on screen. Both are fixed and checked in the real window. The allowlist now matches the real routes. "Copy pairing text" (from 02) is done.
 
-## 02 Phone pairing `todo`
+## 02 Phone pairing `doing`
 Blocked by: 01.
 
 - Unit tests for `src/lib/pairing.ts` (payload parse, first-answer-decides, unreachable fallthrough, 401 unpaired, remote fetch adds token and base URL). Test runner: Jest via `jest-expo` or node:test with tsx.
@@ -32,6 +32,8 @@ Blocked by: 01.
 - Settings screen: connected Mac name, address in use, "Forget this Mac".
 
 Acceptance: in the iOS Simulator, pair with the fork through the paste field; ping shows "connected"; removing the device on the Mac makes the phone ask to pair again.
+
+State (commit `740dfa4`): all code and the 52 Jest tests are done, including an app-shell test of the same acceptance flow with a fake Mac. Left: the Simulator check. `npx expo run:ios` fails in `expo-modules-jsi` with Xcode 26.3; it probably needs Xcode 26.4 or later.
 
 ## 03 First teaching turn on the phone (mode 1) `todo`
 Blocked by: 02.
