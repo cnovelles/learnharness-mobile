@@ -8,9 +8,13 @@
  * the reading-thinking field (src/lib/reveal.ts). The form and the reading
  * thinking are kept in the session's question draft, so a refused answer
  * or a turn that interrupts the dock does not lose them.
+ *
+ * Skip (at the bottom of the dock, user decision 2026-11-14) asks first:
+ * "Skip this question? The teacher moves on without it." While the Mac
+ * compacts, Send answer waits (`waiting`).
  */
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
 	type QuestionForm,
@@ -108,18 +112,41 @@ function Confidence({ index, onChange }: { index: number; onChange: (index: numb
 	);
 }
 
+/** Skip, with a confirm. */
+function SkipButton({ onSkip }: { onSkip: () => Promise<void> }) {
+	const [busy, setBusy] = useState(false);
+	function confirm() {
+		Alert.alert("Skip this question?", "The teacher moves on without it.", [
+			{ text: "Cancel", style: "cancel" },
+			{
+				text: "Skip",
+				style: "destructive",
+				onPress: () => {
+					setBusy(true);
+					void onSkip().finally(() => setBusy(false));
+				},
+			},
+		]);
+	}
+	return <Button title="Skip" kind="plain" onPress={confirm} busy={busy} testID="skip-question" />;
+}
+
 function DockForm({
 	qd,
 	tool,
 	draft,
 	onDraft,
 	onSubmit,
+	onSkip,
+	waiting,
 }: {
 	qd: QuestionData;
 	tool: string;
 	draft: QuestionDraft | undefined;
 	onDraft: (draft: Partial<QuestionDraft>) => void;
 	onSubmit: (answer: QuestionAnswerData) => Promise<boolean>;
+	onSkip: () => Promise<void>;
+	waiting: boolean;
 }) {
 	const [form, setFormState] = useState(() => draft?.form ?? newQuestionForm());
 	function setForm(next: QuestionForm) {
@@ -132,7 +159,7 @@ function DockForm({
 	const ready = canSubmit(qd, form);
 
 	async function submit() {
-		if (!ready || sending) return;
+		if (!ready || sending || waiting) return;
 		setSending(true);
 		try {
 			await onSubmit(answerFor(qd, form, tool, draft?.readingThinking));
@@ -215,10 +242,11 @@ function DockForm({
 			<Button
 				title="Send answer"
 				onPress={() => void submit()}
-				disabled={!ready}
+				disabled={!ready || waiting}
 				busy={sending}
 				testID="submit-answer"
 			/>
+			<SkipButton onSkip={onSkip} />
 		</Panel>
 	);
 }
@@ -229,11 +257,13 @@ function RevealBar({
 	readingThinking,
 	onReadingThinking,
 	onOpen,
+	onSkip,
 }: {
 	qd: QuestionData;
 	readingThinking: string;
 	onReadingThinking: (text: string) => void;
 	onOpen: () => void;
+	onSkip: () => Promise<void>;
 }) {
 	const preview = qd.question.length > 90 ? `${qd.question.slice(0, 90)}…` : qd.question;
 	return (
@@ -252,6 +282,7 @@ function RevealBar({
 					<Body muted>{preview}</Body>
 				</View>
 				<Button title="Open" onPress={onOpen} testID="reveal-open" />
+				<SkipButton onSkip={onSkip} />
 			</Panel>
 		</>
 	);
@@ -265,6 +296,8 @@ export function QuestionDock({
 	draft,
 	onDraft,
 	onSubmit,
+	onSkip,
+	waiting = false,
 }: {
 	call: PendingQuestionCall;
 	reveal: RevealPlan;
@@ -274,6 +307,9 @@ export function QuestionDock({
 	draft: QuestionDraft | undefined;
 	onDraft: (draft: Partial<QuestionDraft>) => void;
 	onSubmit: (answer: QuestionAnswerData) => Promise<boolean>;
+	onSkip: () => Promise<void>;
+	/** The Mac compacts: the answer waits. */
+	waiting?: boolean;
 }) {
 	const qd = useMemo(
 		() =>
@@ -294,6 +330,7 @@ export function QuestionDock({
 					onDraft({ readingThinking: text });
 				}}
 				onOpen={onOpen}
+				onSkip={onSkip}
 			/>
 		);
 	// A new question gets a new form (or its draft).
@@ -305,6 +342,8 @@ export function QuestionDock({
 			draft={draft}
 			onDraft={onDraft}
 			onSubmit={onSubmit}
+			onSkip={onSkip}
+			waiting={waiting}
 		/>
 	);
 }

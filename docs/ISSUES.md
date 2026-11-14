@@ -126,34 +126,29 @@ Each slice lists its error states (`AGENTS.md`, "Error states"). Every error on 
 - Drafts: the form and the reading thinking survive a dock remount while the screen is open (`saveQuestionDraft`).
 - Error states: an answer that the Mac refuses or that fails keeps the form and the reading thinking, and shows the mapped message; submit is off while the session compacts ("The Mac is making the history shorter…").
 
-**B. Lesson map, phase and answered cards (next).** Notes for the next session, from a map of the desktop code (2026-11-14):
+**B. Lesson map, phase and answered cards: done (2026-11-14).**
 
-- Phase: `phaseAt3Lh(nativeMessages)` (exported in `src/lib/shared.ts`). Header labels from the desktop `PhaseChip` (`components/phase-divider.tsx:41`). The seams: `phaseTimeline` or `phaseAt3Lh(messages, i)`; the plan divider reads the node count (`planNodeCount`, `phase-divider.tsx:84`, a React file: copy the small logic).
-- Plan tree: the last `tool-plan_*` view part in `output-available` with `output.tree.nodes` (desktop `latestTree`, `components/plan-block.tsx:715`, a React file: copy). Types `PlanTree`, `PlanNode` and `derivePlanStatusesLh(tree, nativeMessages)` are exported. Now `transcriptRows` turns `plan_init` into a plain tool row and skips `data-plan-block` parts.
-- Answered cards: `answerForPresentation(answer, input)` (exported) gives `questionText`, `explanation`, `committed`, `correctIndices`, `options`. The desktop card: `components/answered-card.tsx`. Extend the `question` row in `src/lib/transcript.ts` and the card in `src/components/transcript.tsx`.
+- Phase in the header under the title: Probing, Planning, Teaching (`phaseAt3Lh`, the desktop `PhaseChip` labels). Dividers (`src/lib/transcript.ts`): "Plan · N steps" at the probe-handoff marker (the step count of the first plan after it, else "Planning"), "Teaching" where the first tagged check is called (`phaseTimeline`, `teachStepIndex`).
+- Lesson map: `src/lib/plan.ts` (`latestPlanTree`, `planSteps`: a stable prerequisite order, the indent is the longest prerequisite chain, statuses from `derivePlanStatusesLh`, "visited" shows as done). "Plan" in the session header and the plan row in the transcript open `src/components/plan-sheet.tsx` (a page sheet with Now, Done, Next).
+- Answered cards: `src/lib/answer-card.ts` (`presentAnswer` with `answerForPresentation`). The card shows the kind label, correct, incorrect or didn't know, ✓ and ✗, the confidence, "Your thinking" and "Why" (tap to open), the reading thinking above the card, and "The answer" for explain. A skipped question shows "You skipped this question."
+- Error states and their tests: a failed plan call (`output-error`, or `ok: false`) shows a failed tool row and no map; a plan with no nodes, bad nodes or no tree gives no map; a later failed plan keeps the earlier map; a check for a step that is not in the plan moves nothing; a cycle in the tree lists each step once; a malformed answer record shows "Answered. The phone cannot show this answer." and never raw data; bad fields in a record are left out. Tests: `tests/plan.test.ts`, `tests/transcript.test.ts`, `tests/app-session.test.tsx` (slice B).
 
-- Phase in the header: Probing, Planning, Teaching (`phaseAt3`). A divider at the plan seam ("Plan · N steps") and at the teach seam.
-- Lesson map: the latest plan tree (the last `plan_*` result with `tree.nodes`), each step marked current, done or upcoming (`derivePlanStatuses`). User decision (2026-11-14): a "Plan" button in the session header opens a sheet with the steps as an indented list; the diagram comes in issue 05.
-- Answered cards with `answerForPresentation`: the kind label (Probe, Recall, Prediction, Check, Explain, Question), correct, incorrect or didn't know, ✓ on the correct options and ✗ on a wrong choice, the confidence, "Your thinking", the reading thinking, the explanation behind "Why", and "The answer" for explain. A skipped question shows "skipped".
-- Error states: a plan call that failed (`output-error`) shows a failed tool row and no map; a plan with no nodes shows no map; a malformed answer record shows the plain answer line, never raw JSON.
+**C. Steer, stop, retry, dismiss, foreground: done (2026-11-14).** Code: `src/lib/use-session.ts`, `src/lib/session-events.ts` (`syncSession`, hooks `onSnapshot`, `onSyncError`, `onCompaction`), `src/app/session/[id].tsx`, `src/components/question-dock.tsx`.
 
-**C. Steer, stop, retry, dismiss, foreground.**
+- While a turn runs, the composer sends a steer (`SessionModel.steer`); "Waiting for the teacher: …" shows until the steer is in the record (`visibleQueuedSteers`). The send resolves when the Mac accepts the text, so the composer is free during the turn.
+- Stop in the header while a turn runs (confirm "Stop this turn? The partial answer stays."), then `stop()` and `POST /api/activity/abort` `{kind:"turn", id}`, then a record read. Skip at the bottom of the dock and of the closed check (confirm "Skip this question? The teacher moves on without it."), then `dismissQuestion` with `dismissedAnswer`.
+- Try again shows only for an unsent input or when `endsInFailedTurn` is true, and it waits while the Mac compacts. A failure that cannot be retried shows Close only, as on the desktop.
+- Background: the phone stops reading the stream; the turn runs on. Foreground: the events channel connects again and the sync attaches again.
+- Error states and their tests (`tests/app-session-controls.test.tsx`, `tests/user-error.test.ts`, `tests/session-events.test.ts`): a refused steer puts its text back with the mapped message; a steer that gets 409 while the phone still settles the turn keeps its text in the composer (SessionModel sends it as a message only when idle); an abort with 409 `not_running` is not an error; a failed abort shows "The phone could not stop the turn. It still runs on the Mac." and attaches again; a failed skip keeps the question in the dock ("The phone could not skip the question. Try again."; a record read removes the local skipped answer); a record read that fails after the foreground shows "The phone could not read this session from the Mac. Try again." with Try again; no Try again when nothing can be retried.
 
-- While a turn runs, the composer sends a steer (`SessionModel.steer`); queued steers show until the teacher takes them. If the Mac answers 409 (no turn runs anymore), SessionModel sends the text as an ordinary message.
-- Placement (user decision, 2026-11-14): Stop in the session header while a turn runs; Skip at the bottom of the question dock.
-- Stop: a confirm ("Stop this turn? The partial answer stays."), then `stop()` and `POST /api/activity/abort` `{kind:"turn", id}`.
-- Dismiss a waiting question: a confirm ("Skip this question? The teacher moves on without it."), then `dismissQuestion` with `dismissedAnswer`.
-- Retry shows only when `endsInFailedTurn` is true and the session does not compact.
-- Foreground: the events channel restarts and the session reads the record again, then reattaches or continues (exists; add tests). Stop the stream when the app goes to the background.
-- Error states: a refused steer puts its text back into the composer; an abort that fails says that the turn still runs on the Mac (a 409 `not_running` is not an error); a dismiss that fails keeps the question in the dock with the message; a record read that fails after the foreground shows the message with Try again.
+**D. Compaction state and error banner: done (2026-11-14).**
 
-**D. Compaction state and error banner.**
+- `compacting` from the record (`readSession`, each sync) and from `compaction-changed`: "The Mac is making the history shorter…"; Send, Send answer and Try again wait. Reading and Stop still work. The transcript shows "Context compacted" and "History compacted · N K tokens".
+- One banner for the session: the mapped text, Try again when an action applies, Close.
+- Error states and their tests (`tests/app-session-compaction.test.tsx`, `tests/transcript.test.ts`): a missed `compaction-changed` is fixed by the next record read; a compaction that never ends does not lock the screen (the phone reads the record every 30 s); a compaction part with bad data shows the divider without a count.
+- Test setup note: `renderRouter` turns on Jest's fake timers. `package.json` keeps `nextTick` and `queueMicrotask` real (`fakeTimers.doNotFake`): the web streams use them, and a new fake clock in the next test lost them, which stopped the streams of later tests. The shared fake Mac is `tests/helpers/fake-mac.ts`.
 
-- `compacting` from the record and from `compaction-changed`: "Making the history shorter…" in the session; sends, answers and retry wait until it ends. The compaction dividers ("Context compacted") show in the transcript.
-- One error banner for the session (mapped text, Try again when it applies, Close).
-- Error states: a missed `compaction-changed` event is fixed by the record read on resync; a compaction that never ends does not lock the screen for good (Stop and reading still work).
-
-**E. Tests.** Jest for each slice and each error state. Maestro E2E with the fake provider: probe → plan → teach → check (through the reveal) → the answered card. A Maestro case for `models_not_configured` (refusal, set the model, send again, the turn runs).
+**E. Tests (next).** Jest for each slice and each error state: done (261 pass). Open: Maestro E2E with the fake provider: probe → plan → teach → check (through the reveal) → the answered card. A Maestro case for `models_not_configured` (refusal, set the model, send again, the turn runs).
 
 Acceptance: the Maestro E2E passes; each error state above has a Jest test; the user checks one real teach cycle on the Simulator.
 

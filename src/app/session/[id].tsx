@@ -2,12 +2,17 @@
  * One session on the Mac (mode 1): the transcript, the question dock when a
  * question waits, and a text field when the teacher waits for text. The
  * shared SessionModel streams the turn (src/lib/use-session.ts).
+ *
+ * The header shows the phase, "Plan" when a lesson map exists, and Stop
+ * while a turn runs (user decision 2026-11-14). While a turn runs, the
+ * composer sends steers. One banner shows the session's errors.
  */
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useMemo, useRef, useState, type ComponentRef } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useMemo, useRef, useState, type ComponentRef } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PlanSheet } from "@/components/plan-sheet";
 import { QuestionDock } from "@/components/question-dock";
 import { Transcript } from "@/components/transcript";
 import {
@@ -21,25 +26,32 @@ import {
 	usePalette,
 } from "@/components/ui";
 import { useMacFetch } from "@/lib/connection-context";
+import { PHASE_LABEL, latestPlanTree, planSteps } from "@/lib/plan";
 import type { SessionRecord } from "@/lib/sessions";
+import { phaseAt3Lh, type Phase3 } from "@/lib/shared";
 import { revealPlan } from "@/lib/reveal";
 import { transcriptRows } from "@/lib/transcript";
-import { useSessionModel, useSessionRecord } from "@/lib/use-session";
-import { describeError } from "@/lib/user-error";
+import { COMPACTING, useSessionModel, useSessionRecord } from "@/lib/use-session";
 
 function Composer({
 	onSend,
 	initialText,
+	steer,
+	waiting,
 }: {
 	onSend: (text: string) => Promise<boolean>;
 	/** A text that the Mac did not accept, shown again so the user can send it. */
 	initialText: string;
+	/** A turn runs: the text goes to that turn (a steer). */
+	steer: boolean;
+	/** The Mac compacts: sends wait. */
+	waiting: boolean;
 }) {
 	const [text, setText] = useState(initialText);
 	const [sending, setSending] = useState(false);
 	async function send() {
 		const value = text.trim();
-		if (!value || sending) return;
+		if (!value || sending || waiting) return;
 		setSending(true);
 		try {
 			// Clear the field only when the Mac accepted the text.
@@ -54,14 +66,14 @@ function Composer({
 				value={text}
 				onChangeText={setText}
 				label="Message"
-				placeholder="Write to the teacher"
+				placeholder={steer ? "Add to the teacher's turn" : "Write to the teacher"}
 				multiline
 				testID="composer"
 			/>
 			<Button
 				title="Send"
 				onPress={() => void send()}
-				disabled={!text.trim()}
+				disabled={!text.trim() || waiting}
 				busy={sending}
 				testID="send"
 			/>
@@ -69,12 +81,60 @@ function Composer({
 	);
 }
 
+/** The header title: the session title and the phase under it (the desktop PhaseChip). */
+function HeaderTitle({ title, phase }: { title: string; phase: Phase3 }) {
+	const c = usePalette();
+	return (
+		<View style={styles.headerTitle}>
+			<Text style={[styles.headerName, { color: c.text }]} numberOfLines={1}>
+				{title}
+			</Text>
+			<Text style={[styles.headerPhase, { color: c.muted }]} testID="session-phase">
+				{PHASE_LABEL[phase].toUpperCase()}
+			</Text>
+		</View>
+	);
+}
+
+function HeaderButton({
+	title,
+	label,
+	onPress,
+	danger,
+	testID,
+}: {
+	title: string;
+	label: string;
+	onPress: () => void;
+	danger?: boolean;
+	testID: string;
+}) {
+	const c = usePalette();
+	return (
+		<Pressable
+			onPress={onPress}
+			accessibilityRole="button"
+			accessibilityLabel={label}
+			hitSlop={8}
+			testID={testID}
+		>
+			<Text style={{ color: danger ? c.danger : c.accent, fontSize: 17 }}>{title}</Text>
+		</Pressable>
+	);
+}
+
+function confirmStop(onStop: () => void) {
+	Alert.alert("Stop this turn?", "The partial answer stays.", [
+		{ text: "Cancel", style: "cancel" },
+		{ text: "Stop", style: "destructive", onPress: onStop },
+	]);
+}
+
 function SessionBody({ record }: { record: SessionRecord }) {
 	const macFetch = useMacFetch();
 	const c = usePalette();
 	const session = useSessionModel(record, macFetch);
-	const { state, pending, malformed } = session;
-	const running = state.status === "submitted" || state.status === "streaming";
+	const { state, pending, malformed, running, compacting, banner } = session;
 	const rows = useMemo(
 		() =>
 			transcriptRows(state.messages, {
@@ -82,6 +142,49 @@ function SessionBody({ record }: { record: SessionRecord }) {
 				dockCallId: !running && pending ? pending.toolCallId : undefined,
 			}),
 		[state.messages, malformed, pending, running],
+	);
+	const phase = useMemo(() => phaseAt3Lh(state.nativeMessages), [state.nativeMessages]);
+	const tree = useMemo(() => latestPlanTree(state.messages), [state.messages]);
+	const [planOpen, setPlanOpen] = useState(false);
+	const steps = useMemo(
+		() => (planOpen && tree ? planSteps(tree, state.nativeMessages) : null),
+		[planOpen, tree, state.nativeMessages],
+	);
+	const openPlan = useCallback(() => setPlanOpen(true), []);
+	const stopTurn = session.stopTurn;
+	const hasPlan = tree !== null;
+	// Stable options: new header functions on each render make the
+	// navigator set the options again and again.
+	const headerOptions = useMemo(
+		() => ({
+			title: record.title,
+			headerTitle: () => <HeaderTitle title={record.title} phase={phase} />,
+			headerRight:
+				hasPlan || running
+					? () => (
+							<View style={styles.headerButtons}>
+								{running ? (
+									<HeaderButton
+										title="Stop"
+										label="Stop this turn"
+										danger
+										onPress={() => confirmStop(() => void stopTurn())}
+										testID="stop-turn"
+									/>
+								) : null}
+								{hasPlan ? (
+									<HeaderButton
+										title="Plan"
+										label="Open the lesson plan"
+										onPress={openPlan}
+										testID="open-plan"
+									/>
+								) : null}
+							</View>
+						)
+					: undefined,
+		}),
+		[record.title, phase, hasPlan, running, stopTurn, openPlan],
 	);
 	const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 	// The check that the learner opened. It stays open while a refused answer is sent again.
@@ -92,27 +195,41 @@ function SessionBody({ record }: { record: SessionRecord }) {
 			style={[styles.screen, { backgroundColor: c.bg }]}
 			edges={["bottom", "left", "right"]}
 		>
+			<Stack.Screen options={headerOptions} />
+			<PlanSheet visible={planOpen} steps={steps} onClose={() => setPlanOpen(false)} />
 			<ScrollView
 				ref={scroll}
 				contentContainerStyle={styles.content}
 				keyboardShouldPersistTaps="handled"
 				onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
 			>
-				<Transcript rows={rows} />
+				<Transcript rows={rows} onOpenPlan={openPlan} />
 				{running ? (
 					<Body muted testID="turn-running">
 						{state.status === "submitted" ? "Sending…" : "The teacher is writing…"}
 					</Body>
 				) : null}
-				{state.error ? (
+				{compacting ? (
+					<Body muted testID="compacting">
+						{COMPACTING}
+					</Body>
+				) : null}
+				{banner ? (
 					<Panel>
-						<ErrorText testID="session-error">{describeError(state.error)}</ErrorText>
+						<ErrorText testID="session-error">{banner.text}</ErrorText>
 						<View style={styles.row}>
-							<Button title="Try again" onPress={() => void session.retry()} testID="retry-turn" />
+							{banner.retry ? (
+								<Button
+									title="Try again"
+									onPress={() => void session.retryBanner()}
+									disabled={compacting && banner.retry !== "sync"}
+									testID="retry-turn"
+								/>
+							) : null}
 							<Button
 								title="Close"
 								kind="plain"
-								onPress={session.clearError}
+								onPress={session.closeBanner}
 								testID="clear-error"
 							/>
 						</View>
@@ -128,6 +245,8 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						draft={session.draft(pending.key)}
 						onDraft={(draft) => session.saveDraft(pending.key, draft)}
 						onSubmit={(answer) => session.answer(pending.toolCallId, answer, pending.key)}
+						onSkip={session.skipQuestion}
+						waiting={compacting}
 					/>
 				) : null}
 				{!running && malformed ? (
@@ -142,11 +261,22 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						/>
 					</Panel>
 				) : null}
-				{!running && !pending && (state.status === "ready" || session.unsentText !== null) ? (
+				{session.queuedSteers.length > 0 ? (
+					<View testID="queued-steers" style={{ gap: 4 }}>
+						{session.queuedSteers.map((q) => (
+							<Body key={q.id} muted>
+								Waiting for the teacher: {q.text}
+							</Body>
+						))}
+					</View>
+				) : null}
+				{running || (!pending && (state.status === "ready" || session.unsentText !== null)) ? (
 					<Composer
 						key={session.unsentText ?? ""}
 						onSend={session.sendText}
 						initialText={session.unsentText ?? ""}
+						steer={running}
+						waiting={compacting}
 					/>
 				) : null}
 			</ScrollView>
@@ -158,10 +288,9 @@ export default function SessionScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
 	const macFetch = useMacFetch();
 	const { load, reload } = useSessionRecord(String(id), macFetch);
-	const title = load.status === "ready" ? load.record.title : "Session";
 	return (
 		<>
-			<Stack.Screen options={{ title }} />
+			{load.status !== "ready" ? <Stack.Screen options={{ title: "Session" }} /> : null}
 			{load.status === "loading" ? (
 				<Loading />
 			) : load.status === "error" ? (
@@ -182,4 +311,8 @@ const styles = StyleSheet.create({
 	screen: { flex: 1 },
 	content: { padding: 16, gap: 16, flexGrow: 1 },
 	row: { flexDirection: "row", gap: 12 },
+	headerTitle: { alignItems: "center", maxWidth: 200 },
+	headerButtons: { flexDirection: "row", gap: 16 },
+	headerName: { fontSize: 17, fontWeight: "600" },
+	headerPhase: { fontSize: 11, fontWeight: "600", letterSpacing: 0.6 },
 });

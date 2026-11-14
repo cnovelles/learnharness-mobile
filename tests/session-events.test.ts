@@ -1,6 +1,6 @@
 /** The session's reaction to the Mac's events (src/lib/session-events.ts). */
 import { createEventHub } from "@/lib/server-events";
-import { attachSessionEvents } from "@/lib/session-events";
+import { attachSessionEvents, syncSession } from "@/lib/session-events";
 
 function fakeModel(status: "ready" | "submitted" | "streaming" | "error" = "ready") {
 	const calls: string[] = [];
@@ -73,4 +73,57 @@ it("the stop function removes all listeners", async () => {
 	hub.resync();
 	await flush();
 	expect(calls).toEqual([]);
+});
+
+describe("slices C and D hooks", () => {
+	it("compaction-changed for this session goes to onCompaction", () => {
+		const hub = createEventHub();
+		const { model } = fakeModel();
+		const onCompaction = jest.fn();
+		attachSessionEvents(model as never, hub, { onCompaction });
+		hub.dispatch({ type: "compaction-changed", payload: { chatId: "c1", running: true } });
+		hub.dispatch({ type: "compaction-changed", payload: { chatId: "other", running: false } });
+		hub.dispatch({ type: "compaction-changed", payload: { chatId: "c1", running: "yes" } });
+		expect(onCompaction.mock.calls).toEqual([[true]]);
+	});
+
+	it("each sync gives its record to onSnapshot", async () => {
+		const hub = createEventHub();
+		const { model } = fakeModel();
+		const onSnapshot = jest.fn();
+		attachSessionEvents(model as never, hub, { onSnapshot });
+		hub.dispatch({ type: "record-changed", payload: { chatId: "c1" } });
+		await flush();
+		expect(onSnapshot).toHaveBeenCalledWith({ messages: [], turnInFlight: false });
+	});
+
+	it("error state: a failed read after a reconnect goes to onSyncError", async () => {
+		const hub = createEventHub();
+		const { model } = fakeModel();
+		model.readRecord.mockRejectedValueOnce(new Error("Could not sync the saved session."));
+		const onSyncError = jest.fn();
+		attachSessionEvents(model as never, hub, { onSyncError });
+		hub.resync();
+		await flush();
+		expect(onSyncError).toHaveBeenCalledTimes(1);
+		expect(model.continueIfOwed).not.toHaveBeenCalled();
+	});
+
+	it("a failed read after an event is quiet (the next event or reconnect reads again)", async () => {
+		const hub = createEventHub();
+		const { model } = fakeModel();
+		model.readRecord.mockRejectedValueOnce(new Error("x"));
+		const onSyncError = jest.fn();
+		attachSessionEvents(model as never, hub, { onSyncError });
+		hub.dispatch({ type: "turn-settled", payload: { chatId: "c1" } });
+		await flush();
+		expect(onSyncError).not.toHaveBeenCalled();
+	});
+
+	it("syncSession returns false when the read fails", async () => {
+		const { model } = fakeModel();
+		model.readRecord.mockRejectedValueOnce(new Error("x"));
+		expect(await syncSession(model as never)).toBe(false);
+		expect(await syncSession(model as never)).toBe(true);
+	});
 });

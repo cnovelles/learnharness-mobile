@@ -102,6 +102,8 @@ export interface SessionRecord {
 	messages: LhMessage[];
 	turnInFlight: boolean;
 	turnError?: string;
+	/** The Mac makes the history shorter now (compaction). */
+	compacting: boolean;
 }
 
 export async function readSession(fetchImpl: typeof fetch, id: string): Promise<SessionRecord> {
@@ -115,12 +117,14 @@ export async function readSession(fetchImpl: typeof fetch, id: string): Promise<
 		messages?: unknown;
 		turnInFlight?: unknown;
 		turnError?: unknown;
+		compacting?: unknown;
 	};
 	return {
 		id,
 		title: typeof body.title === "string" ? body.title : "",
 		messages: Array.isArray(body.messages) ? (body.messages as LhMessage[]) : [],
 		turnInFlight: body.turnInFlight === true,
+		compacting: body.compacting === true,
 		...(typeof body.turnError === "string" ? { turnError: body.turnError } : {}),
 	};
 }

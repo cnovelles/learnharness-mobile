@@ -143,4 +143,30 @@ describe("describeError", () => {
 		expect(text).toBe("Something went wrong. Try again.");
 		expect(log).toHaveBeenCalledTimes(1);
 	});
+
+	describe("SessionModel texts for slices C and D (issue 04)", () => {
+		it.each([
+			[
+				"Could not sync the saved session.",
+				"The phone could not read this session from the Mac. Try again.",
+			],
+			["The dismissal failed (500).", "The phone could not skip the question. Try again."],
+			["The steer failed (500).", "The teacher did not get your message. Try again."],
+			["The dismissal failed (401).", "This phone is not paired with the Mac anymore. Pair again."],
+			[
+				"The steer failed (403).",
+				"The phone cannot do this yet. Use LearnHarness on the Mac for it.",
+			],
+		])("maps %j", (raw, text) => {
+			expect(describeError({ message: raw }, log)).toBe(text);
+			expect(log).not.toHaveBeenCalled();
+		});
+
+		it("does not take a text that only looks like the pattern", () => {
+			expect(describeError({ message: "The dismissal failed (500). Stack: x" }, log)).toBe(
+				"Something went wrong. Try again.",
+			);
+			expect(log).toHaveBeenCalled();
+		});
+	});
 });

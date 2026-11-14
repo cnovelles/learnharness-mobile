@@ -14,23 +14,62 @@
  * - Otherwise: continue a turn that the record still owes (for example,
  *   a background job result that came in while no screen was open).
  * - When a reattached turn settles: read the record again.
- * - Leave the screen: stop reading the stream. The turn runs on.
+ * - Leave the screen, or the app goes to the background: stop reading the
+ *   stream. The turn runs on. Back in the foreground, the events channel
+ *   connects again and the sync attaches again (session-events.ts).
+ *
+ * Issue 04 slices C and D:
+ * - While a turn runs, a text is a steer. Queued steers show until the
+ *   teacher takes them. A 409 makes SessionModel send the text as an
+ *   ordinary message.
+ * - Stop: stop reading, then POST /api/activity/abort. A 409 (no turn runs
+ *   anymore) is not an error. Another failure says that the turn still
+ *   runs on the Mac, and the phone attaches again.
+ * - Skip: dismissQuestion with dismissedAnswer. When it fails, the record
+ *   read puts the question back in the dock.
+ * - Compaction: `compacting` from the record and from compaction-changed.
+ *   Sends, answers and retry wait. Reading and Stop still work. While it
+ *   runs, the phone reads the record every 30 s, so a missed end event
+ *   does not lock the screen.
+ * - One banner for every error of the session, with Try again when an
+ *   action applies.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { AppState } from "react-native";
 
 import { useEventHub } from "./server-events-context";
-import { attachSessionEvents } from "./session-events";
+import { attachSessionEvents, syncSession, type SessionEventHooks } from "./session-events";
 import { openingPrompts, readSession, type OpeningPrompts, type SessionRecord } from "./sessions";
 import {
 	SessionModel,
+	dismissedAnswer,
+	endsInFailedTurn,
 	malformedQuestionsOf,
 	pendingQuestionOf,
+	questionDataForCall,
+	visibleQueuedSteers,
+	type SteerQueueItem,
 	type QuestionAnswerData,
 	type QuestionDraft,
 	type SessionState,
 } from "./shared";
 
-import { describeError, type UserMessage } from "./user-error";
+import { SYNC_FAILED, describeError, userMessage, type UserMessage } from "./user-error";
+
+export const ABORT_FAILED = userMessage(
+	"The phone could not stop the turn. It still runs on the Mac. Try again in a moment.",
+);
+export const COMPACTING = userMessage("The Mac is making the history shorter…");
+
+/** How often the phone reads the record while the Mac compacts. */
+export const COMPACTION_RECHECK_MS = 30_000;
+
+/** The session's one error banner. */
+export interface SessionBanner {
+	text: UserMessage;
+	/** What Try again does, or null when no action applies (Close only). */
+	retry: "resend" | "retry-turn" | "sync" | null;
+}
 
 /** An input that the Mac did not accept. Try again sends it again. */
 type Unsent =
@@ -84,6 +123,22 @@ export interface SessionControls {
 	/** Ask the teacher again for a malformed question (the desktop's "retry-question"). */
 	retryQuestion(): Promise<boolean>;
 	clearError(): void;
+	/** A turn runs (the phone streams it). */
+	running: boolean;
+	/** Steers that the teacher did not take yet. */
+	queuedSteers: SteerQueueItem[];
+	/** Stop the running turn on the Mac. */
+	stopTurn(): Promise<void>;
+	/** Skip the waiting question. */
+	skipQuestion(): Promise<void>;
+	/** The Mac makes the history shorter. Sends and answers wait. */
+	compacting: boolean;
+	/** The one error banner, or null. */
+	banner: SessionBanner | null;
+	/** Do the banner's Try again. */
+	retryBanner(): Promise<void>;
+	/** Close the banner. */
+	closeBanner(): void;
 }
 
 /**
@@ -126,15 +181,48 @@ export function useSessionModel(
 	const attached = useRef(false);
 	const hub = useEventHub();
 	const [unsent, setUnsent] = useState<Unsent | null>(null);
+	const [compacting, setCompacting] = useState(record.compacting);
+	/** Errors that are not SessionModel's: a failed abort, a failed sync. */
+	const [notice, setNotice] = useState<SessionBanner | null>(null);
+
+	const hooks = useMemo<SessionEventHooks>(
+		() => ({
+			onSnapshot: (snapshot) =>
+				setCompacting((snapshot as { compacting?: unknown }).compacting === true),
+			onSyncError: () => setNotice({ text: SYNC_FAILED, retry: "sync" }),
+			onCompaction: setCompacting,
+		}),
+		[],
+	);
+	const sync = useCallback(async () => {
+		if (await syncSession(model, hooks)) setNotice((n) => (n?.retry === "sync" ? null : n));
+	}, [model, hooks]);
 
 	const sendText = useCallback(
-		async (text: string) => {
-			// onAccepted makes SessionModel remove the text's own bubble when the
-			// Mac does not accept it, as the desktop does for its opening text.
-			const accepted = await model.send({ type: "text", text }, () => {});
-			setUnsent(accepted ? null : { kind: "text", text });
-			return accepted;
-		},
+		(text: string) =>
+			new Promise<boolean>((resolve) => {
+				// Resolve when the Mac accepts the text, not when the turn ends,
+				// so the composer is free for a steer while the turn runs.
+				let accepted = false;
+				const onAccepted = () => {
+					accepted = true;
+					setUnsent(null);
+					resolve(true);
+				};
+				const s = model.getState().status;
+				// While a turn runs, the text is a steer for that turn.
+				// onAccepted also makes SessionModel remove the text's own bubble
+				// when the Mac does not accept it, as the desktop does.
+				const sent =
+					s === "submitted" || s === "streaming"
+						? model.steer(text, undefined, onAccepted)
+						: model.send({ type: "text", text }, onAccepted);
+				void sent.then((ok) => {
+					if (accepted) return;
+					setUnsent(ok ? null : { kind: "text", text });
+					resolve(ok);
+				});
+			}),
 		[model],
 	);
 
@@ -152,13 +240,38 @@ export function useSessionModel(
 	);
 
 	// Turns that the Mac starts by itself, and records that change without a turn.
-	useEffect(() => attachSessionEvents(model, hub), [model, hub]);
+	useEffect(() => attachSessionEvents(model, hub, hooks), [model, hub, hooks]);
+
+	// While the Mac compacts, read the record from time to time: a missed
+	// end event must not keep the screen waiting for good.
+	useEffect(() => {
+		if (!compacting) return;
+		const timer = setInterval(
+			() => void syncSession(model, { onSnapshot: hooks.onSnapshot }),
+			COMPACTION_RECHECK_MS,
+		);
+		return () => clearInterval(timer);
+	}, [compacting, model, hooks]);
+
+	// iOS stops network work in the background: stop reading the stream
+	// there. The turn runs on; the resync on return attaches again.
+	useEffect(() => {
+		const sub = AppState.addEventListener("change", (next) => {
+			const s = model.getState().status;
+			if (next === "background" && (s === "submitted" || s === "streaming")) model.stop();
+		});
+		return () => sub.remove();
+	}, [model]);
 
 	useEffect(() => {
 		model.setReattachSettled(() => {
 			void model
 				.readRecord()
-				.then((snapshot) => snapshot && model.continueIfOwed(snapshot.messages))
+				.then((snapshot) => {
+					if (!snapshot) return;
+					hooks.onSnapshot?.(snapshot);
+					return model.continueIfOwed(snapshot.messages);
+				})
 				.catch(() => {});
 		});
 		if (attached.current) {
@@ -197,6 +310,71 @@ export function useSessionModel(
 		[state, pending],
 	);
 
+	const running = state.status === "submitted" || state.status === "streaming";
+	const queuedSteers = useMemo(
+		() => visibleQueuedSteers(state.steerQueue, state.nativeMessages),
+		[state.steerQueue, state.nativeMessages],
+	);
+
+	const stopTurn = useCallback(async () => {
+		model.stop();
+		let ok = false;
+		try {
+			const res = await macFetch("/api/activity/abort", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ kind: "turn", id: model.chatId }),
+			});
+			// 409: no turn runs anymore. That is what the learner wanted.
+			ok = res.ok || res.status === 409;
+			await res.text().catch(() => "");
+		} catch {
+			ok = false;
+		}
+		if (ok) {
+			setNotice(null);
+			await sync();
+		} else {
+			setNotice({ text: ABORT_FAILED, retry: null });
+			// The turn still runs: show it again.
+			await model.resumeStream();
+		}
+	}, [model, macFetch, sync]);
+
+	const skipQuestion = useCallback(async () => {
+		if (!pending) return;
+		const qd = questionDataForCall(pending.tool, pending.toolCallId, pending.input);
+		await model.dismissQuestion(
+			pending.toolCallId,
+			dismissedAnswer(qd.kind, qd.question),
+			pending.key,
+		);
+		// A failed skip leaves a skipped answer that the Mac does not have.
+		// The record read puts the question back in the dock.
+		if (model.getState().error) await model.readRecord().catch(() => undefined);
+	}, [model, pending]);
+
+	const retryTurn = useCallback(
+		() =>
+			unsent?.kind === "text"
+				? sendText(unsent.text)
+				: unsent?.kind === "answer"
+					? answer(unsent.toolCallId, unsent.answer, unsent.key)
+					: model.send({ type: "retry" }),
+		[unsent, sendText, answer, model],
+	);
+
+	const banner = useMemo<SessionBanner | null>(() => {
+		if (state.error)
+			return {
+				text: describeError(state.error),
+				// No Try again for a failure that cannot be retried (as on the
+				// desktop): the learner closes it and sends something new.
+				retry: unsent ? "resend" : endsInFailedTurn(state.nativeMessages) ? "retry-turn" : null,
+			};
+		return notice;
+	}, [state.error, state.nativeMessages, unsent, notice]);
+
 	return {
 		state,
 		pending,
@@ -206,12 +384,29 @@ export function useSessionModel(
 		answer,
 		draft: (key) => model.questionDraft(key),
 		saveDraft: (key, draft) => model.saveQuestionDraft(key, draft),
-		retry: () =>
-			unsent?.kind === "text"
-				? sendText(unsent.text)
-				: unsent?.kind === "answer"
-					? answer(unsent.toolCallId, unsent.answer, unsent.key)
-					: model.send({ type: "retry" }),
+		retry: retryTurn,
+		running,
+		queuedSteers,
+		stopTurn,
+		skipQuestion,
+		compacting,
+		banner,
+		async retryBanner() {
+			if (!banner) return;
+			if (banner.retry === "sync") {
+				model.clearError();
+				setNotice(null);
+				await sync();
+			} else if (banner.retry === "resend" || banner.retry === "retry-turn") {
+				// Sends wait while the Mac compacts.
+				if (compacting) return;
+				await retryTurn();
+			}
+		},
+		closeBanner() {
+			model.clearError();
+			setNotice(null);
+		},
 		retryQuestion: () =>
 			malformed
 				? model.send({

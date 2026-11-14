@@ -97,10 +97,17 @@ describe("startSession", () => {
 });
 
 describe("readSession", () => {
-	it("returns the record, the running-turn flag and a kept failure", async () => {
+	it("returns the record, the running-turn flag, the compaction flag and a kept failure", async () => {
 		const messages = [{ role: "user", id: "u1", content: "hi", timestamp: 1 }];
 		const { fetchImpl, calls } = fakeFetch(() =>
-			json({ id: "c1", title: "T", messages, turnInFlight: true, turnError: "Rate limit" }),
+			json({
+				id: "c1",
+				title: "T",
+				messages,
+				turnInFlight: true,
+				turnError: "Rate limit",
+				compacting: true,
+			}),
 		);
 		const record = await readSession(fetchImpl, "c1");
 		expect(calls[0]!.path).toBe("/api/chats/c1");
@@ -110,7 +117,13 @@ describe("readSession", () => {
 			messages,
 			turnInFlight: true,
 			turnError: "Rate limit",
+			compacting: true,
 		});
+	});
+
+	it("error state: a compaction flag that is not true reads as false", async () => {
+		const { fetchImpl } = fakeFetch(() => json({ id: "c1", messages: [], compacting: "yes" }));
+		expect((await readSession(fetchImpl, "c1")).compacting).toBe(false);
 	});
 
 	it("refuses an unsafe id without a request", async () => {

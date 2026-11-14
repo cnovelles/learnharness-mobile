@@ -70,10 +70,38 @@ const GATEWAY_BODIES: Record<string, UserMessage> = {
 	"The LearnHarness server is not reachable.": MAC_NOT_READY,
 };
 
-/** SessionModel's text for a stream that ended before the turn (fork session-core.ts). */
+export const SYNC_FAILED = userMessage(
+	"The phone could not read this session from the Mac. Try again.",
+);
+
+/** SessionModel's own error texts (fork session-core.ts). */
 const SESSION_MODEL_TEXTS: Record<string, UserMessage> = {
 	"The connection dropped before the turn completed.": STREAM_DROPPED,
+	"Could not sync the saved session.": SYNC_FAILED,
 };
+
+/** SessionModel's error texts with a status: "The dismissal failed (500)." */
+const SESSION_MODEL_PATTERNS: [RegExp, UserMessage][] = [
+	[
+		/^The dismissal failed \((\d+)\)\.$/,
+		userMessage("The phone could not skip the question. Try again."),
+	],
+	[
+		/^The steer failed \((\d+)\)\.$/,
+		userMessage("The teacher did not get your message. Try again."),
+	],
+];
+
+function fromPattern(message: string): UserMessage | null {
+	for (const [pattern, text] of SESSION_MODEL_PATTERNS) {
+		const m = pattern.exec(message);
+		if (!m) continue;
+		const status = Number(m[1]);
+		// Some statuses have a better text (for example, 401: pair again).
+		return status === 401 || status === 403 || status === 502 ? BY_STATUS[status]! : text;
+	}
+	return null;
+}
 
 const SLOT_LABELS: Record<string, string> = { strong: "Strong", cheap: "Cheap", vision: "Vision" };
 
@@ -156,6 +184,7 @@ export function describeError(
 			const known =
 				SESSION_MODEL_TEXTS[e.message] ??
 				GATEWAY_BODIES[e.message] ??
+				fromPattern(e.message) ??
 				fromEnvelope(parseJson(e.message));
 			if (known) return known;
 		}

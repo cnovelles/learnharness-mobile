@@ -6,8 +6,10 @@
  * turn with a [DONE] stream; the shared SessionModel then reads the record.
  * The real stream format is covered by tests/integration (the real server).
  */
-import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
 import path from "node:path";
+
+import { FakeMac, PROBE, type Rec, pairedConnection } from "./helpers/fake-mac";
 
 const mockKeychain = new Map<string, string>();
 jest.mock("expo-secure-store", () => ({
@@ -18,9 +20,13 @@ jest.mock("expo-secure-store", () => ({
 	deleteItemAsync: async (key: string) => void mockKeychain.delete(key),
 }));
 jest.mock("expo-device", () => ({ deviceName: "Test iPhone" }));
+// Each pinned fetch keeps the fake Mac of its own test, so work that an
+// earlier test left running cannot reach the next test's Mac.
 jest.mock("@/lib/native-pinned-fetch", () => ({
-	nativePinnedFetch: () => (url: string, init: RequestInit) =>
-		(globalThis.fetch as typeof fetch)(url, init),
+	nativePinnedFetch: () => {
+		const f = globalThis.fetch as typeof fetch;
+		return (url: string, init: RequestInit) => f(url, init);
+	},
 }));
 jest.mock("expo-camera", () => ({
 	CameraView: () => null,
@@ -28,183 +34,12 @@ jest.mock("expo-camera", () => ({
 }));
 
 const APP = path.resolve(__dirname, "../src/app");
-const PIN = `sha256/${"A".repeat(42)}Q=`;
-const MAC = "https://192.168.1.20:47821";
-
-const PROBE = {
-	question: "What mainly causes the ocean tides on Earth?",
-	options: [
-		{ label: "The gravity of the Moon", value: "moon" },
-		{ label: "The wind over the oceans", value: "wind" },
-	],
-	explanation: "The Moon's gravity pulls the near side of the oceans more than the far side.",
-	correctAnswer: "moon",
-};
-
-type Rec = Record<string, unknown>;
-
-/** The fake Mac: one session store, scripted turns, and a log of POST /api/chat inputs. */
-class FakeMac {
-	chats = new Map<string, { title: string; messages: Rec[]; turnError?: string }>();
-	inputs: Rec[] = [];
-	/** The next POST /api/chat gets this answer and saves nothing (a gate refusal). */
-	refuseNext: { status: number; body: Rec } | null = null;
-	turns: ((chatId: string, input: Rec) => Rec[])[] = [];
-	private seq = 0;
-	private listeners: ReadableStreamDefaultController<Uint8Array>[] = [];
-
-	/** Send one event on every open /api/events connection. */
-	emit(type: string, payload: Rec) {
-		const bytes = new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`);
-		for (const c of this.listeners) c.enqueue(bytes);
-	}
-
-	get eventListeners() {
-		return this.listeners.length;
-	}
-
-	add(title: string, messages: Rec[] = []) {
-		const id = `chat_${++this.seq}`;
-		this.chats.set(id, { title, messages });
-		return id;
-	}
-
-	assistant(content: Rec[]): Rec {
-		return {
-			role: "assistant",
-			id: `m_${++this.seq}`,
-			content,
-			api: "openai-completions",
-			provider: "custom",
-			model: "fake",
-			usage: {
-				input: 1,
-				output: 1,
-				cacheRead: 0,
-				cacheWrite: 0,
-				totalTokens: 2,
-				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-			},
-			stopReason: content.some((c) => c.type === "toolCall") ? "toolUse" : "stop",
-			timestamp: Date.now(),
-		};
-	}
-
-	private json(body: unknown, status = 200) {
-		return new Response(JSON.stringify(body), {
-			status,
-			headers: { "content-type": "application/json" },
-		});
-	}
-
-	private done() {
-		return new Response("data: [DONE]\n\n", {
-			status: 200,
-			headers: { "content-type": "text/event-stream" },
-		});
-	}
-
-	handle = async (url: string, init?: RequestInit): Promise<Response> => {
-		const u = new URL(url);
-		expect(u.origin).toBe(MAC);
-		expect(new Headers(init?.headers).get("authorization")).toBe(`Bearer ${"t".repeat(43)}`);
-		const method = (init?.method ?? "GET").toUpperCase();
-		const p = u.pathname;
-		if (p === "/phone/v1/ping") return this.json({ ok: true });
-		if (p === "/api/events") {
-			const body = new ReadableStream<Uint8Array>({
-				start: (c) => void this.listeners.push(c),
-			});
-			return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
-		}
-		if (p === "/api/chats" && method === "GET")
-			return this.json({
-				chats: [...this.chats].map(([id, c]) => ({
-					id,
-					title: c.title,
-					createdAt: "2026-11-14T10:00:00.000Z",
-					updatedAt: "2026-11-14T10:00:00.000Z",
-					kind: "teach",
-					messageCount: c.messages.length,
-					phase: "probe",
-					pendingQuestion: false,
-					pendingProblem: false,
-					busy: false,
-					compacting: false,
-				})),
-			});
-		if (p === "/api/chats" && method === "POST") {
-			const body = JSON.parse(String(init?.body)) as { title: string };
-			const id = this.add(body.title);
-			return this.json({ id, title: body.title });
-		}
-		const record = p.match(/^\/api\/chats\/([^/]+)$/);
-		if (record) {
-			const chat = this.chats.get(record[1]!);
-			if (!chat) return this.json({ error: "Not found" }, 404);
-			return this.json({
-				id: record[1],
-				title: chat.title,
-				messages: chat.messages,
-				turnInFlight: false,
-				...(chat.turnError ? { turnError: chat.turnError } : {}),
-			});
-		}
-		if (/^\/api\/chats\/[^/]+\/stream$/.test(p)) return this.done();
-		if (p === "/api/jobs") return this.json({ turnInFlight: false, jobs: [] });
-		if (p === "/api/chat" && method === "POST") {
-			const body = JSON.parse(String(init?.body)) as { chatId: string; input: Rec };
-			this.inputs.push(body.input);
-			if (this.refuseNext) {
-				const { status, body: refusal } = this.refuseNext;
-				this.refuseNext = null;
-				return this.json(refusal, status);
-			}
-			const chat = this.chats.get(body.chatId)!;
-			const now = Date.now();
-			if (body.input.type === "text")
-				chat.messages.push({
-					role: "user",
-					id: `u_${++this.seq}`,
-					content: body.input.text,
-					timestamp: now,
-				});
-			if (body.input.type === "answer") {
-				const answer = body.input.answer as Rec;
-				chat.messages.push({
-					role: "toolResult",
-					id: `r_${++this.seq}`,
-					toolCallId: body.input.toolCallId,
-					toolName: answer.tool,
-					content: [{ type: "text", text: JSON.stringify(answer) }],
-					details: answer,
-					isError: false,
-					timestamp: now,
-				});
-			}
-			const turn = this.turns.shift();
-			if (turn) chat.messages.push(...turn(body.chatId, body.input));
-			return this.done();
-		}
-		return this.json({ error: `fake Mac: no route ${method} ${p}` }, 500);
-	};
-}
 
 let mac: FakeMac;
 
 beforeEach(() => {
 	mockKeychain.clear();
-	mockKeychain.set(
-		"lh.connection.v1",
-		JSON.stringify({
-			name: "Studio Mac",
-			urls: [MAC],
-			pin: PIN,
-			token: "t".repeat(43),
-			deviceId: "dev_1",
-			pairedAt: "2026-11-14T00:00:00.000Z",
-		}),
-	);
+	mockKeychain.set("lh.connection.v1", pairedConnection());
 	mac = new FakeMac();
 	globalThis.fetch = jest.fn(mac.handle) as unknown as typeof fetch;
 });
@@ -238,7 +73,10 @@ it("a new session sends the first text, shows the probe, sends the answer and sh
 	expect(await screen.findByTestId("dock-question")).toBeTruthy();
 	expect(screen).toHavePathname("/session/chat_1");
 	expect(mac.inputs).toEqual([{ type: "text", text: "Teach me how the tides work." }]);
-	expect(screen.getByText("Teach me how the tides work.")).toBeTruthy();
+	// In the transcript (the header shows the same text as the session title).
+	expect(
+		within(screen.getByTestId("transcript")).getByText("Teach me how the tides work."),
+	).toBeTruthy();
 
 	// The answer needs a choice. Then choose, set 90%, and send.
 	expect(screen.getByTestId("submit-answer")).toBeDisabled();
@@ -259,9 +97,8 @@ it("a new session sends the first text, shows the probe, sends the answer and sh
 	});
 	// The answered card replaces the dock; the composer waits for text.
 	await waitFor(() => expect(screen.queryByTestId("dock-question")).toBeNull());
-	expect(
-		screen.getByText(/Your answer: The gravity of the Moon \(90% sure\)\. Correct\./),
-	).toBeTruthy();
+	expect(screen.getByText("CORRECT")).toBeTruthy();
+	expect(screen.getByText("90% sure")).toBeTruthy();
 	expect(await screen.findByTestId("composer")).toBeTruthy();
 });
 
@@ -357,7 +194,7 @@ describe("error states", () => {
 		expect(await screen.findByText(/Your Mac has no Strong model set\./)).toBeTruthy();
 		// No raw server text, and no phone-only bubble for the refused text.
 		expect(screen.queryByText(/models_not_configured|No model configured/)).toBeNull();
-		expect(screen.queryByText(OPENING)).toBeNull();
+		expect(within(screen.getByTestId("transcript")).queryByText(OPENING)).toBeNull();
 		// The text is back in the composer.
 		expect(screen.getByTestId("composer").props.value).toBe(OPENING);
 
@@ -373,6 +210,10 @@ describe("error states", () => {
 	it("a saved turn that failed shows plain text, not the raw error, and Try again sends retry", async () => {
 		const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
 		mac.chats.get(id)!.turnError = "500 upstream_error: provider exploded at line 42";
+		// The saved record ends in the failed response (stopReason "error").
+		mac.chats
+			.get(id)!
+			.messages.push({ ...mac.assistant([]), stopReason: "error", errorMessage: "exploded" });
 		mac.turns.push(() => [mac.assistant([{ type: "text", text: "Here we go again." }])]);
 
 		await renderRouter(APP, { initialUrl: `/session/${id}` });
@@ -482,5 +323,135 @@ describe("teach-phase checks", () => {
 		await fireEvent.press(screen.getByTestId("submit-answer"));
 		expect(await screen.findByText("Right. Next step.")).toBeTruthy();
 		expect((mac.inputs[1]!.answer as Rec).readingThinking).toBe("Near side.");
+	});
+});
+
+describe("phase, lesson plan and answered cards (slice B)", () => {
+	const TREE = {
+		nodes: [
+			{ id: "pull", title: "Uneven pull" },
+			{ id: "bulges", title: "Two bulges" },
+		],
+		edges: [{ from: "pull", to: "bulges" }],
+		version: 1,
+	};
+	const result = (id: string, toolCallId: string, toolName: string, details: unknown) => ({
+		role: "toolResult",
+		id,
+		toolCallId,
+		toolName,
+		content: [{ type: "text", text: "ok" }],
+		details,
+		isError: false,
+		timestamp: 2,
+	});
+
+	/** A session after the probe: handoff, plan, and (optional) a first check. */
+	function plannedSession({ withCheck }: { withCheck: boolean }) {
+		const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
+		const chat = mac.chats.get(id)!;
+		chat.messages.push(
+			mac.assistant([{ type: "toolCall", id: "pd", name: "probe_done", arguments: {} }]),
+			result("r_pd", "pd", "probe_done", { ok: true }),
+			{
+				role: "custom",
+				id: `steer_probe_${id}`,
+				customType: "probe-handoff",
+				content: "hand off",
+				display: true,
+				details: { chatId: id },
+				timestamp: 3,
+			},
+			mac.assistant([
+				{ type: "text", text: "Here is the plan." },
+				{ type: "toolCall", id: "p1", name: "plan_init", arguments: { mermaid: "graph TD" } },
+			]),
+			result("r_p1", "p1", "plan_init", { ok: true, tree: TREE }),
+			// The teacher presents the plan after the tool result. (A record that ends in
+			// a tool result makes the phone ask the Mac to continue.)
+			mac.assistant([{ type: "text", text: "Does this plan look right?" }]),
+		);
+		if (withCheck)
+			chat.messages.push(
+				{ role: "user", id: "u_2", content: "Go.", timestamp: 4 },
+				mac.assistant([
+					{ type: "text", text: "The pull is uneven." },
+					{
+						type: "toolCall",
+						id: "call_check",
+						name: "quiz",
+						arguments: { ...PROBE, type: "predict", nodeId: "pull" },
+					},
+				]),
+			);
+		return id;
+	}
+
+	it("the header shows the phase; a new session is Probing and has no Plan button", async () => {
+		const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
+		mac.chats.get(id)!.messages.push(mac.assistant([{ type: "text", text: "Hi." }]));
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByText("Hi.")).toBeTruthy();
+		expect(screen.getByTestId("session-phase")).toHaveTextContent("PROBING");
+		expect(screen.queryByTestId("open-plan")).toBeNull();
+	});
+
+	it("after the plan: Planning, the plan divider with the step count, and the Plan sheet with upcoming steps", async () => {
+		const id = plannedSession({ withCheck: false });
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByText("Here is the plan.")).toBeTruthy();
+		expect(screen.getByTestId("session-phase")).toHaveTextContent("PLANNING");
+		expect(screen.getByText("PLAN · 2 STEPS")).toBeTruthy();
+
+		await fireEvent.press(screen.getByTestId("open-plan"));
+		expect(await screen.findByTestId("plan-sheet")).toBeTruthy();
+		expect(screen.getByTestId("plan-step-status-pull")).toHaveTextContent("Next");
+		expect(screen.getByTestId("plan-step-status-bulges")).toHaveTextContent("Next");
+		await fireEvent.press(screen.getByTestId("plan-close"));
+		await waitFor(() => expect(screen.queryByTestId("plan-sheet")).toBeNull());
+	});
+
+	it("the plan row in the transcript opens the same sheet", async () => {
+		const id = plannedSession({ withCheck: false });
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		await fireEvent.press(await screen.findByTestId("plan-p1"));
+		expect(await screen.findByTestId("plan-step-pull")).toBeTruthy();
+	});
+
+	it("after the first check: Teaching, the teach divider, the check's step is current, and the answered card", async () => {
+		const id = plannedSession({ withCheck: true });
+		mac.turns.push(() => [mac.assistant([{ type: "text", text: "Next step." }])]);
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByTestId("dock-question")).toBeTruthy();
+		expect(screen.getByTestId("session-phase")).toHaveTextContent("TEACHING");
+		expect(screen.getByTestId("phase-divider-teach")).toBeTruthy();
+
+		await fireEvent.press(screen.getByTestId("open-plan"));
+		expect(screen.getByTestId("plan-step-status-pull")).toHaveTextContent("Now");
+		await fireEvent.press(screen.getByTestId("plan-close"));
+
+		await fireEvent.press(screen.getByTestId("option-wind"));
+		await fireEvent.press(screen.getByTestId("submit-answer"));
+		expect(await screen.findByText("Next step.")).toBeTruthy();
+		expect(screen.getByText("PREDICTION")).toBeTruthy();
+		expect(screen.getByText("INCORRECT")).toBeTruthy();
+		// The explanation waits behind Why.
+		expect(screen.queryByText(PROBE.explanation)).toBeNull();
+		await fireEvent.press(screen.getByTestId("why-call_check"));
+		expect(screen.getByText(PROBE.explanation)).toBeTruthy();
+	});
+
+	it("error state: a malformed answer record shows a plain line and no raw data", async () => {
+		const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
+		mac.chats
+			.get(id)!
+			.messages.push(
+				mac.assistant([{ type: "toolCall", id: "call_probe", name: "probe", arguments: PROBE }]),
+				result("r_bad", "call_probe", "probe", { weird: "secret_raw_value" }),
+				mac.assistant([{ type: "text", text: "Moving on." }]),
+			);
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByText("Answered. The phone cannot show this answer.")).toBeTruthy();
+		expect(screen.queryByText(/secret_raw_value/)).toBeNull();
 	});
 });

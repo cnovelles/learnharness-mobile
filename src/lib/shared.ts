@@ -3,7 +3,14 @@
  * (../learnharness, see metro.config.js). Import shared code from here only,
  * so one file shows what the phone takes from the fork.
  */
-export { SessionModel, type SessionState, type SessionStatus } from "@lh/components/session-core";
+export {
+	SessionModel,
+	visibleQueuedSteers,
+	type SessionRecordSnapshot,
+	type SessionState,
+	type SessionStatus,
+	type SteerQueueItem,
+} from "@lh/components/session-core";
 export {
 	AUTH_PROVIDER_KEYS,
 	CLAUDE_CODE_PROVIDER,
@@ -22,6 +29,8 @@ export {
 	malformedQuestionsOf,
 	pendingQuestionOf,
 	phaseAt3Lh,
+	phaseTimeline,
+	teachStepIndex,
 	questionNeedsReveal,
 	projectView,
 	questionDataForCall,

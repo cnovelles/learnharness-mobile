@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (issue 04 slice A done; slice B next).
+Last update: 2026-11-14 (issue 04 slices B, C and D done; slice E next).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-14 (issue 04 slice A done; slice B next).
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 04 slice B (lesson map as a list sheet, phase, answered cards), then C (steer, Stop in the header, Skip in the dock, retry gate, foreground), D (compaction, one error banner), E (Maestro probe → plan → teach → check). Slice 0 (error states, `25a442c`) and slice A (checks behind the reveal, `d5d4581`) are done. The plan and the error states of each slice are in `docs/ISSUES.md` (issue 04). Jest: 196 pass. Not run since `25a442c`: `npm run test:integration` (needs the fork dev server stopped). Not checked on the Simulator yet: the new error texts and the reveal.
+**Next step:** issue 04 slice E: the Maestro E2E probe → plan → teach → check (through the reveal) → the answered card, and a Maestro case for `models_not_configured`. Slices 0, A, B (phase, lesson map sheet, answered cards), C (steer, Stop, Skip, retry gate, foreground) and D (compaction, one banner) are done; details in `docs/ISSUES.md` (issue 04). Jest: 261 pass. Not run since `25a442c`: `npm run test:integration` (needs the fork dev server stopped). Not checked on the Simulator yet: slices A to D.
 
 **Facts found during the work**
 

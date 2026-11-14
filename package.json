@@ -87,6 +87,12 @@
       "^.+\\.mjs$": "babel-jest"
     },
     "globalSetup": "<rootDir>/tests/setup/esm-to-cjs.cjs",
+    "fakeTimers": {
+      "doNotFake": [
+        "nextTick",
+        "queueMicrotask"
+      ]
+    },
     "testPathIgnorePatterns": [
       "/node_modules/",
       "<rootDir>/tests/integration/"

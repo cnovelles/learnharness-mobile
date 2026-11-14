@@ -1,10 +1,37 @@
 /**
  * Transcript rows for the phone: a flat list from the shared view messages
- * (projectView). Issue 03 shows text, reasoning, questions and a short line
- * for other tools. Rich rendering (Markdown, math, lesson map, visuals)
- * comes in issue 05.
+ * (projectView). Rows: text, reasoning, question cards, the lesson plan,
+ * the phase dividers and a short line for other tools. Rich rendering
+ * (Markdown, math, the plan diagram, visuals) comes in issue 05.
+ *
+ * Phase dividers (the desktop rules, fork components/chat.tsx):
+ * - Planning: at the probe-to-teach handoff marker. It shows the step
+ *   count of the first plan that follows ("Plan · 4 steps").
+ * - Teaching: where the first tagged check is called (phaseTimeline). When
+ *   the call is in a later step of the message, the divider goes at that
+ *   step (teachStepIndex), after the plan text.
  */
-import { QUESTION_TOOLS, type LhViewMessage, type QuestionAnswerData } from "./shared";
+import { presentAnswer, type AnsweredCard } from "./answer-card";
+import { planPartTree } from "./plan";
+import {
+	QUESTION_TOOLS,
+	phaseTimeline,
+	teachStepIndex,
+	type LhViewMessage,
+	type Phase3,
+} from "./shared";
+
+export type QuestionStatus =
+	/** The question waits for the learner. */
+	| "waiting"
+	/** The call cannot be shown as a question (bad input); the learner can ask again. */
+	| "malformed"
+	/** The learner skipped the question. */
+	| "skipped"
+	/** An answer that the phone can show as a card. */
+	| "answered"
+	/** An answer record that the phone cannot read. It shows a plain line, never raw data. */
+	| "unreadable";
 
 export type TranscriptRow =
 	| { kind: "user"; id: string; text: string }
@@ -15,29 +42,17 @@ export type TranscriptRow =
 			id: string;
 			tool: string;
 			question: string;
-			/** null while the question waits. */
-			answer: string | null;
-			/** The call cannot be shown as a question (bad input); the learner can ask again. */
-			malformed?: boolean;
-			grade?: "correct" | "wrong";
-			confidence?: number;
+			status: QuestionStatus;
+			/** Only for status "answered". */
+			card?: AnsweredCard;
 	  }
+	| { kind: "plan"; id: string; steps: number }
+	| { kind: "divider"; id: string; phase: Exclude<Phase3, "probe">; steps?: number }
+	/** Compaction: "moment" where it ran, "cut" where the kept history starts. */
+	| { kind: "compaction"; id: string; at: "moment" | "cut"; tokensBefore?: number }
 	| { kind: "tool"; id: string; name: string; failed: boolean };
 
 const isQuestionTool = (name: string) => (QUESTION_TOOLS as readonly string[]).includes(name);
-
-function answerText(a: QuestionAnswerData): string {
-	if ((a as { dismissed?: unknown }).dismissed === true) return "Skipped";
-	if (a.dontKnow) return "I don't know";
-	const parts = [...a.answers.map((o) => o.label)];
-	if (a.other) parts.push(a.other);
-	if (a.text) parts.push(a.text);
-	return parts.join(", ") || "Answered";
-}
-
-function isAnswer(value: unknown): value is QuestionAnswerData {
-	return typeof value === "object" && value !== null && "kind" in value && "answers" in value;
-}
 
 export interface TranscriptOptions {
 	/** Question calls with bad input (the shared malformedQuestionsOf). */
@@ -46,13 +61,71 @@ export interface TranscriptOptions {
 	dockCallId?: string;
 }
 
+/** The step count of the first plan in or after message `from`. */
+function stepsAfter(messages: readonly LhViewMessage[], from: number): number | undefined {
+	for (let m = from; m < messages.length; m++)
+		for (const part of messages[m]!.parts) {
+			const tree = planPartTree(part);
+			if (tree) return tree.nodes.length;
+		}
+	return undefined;
+}
+
+type Part = LhViewMessage["parts"][number];
+
+function questionRow(
+	part: Part,
+	id: string,
+	name: string,
+	malformedCallIds: ReadonlySet<string>,
+): TranscriptRow {
+	const input = (part.input ?? {}) as { question?: unknown };
+	const question = typeof input.question === "string" ? input.question : "";
+	if (part.state !== "output-available")
+		return {
+			kind: "question",
+			id,
+			tool: name,
+			question,
+			status: part.toolCallId && malformedCallIds.has(part.toolCallId) ? "malformed" : "waiting",
+		};
+	const presented = presentAnswer(part.output, part.input, name);
+	if (presented === "skipped")
+		return { kind: "question", id, tool: name, question, status: "skipped" };
+	if (!presented) return { kind: "question", id, tool: name, question, status: "unreadable" };
+	return {
+		kind: "question",
+		id,
+		tool: name,
+		question: presented.question || question,
+		status: "answered",
+		card: presented,
+	};
+}
+
 export function transcriptRows(
 	messages: readonly LhViewMessage[],
 	{ malformedCallIds = new Set(), dockCallId }: TranscriptOptions = {},
 ): TranscriptRow[] {
 	const rows: TranscriptRow[] = [];
-	for (const m of messages) {
+	const phases = phaseTimeline(messages);
+	messages.forEach((m, mi) => {
+		if (m.role === "user" && m.parts.some((p) => p.type === "data-probe-handoff")) {
+			const steps = stepsAfter(messages, mi + 1);
+			rows.push({
+				kind: "divider",
+				id: `plan-${m.id}`,
+				phase: "plan",
+				...(steps ? { steps } : {}),
+			});
+			return;
+		}
+		const teachSeam =
+			m.role === "assistant" && mi > 0 && phases[mi] === "teach" && phases[mi - 1] !== "teach";
+		const teachAt = teachSeam ? teachStepIndex(m.parts) : -2;
+		if (teachAt === -1) rows.push({ kind: "divider", id: `teach-${m.id}`, phase: "teach" });
 		m.parts.forEach((part, i) => {
+			if (i === teachAt) rows.push({ kind: "divider", id: `teach-${m.id}`, phase: "teach" });
 			const id = part.id ?? part.toolCallId ?? `${m.id}-${i}`;
 			const text = typeof part.text === "string" ? part.text : "";
 			const streaming = part.state === "streaming";
@@ -61,6 +134,15 @@ export function transcriptRows(
 				rows.push(
 					m.role === "user" ? { kind: "user", id, text } : { kind: "text", id, text, streaming },
 				);
+			} else if (part.type === "data-compaction" || part.type === "data-compaction-cut") {
+				const before = (part.data as { details?: { tokensBefore?: unknown } } | undefined)?.details
+					?.tokensBefore;
+				rows.push({
+					kind: "compaction",
+					id,
+					at: part.type === "data-compaction" ? "moment" : "cut",
+					...(typeof before === "number" && before > 0 ? { tokensBefore: before } : {}),
+				});
 			} else if (part.type === "reasoning") {
 				if (text.trim() || streaming) rows.push({ kind: "reasoning", id, text, streaming });
 			} else if (part.type.startsWith("tool-")) {
@@ -72,28 +154,23 @@ export function transcriptRows(
 						part.state !== "output-available"
 					)
 						return;
-					const input = (part.input ?? {}) as { question?: unknown };
-					const output = part.state === "output-available" ? part.output : undefined;
-					const answer = isAnswer(output) ? output : null;
-					rows.push({
-						kind: "question",
-						id,
-						tool: name,
-						question: typeof input.question === "string" ? input.question : "",
-						answer: answer ? answerText(answer) : null,
-						...(!answer && part.toolCallId && malformedCallIds.has(part.toolCallId)
-							? { malformed: true }
-							: {}),
-						...(answer && typeof answer.correct === "boolean"
-							? { grade: answer.correct ? "correct" : "wrong" }
-							: {}),
-						...(answer && typeof answer.confidence === "number"
-							? { confidence: answer.confidence }
-							: {}),
-					});
+					rows.push(questionRow(part, id, name, malformedCallIds));
+				} else if (name.startsWith("plan_")) {
+					const tree = planPartTree(part);
+					if (tree) rows.push({ kind: "plan", id, steps: tree.nodes.length });
+					else
+						rows.push({
+							kind: "tool",
+							id,
+							name,
+							failed:
+								part.state === "output-error" ||
+								(part.state === "output-available" &&
+									(part.output as { ok?: unknown } | null)?.ok === false),
+						});
 				} else rows.push({ kind: "tool", id, name, failed: part.state === "output-error" });
 			}
 		});
-	}
+	});
 	return rows;
 }
