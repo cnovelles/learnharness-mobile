@@ -23,7 +23,7 @@ Acceptance: integration test passes; manual window check done; never touches the
 
 Result (fork commits `2657a55`, `78bb2bf`, `82fdb3e`): security fixes added (per-code pairing lockout; revoke closes open streams). CI job `phone-integration` added; it runs `npm run test:phone-integration`, which passes locally, also against upstream v0.6.1. Earlier result (`2657a55`): `npm run test:phone-integration` passes (8 tests). The window check found two bugs: the device list did not update after a pairing, and the spent QR code stayed on screen. Both are fixed and checked in the real window. The allowlist now matches the real routes. "Copy pairing text" (from 02) is done.
 
-## 01b HTTPS with certificate pinning `doing`
+## 01b HTTPS with certificate pinning `done`
 
 Blocked by: 01. User decision 2026-11-14: "Tailscale + LAN TLS now".
 
@@ -43,10 +43,10 @@ State (fork `8c1744d`, phone see PRD Status): all code and tests done.
 - Certificate: own `node:crypto` code (user choice), P-256, no new dependency.
 - Phone library: a local Swift Expo module (`modules/pinned-fetch`). The library option does not fit (TrustKit refuses self-signed certificates and hooks only React Native networking).
 - Tests: fork 22 + 7 + 9 integration; phone 86 Jest; `npm run test:native-pin` checks the Swift pin check and URLSession on macOS against a real HTTPS server.
-- Left: compile `PinnedFetchModule.swift` in the iOS build and check pairing on the Simulator. Xcode 26.6 is installed; the build waits for the iOS 26.5 platform (see PRD Status).
+- Simulator check (2026-11-14, Xcode 26.6, iOS 26.5 SDK): the iOS build compiles `PinnedFetchModule.swift` with 0 errors. Pairing works over HTTPS with the pin: the app reached the Mac, got "connected", and the Mac listed the phone.
 - Follow-up for the 02 screens: show `wrongCertificate` (another device at the Mac's address, or a new certificate on the Mac) on the home screen. `src/app` was not changed in 01b.
 
-## 02 Phone pairing `doing`
+## 02 Phone pairing `done`
 
 Blocked by: 01, 01b.
 
@@ -61,7 +61,12 @@ Blocked by: 01, 01b.
 
 Acceptance: in the iOS Simulator, pair with the fork through the paste field; ping shows "connected"; removing the device on the Mac makes the phone ask to pair again.
 
-State (commit `ce6da79`): all code and the 52 Jest tests are done, including an app-shell test of the same acceptance flow with a fake Mac. Left: the Simulator check. Xcode 26.6 is installed; the build waits for the iOS 26.5 platform (see PRD Status).
+State: done. Simulator check passed on 2026-11-14: the paste field paired with the fork (HTTPS with the pin), the home screen showed "Connected to MacBook-Pro-10.local.", and after "Remove" on the Mac the next ping showed "This phone was removed on the Mac. Pair again."
+
+Found in the check and fixed:
+
+- iOS changes typed straight quotes to curly quotes, also with `autoCorrect={false}`. The parser refused the text ("This is not a LearnHarness pairing code."). `parsePairingPayload` now changes curly double quotes back to straight quotes (test in `tests/pairing.test.ts`).
+- The paste field placeholder showed `{"lh":1,...}`. It now shows `{"lh":2,...}`.
 
 ## 03 First teaching turn on the phone (mode 1) `todo`
 

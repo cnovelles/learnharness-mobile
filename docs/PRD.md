@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14.
+Last update: 2026-11-14 (Simulator check for 01b and 02 passed).
 
 **Done**
 
@@ -29,16 +29,18 @@ Last update: 2026-11-14.
   - `metro.config.js`: watches `../learnharness`, maps `node:crypto` to `src/shims/node-crypto.ts`.
   - `src/shims/node-crypto.ts` (SHA-256 via `@noble/hashes`), `src/shims/polyfills.ts` (crypto, DOMException).
   - `src/lib/pairing.ts`: parse QR payload (protocol 2: pin required, addresses checked with `new URL()`, https origins only), pair, find reachable address, `remoteFetch`. Every request goes through a `PinnedFetch`. A server that fails the pin gets nothing, and its answers never delete the pairing.
-  - `modules/pinned-fetch`: local Expo module (Swift). The pin check (`PinCheck.swift`) and the URLSession (`PinnedSession.swift`) have no Expo import. `npm run test:native-pin` compiles them for macOS and checks them against a real HTTPS server: the right pin works, and a server with another certificate gets no request. `PinnedFetchModule.swift` (the Expo wrapper) is not compiled yet: the iOS build is blocked (see below). Why not a library: `react-native-ssl-public-key-pinning` uses TrustKit, which refuses a self-signed certificate before the pin check and needs 2 pins, and it hooks only React Native's networking, not Expo's `fetch`.
+  - `modules/pinned-fetch`: local Expo module (Swift). The pin check (`PinCheck.swift`) and the URLSession (`PinnedSession.swift`) have no Expo import. `npm run test:native-pin` compiles them for macOS and checks them against a real HTTPS server: the right pin works, and a server with another certificate gets no request. `PinnedFetchModule.swift` (the Expo wrapper) compiles in the iOS build and works in the Simulator. Why not a library: `react-native-ssl-public-key-pinning` uses TrustKit, which refuses a self-signed certificate before the pin check and needs 2 pins, and it hooks only React Native's networking, not Expo's `fetch`.
   - `src/lib/native-pinned-fetch.ts`: the app's `PinnedFetch` (the native module). `connection-context.tsx` uses it.
   - `src/lib/connection-store.ts` (Keychain, this device only), `src/lib/connection-monitor.ts` (ping on open, on foreground, every 30 s; 401 deletes the token), `src/lib/connection-context.tsx`.
   - Screens: `src/app/_layout.tsx` (polyfills first, `Stack.Protected` guards), `index.tsx` (status), `pair.tsx` (QR scan + paste), `settings.tsx` (Mac, address in use, "Forget this Mac"). `src/components/ui.tsx`.
   - `app.json`: bundle identifier `dev.local.learnharnessmobile`, camera text, local network text, ATS local networking.
-  - Tests: Jest via jest-expo, `npm test`, 86 pass (pairing with a fake pinned network, the module's JS side, crypto shim against the fork's real fingerprints, store, monitor, app shell with `expo-router/testing-library`). `npx tsc --noEmit` and `npx expo lint` are clean.
-  - **iOS build (2026-11-14):** Xcode 26.6 is now in `/Applications` (this Mac is Intel, x86_64). Xcode 26.3 could not compile `expo-modules-jsi`. With 26.6, CocoaPods and the build start; the podspec of `modules/pinned-fetch` needed a `homepage` (commit `8932754`). The last build stopped because the iOS 26.5 platform was not installed ("Xcode > Settings > Components"). The user is installing it. `xcodebuild -downloadPlatform iOS` can also install it. The installed Simulator runtime is iOS 26.3.1; the Simulator is "iPhone 17 Pro Max" (`26DE96FB-EDAA-41B9-A3D4-132D0819A505`). Run CocoaPods with `LANG=en_US.UTF-8`, or `pod install` fails with an encoding error.
+  - Tests: Jest via jest-expo, `npm test`, 105 pass (with the feature flag tests of issue 17; pairing with a fake pinned network, the module's JS side, crypto shim against the fork's real fingerprints, store, monitor, app shell with `expo-router/testing-library`). `npx tsc --noEmit` and `npx expo lint` are clean.
+  - **iOS build (2026-11-14):** Xcode 26.6 and the iOS 26.5 platform are installed (this Mac is Intel, x86_64). `LANG=en_US.UTF-8 npx expo run:ios --device 26DE96FB-EDAA-41B9-A3D4-132D0819A505 --no-bundler` builds with 0 errors, including `PinnedFetchModule.swift`. The Simulator is "iPhone 17 Pro Max" (`26DE96FB-EDAA-41B9-A3D4-132D0819A505`). Run CocoaPods with `LANG=en_US.UTF-8`, or `pod install` fails with an encoding error.
+  - **Simulator check for 01b and 02 passed (2026-11-14):** pairing through the paste field over HTTPS with the pin, "connected", and after "Remove" on the Mac the app asks to pair again. Two fixes from the check: the parser accepts curly double quotes (iOS smart punctuation changes typed quotes, also with `autoCorrect={false}`), and the placeholder shows protocol 2.
   - **Manual check setup:** keep the test data in a temporary folder (`LH_DATA_DIR`, `LH_AUTH_FILE`). The dev shell keeps Phone Access state in the `LearnHarness-dev` userData folder, not in the real one. Electron waits only 30 s for `next dev`, and the first compile can take longer while an iOS build runs. So start `npm run dev` first, load `http://localhost:3000` once, then start `LH_DEV_URL=http://localhost:3000 npx electron .`. Start Metro with `npx expo start` (the app was built with `--no-bundler`).
+  - **Metro on this Mac does not see file changes** (no watchman, and the fallback watcher missed new and changed files). After a change, stop Metro, start it again with `npx expo start --clear`, and reload the app. In the Simulator, typing with the simulator tool is more reliable than the Paste menu.
 
-**Next step:** when iOS 26.5 is installed, run `LANG=en_US.UTF-8 npx expo run:ios --device 26DE96FB-EDAA-41B9-A3D4-132D0819A505 --no-bundler`. This also compiles `PinnedFetchModule.swift` for the first time (issue 01b). Then do the Simulator check for 01b and 02 together: turn on Phone Access, "Copy pairing text", paste it in the app, see "connected" (HTTPS with the pin), remove the phone on the Mac, and see that the app asks to pair again. Then issue 03. See `docs/ISSUES.md`.
+**Next step:** issue 03. Open follow-up from 01b: show `wrongCertificate` on the home screen. See `docs/ISSUES.md`.
 
 **Facts found during the work**
 

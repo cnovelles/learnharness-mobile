@@ -100,7 +100,7 @@ export default function PairScreen() {
 					accessibilityLabel="Pairing text"
 					value={text}
 					onChangeText={setText}
-					placeholder='{"lh":1,...}'
+					placeholder='{"lh":2,...}'
 					placeholderTextColor={c.muted}
 					autoCapitalize="none"
 					autoCorrect={false}

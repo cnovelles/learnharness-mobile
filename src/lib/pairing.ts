@@ -79,7 +79,9 @@ export function gatewayOrigin(text: unknown): string | null {
 export function parsePairingPayload(text: string): PairingPayload {
 	let raw: unknown;
 	try {
-		raw = JSON.parse(text.trim());
+		// iOS smart punctuation (and some apps that share text) change typed
+		// straight quotes to curly ones. The payload has no other double quotes.
+		raw = JSON.parse(text.trim().replace(/[“”„‟″]/g, '"'));
 	} catch {
 		throw new PairingError("This is not a LearnHarness pairing code.");
 	}

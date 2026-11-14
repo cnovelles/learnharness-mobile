@@ -108,6 +108,14 @@ describe("parsePairingPayload", () => {
 		});
 	});
 
+	it("reads text with curly double quotes (iOS smart punctuation changes typed quotes)", () => {
+		const curly = payloadText()
+			.replace(/"(?=[^"]*"[:,}\]])/g, "“")
+			.replace(/"/g, "”");
+		expect(curly).not.toContain('"');
+		expect(parsePairingPayload(curly)).toEqual(parsePairingPayload(payloadText()));
+	});
+
 	it("refuses text that is not a pairing code", () => {
 		expect(() => parsePairingPayload("hello")).toThrow(PairingError);
 		expect(() => parsePairingPayload("{}")).toThrow("not a LearnHarness pairing code");
