@@ -13,6 +13,7 @@ import {
 	type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import type { UserMessage } from "@/lib/user-error";
 
 const LIGHT = {
 	bg: "#f6f6f4",
@@ -97,7 +98,11 @@ export function Body({
 	);
 }
 
-export function ErrorText({ children, testID }: { children: ReactNode; testID?: string }) {
+/**
+ * Error text on the screen. It takes only a UserMessage, so raw server or
+ * exception text cannot get here (see src/lib/user-error.ts and AGENTS.md).
+ */
+export function ErrorText({ children, testID }: { children: UserMessage; testID?: string }) {
 	return (
 		<Text
 			testID={testID}

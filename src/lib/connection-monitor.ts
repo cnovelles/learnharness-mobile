@@ -17,14 +17,15 @@ import {
 	type Connection,
 	type PinnedFetch,
 } from "./pairing";
+import { userMessage, type UserMessage } from "./user-error";
 
 export const PING_INTERVAL_MS = 30_000;
 
-export const REMOVED_MESSAGE = "This phone was removed on the Mac. Pair again.";
+export const REMOVED_MESSAGE = userMessage("This phone was removed on the Mac. Pair again.");
 
 export type ConnectionState =
 	| { status: "loading" }
-	| { status: "unpaired"; message?: string }
+	| { status: "unpaired"; message?: UserMessage }
 	| { status: "checking"; connection: Connection; url?: string }
 	| { status: "connected"; connection: Connection; url: string; checkedAt: string }
 	| {

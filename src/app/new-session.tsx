@@ -5,12 +5,13 @@ import { useState } from "react";
 import { Body, Button, ErrorText, Field, Panel, Screen } from "@/components/ui";
 import { useMacFetch } from "@/lib/connection-context";
 import { startSession } from "@/lib/sessions";
+import { describeError, type UserMessage } from "@/lib/user-error";
 
 export default function NewSessionScreen() {
 	const macFetch = useMacFetch();
 	const [text, setText] = useState("");
 	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<UserMessage | null>(null);
 
 	async function start() {
 		setBusy(true);
@@ -19,7 +20,7 @@ export default function NewSessionScreen() {
 			const id = await startSession(macFetch, text);
 			router.replace({ pathname: "/session/[id]", params: { id } });
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e));
+			setError(describeError(e));
 		} finally {
 			setBusy(false);
 		}

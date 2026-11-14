@@ -12,6 +12,7 @@ import { useServerEvent } from "@/lib/server-events-context";
 import { listSessions } from "@/lib/sessions";
 import type { ChatListItem } from "@/lib/shared";
 import { Body, Button, ErrorText, Panel, Title, usePalette } from "./ui";
+import { describeError, type UserMessage } from "@/lib/user-error";
 
 export function sessionMarks(c: ChatListItem): string {
 	const phase =
@@ -34,7 +35,7 @@ export function SessionList({ enabled }: { enabled: boolean }) {
 	const macFetch = useMacFetch();
 	const c = usePalette();
 	const [chats, setChats] = useState<ChatListItem[] | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<UserMessage | null>(null);
 	const [busy, setBusy] = useState(false);
 
 	const refresh = useCallback(() => {
@@ -45,7 +46,7 @@ export function SessionList({ enabled }: { enabled: boolean }) {
 				setChats(list);
 				setError(null);
 			})
-			.catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+			.catch((e: unknown) => setError(describeError(e)))
 			.finally(() => setBusy(false));
 	}, [enabled, macFetch]);
 

@@ -13,6 +13,8 @@
  * "onPhone=1,cloudHost=0". Expo puts the value into the bundle at build time.
  */
 
+import { UserFacingError, userMessage } from "./user-error";
+
 export type ModeId = "macRemote" | "onPhone" | "cloudHost";
 export type FlagName = ModeId;
 export type Flags = Record<FlagName, boolean>;
@@ -175,7 +177,7 @@ export function createFlagStore({
 			else overrides[name] = value;
 			// Check the raw values: effectiveFlags would turn Mac remote back on silently.
 			if (enabledModes({ ...defaults, ...overrides }).length === 0)
-				throw new Error("At least one mode must stay on.");
+				throw new UserFacingError(userMessage("At least one mode must stay on."));
 			await commit(make(overrides, state.developer));
 		},
 		async reset() {

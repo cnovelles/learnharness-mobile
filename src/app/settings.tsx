@@ -11,6 +11,7 @@ import { Body, Button, ErrorText, Panel, Screen, Title } from "@/components/ui";
 import { useConnection } from "@/lib/connection-context";
 import { MODES } from "@/lib/feature-flags";
 import { useFlags } from "@/lib/flags-context";
+import { describeError, type UserMessage } from "@/lib/user-error";
 
 const UNLOCK_TAPS = 7;
 
@@ -21,14 +22,14 @@ function formatDate(iso: string): string {
 
 function DeveloperSection() {
 	const { state, store } = useFlags();
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<UserMessage | null>(null);
 
 	async function run(action: () => Promise<void>) {
 		setError(null);
 		try {
 			await action();
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e));
+			setError(describeError(e));
 		}
 	}
 

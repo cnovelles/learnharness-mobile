@@ -10,6 +10,7 @@ import { StyleSheet, TextInput, View } from "react-native";
 
 import { Body, Button, ErrorText, Panel, Screen, Title, usePalette } from "@/components/ui";
 import { useConnection } from "@/lib/connection-context";
+import { describeError, userMessage, type UserMessage } from "@/lib/user-error";
 
 export default function PairScreen() {
 	const { state, monitor } = useConnection();
@@ -18,7 +19,7 @@ export default function PairScreen() {
 	const [scanning, setScanning] = useState(false);
 	const [text, setText] = useState("");
 	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<UserMessage | null>(null);
 	const handled = useRef(false); // the camera reports the same code many times
 
 	const removedMessage = state.status === "unpaired" ? state.message : undefined;
@@ -30,7 +31,7 @@ export default function PairScreen() {
 			await monitor.pairWith(pairingText, Device.deviceName ?? "iPhone");
 			// The root layout now shows the home screen.
 		} catch (err) {
-			setError(err instanceof Error ? err.message : String(err));
+			setError(describeError(err));
 			handled.current = false;
 		} finally {
 			setBusy(false);
@@ -52,7 +53,9 @@ export default function PairScreen() {
 			setScanning(true);
 		} else
 			setError(
-				"LearnHarness cannot use the camera. Allow the camera in Settings, or paste the pairing text below.",
+				userMessage(
+					"LearnHarness cannot use the camera. Allow the camera in Settings, or paste the pairing text below.",
+				),
 			);
 	}
 

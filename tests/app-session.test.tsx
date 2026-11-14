@@ -45,8 +45,10 @@ type Rec = Record<string, unknown>;
 
 /** The fake Mac: one session store, scripted turns, and a log of POST /api/chat inputs. */
 class FakeMac {
-	chats = new Map<string, { title: string; messages: Rec[] }>();
+	chats = new Map<string, { title: string; messages: Rec[]; turnError?: string }>();
 	inputs: Rec[] = [];
+	/** The next POST /api/chat gets this answer and saves nothing (a gate refusal). */
+	refuseNext: { status: number; body: Rec } | null = null;
 	turns: ((chatId: string, input: Rec) => Rec[])[] = [];
 	private seq = 0;
 	private listeners: ReadableStreamDefaultController<Uint8Array>[] = [];
@@ -145,6 +147,7 @@ class FakeMac {
 				title: chat.title,
 				messages: chat.messages,
 				turnInFlight: false,
+				...(chat.turnError ? { turnError: chat.turnError } : {}),
 			});
 		}
 		if (/^\/api\/chats\/[^/]+\/stream$/.test(p)) return this.done();
@@ -152,6 +155,11 @@ class FakeMac {
 		if (p === "/api/chat" && method === "POST") {
 			const body = JSON.parse(String(init?.body)) as { chatId: string; input: Rec };
 			this.inputs.push(body.input);
+			if (this.refuseNext) {
+				const { status, body: refusal } = this.refuseNext;
+				this.refuseNext = null;
+				return this.json(refusal, status);
+			}
 			const chat = this.chats.get(body.chatId)!;
 			const now = Date.now();
 			if (body.input.type === "text")
@@ -323,4 +331,73 @@ it("a turn that the Mac starts by itself (the teacher after the probe) shows wit
 	});
 	expect(await screen.findByText("The Moon makes two bulges.")).toBeTruthy();
 	expect(mac.inputs.map((i) => i.type)).toEqual(["answer"]);
+});
+
+describe("error states", () => {
+	const OPENING = "Teach me how the tides work.";
+
+	it("a text that the Mac refuses (no model set) shows a clear message, keeps the text, and Try again sends the text again, not a retry", async () => {
+		mac.refuseNext = {
+			status: 503,
+			body: {
+				error: "No model configured — set up your models first",
+				code: "models_not_configured",
+				missing: ["strong"],
+			},
+		};
+		mac.turns.push(() => [
+			mac.assistant([{ type: "toolCall", id: "call_probe", name: "probe", arguments: PROBE }]),
+		]);
+
+		await renderRouter(APP, { initialUrl: "/" });
+		await fireEvent.press(await screen.findByTestId("new-session"));
+		await fireEvent.changeText(await screen.findByTestId("opening-text"), OPENING);
+		await fireEvent.press(screen.getByTestId("start-session"));
+
+		expect(await screen.findByText(/Your Mac has no Strong model set\./)).toBeTruthy();
+		// No raw server text, and no phone-only bubble for the refused text.
+		expect(screen.queryByText(/models_not_configured|No model configured/)).toBeNull();
+		expect(screen.queryByText(OPENING)).toBeNull();
+		// The text is back in the composer.
+		expect(screen.getByTestId("composer").props.value).toBe(OPENING);
+
+		await fireEvent.press(screen.getByTestId("retry-turn"));
+		expect(await screen.findByTestId("dock-question")).toBeTruthy();
+		expect(mac.inputs).toEqual([
+			{ type: "text", text: OPENING },
+			{ type: "text", text: OPENING },
+		]);
+		expect(screen.queryByTestId("session-error")).toBeNull();
+	});
+
+	it("a saved turn that failed shows plain text, not the raw error, and Try again sends retry", async () => {
+		const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
+		mac.chats.get(id)!.turnError = "500 upstream_error: provider exploded at line 42";
+		mac.turns.push(() => [mac.assistant([{ type: "text", text: "Here we go again." }])]);
+
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByText("Something went wrong. Try again.")).toBeTruthy();
+		expect(screen.queryByText(/provider exploded/)).toBeNull();
+
+		await fireEvent.press(screen.getByTestId("retry-turn"));
+		expect(await screen.findByText("Here we go again.")).toBeTruthy();
+		expect(mac.inputs).toEqual([{ type: "retry" }]);
+	});
+
+	it("a route that the gateway refuses shows that the phone cannot do it yet", async () => {
+		const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
+		mac.chats.get(id)!.messages.push(mac.assistant([{ type: "text", text: "Ask me." }]));
+		mac.refuseNext = {
+			status: 403,
+			body: { error: "This action is available only on the desktop." },
+		};
+
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		await fireEvent.changeText(await screen.findByTestId("composer"), "Why?");
+		await fireEvent.press(screen.getByTestId("send"));
+		expect(
+			await screen.findByText("The phone cannot do this yet. Use LearnHarness on the Mac for it."),
+		).toBeTruthy();
+		expect(screen.getByTestId("composer").props.value).toBe("Why?");
+	});
 });

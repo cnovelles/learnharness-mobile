@@ -39,3 +39,15 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## Error states
+
+Every feature handles its error states, not only the happy path.
+
+- Before you write the code, list the error states of the feature in its issue. Examples are server refusals, network loss, auth, conflicts, invalid input, and a retry of something that never started.
+- Give each error state a clear message for the user and a test.
+- Never show raw server or exception text on screen. This includes JSON bodies, HTTP status lines and internal error strings.
+- `ErrorText` takes only a `UserMessage`. Make one with `describeError(error)` for errors, or with `userMessage("…")` for literal text that you write for the user (`src/lib/user-error.ts`).
+- When the Mac sends a new refusal envelope or a new error text, add it to `describeError`, with a test in `tests/user-error.test.ts`.
+- Throw `UserFacingError` (or a subclass, such as `PairingError`) only with text written for the user.
+- ESLint (`no-restricted-syntax` in `eslint.config.js`) blocks `.message` in JSX, casts to `UserMessage`, and non-literal text in `userMessage()`. Do not turn these rules off.

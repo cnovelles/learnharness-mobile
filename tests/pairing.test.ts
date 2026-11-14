@@ -269,9 +269,24 @@ describe("pair", () => {
 		expect(net.attempts).toHaveLength(1);
 	});
 
-	it("shows the status when the refusal has no message", async () => {
+	it("shows text written for the user for any other refusal, never the Mac's raw text", async () => {
 		const net = fakeNetwork({ [TAILSCALE]: { answer: new Response("busy", { status: 503 }) } });
-		await expect(pair(payload, "iPhone", net.fetchImpl)).rejects.toThrow("status 503");
+		await expect(pair(payload, "iPhone", net.fetchImpl)).rejects.toThrow(
+			"The Mac refused the pairing. Show a new QR code on the Mac, and then try again.",
+		);
+		const raw = fakeNetwork({
+			[TAILSCALE]: { answer: json(400, { error: "invalid JSON" }) },
+		});
+		await expect(pair(payload, "iPhone", raw.fetchImpl)).rejects.not.toThrow("invalid JSON");
+	});
+
+	it("tells the user to wait when the Mac's server is not ready (502)", async () => {
+		const net = fakeNetwork({
+			[TAILSCALE]: { answer: json(502, { error: "The LearnHarness server is not reachable." }) },
+		});
+		await expect(pair(payload, "iPhone", net.fetchImpl)).rejects.toThrow(
+			"LearnHarness on the Mac is not ready.",
+		);
 	});
 
 	it("refuses an invalid answer and another protocol", async () => {

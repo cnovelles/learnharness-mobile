@@ -8,11 +8,18 @@
  * here, open the session screen, and the screen sends it as the first input.
  */
 import type { ChatListItem, LhMessage } from "./shared";
+import { UserFacingError, userMessage } from "./user-error";
 
+/**
+ * A request to the Mac failed. `message` is raw server text for the log;
+ * the screen shows describeError(), which reads `status` and `body`.
+ */
 export class SessionApiError extends Error {
 	constructor(
 		message: string,
 		readonly status?: number,
+		/** The parsed JSON body of the answer, when it had one. */
+		readonly body?: unknown,
 	) {
 		super(message);
 		this.name = "SessionApiError";
@@ -28,13 +35,15 @@ export function isSessionId(id: unknown): id is string {
 
 async function failure(res: Response): Promise<SessionApiError> {
 	let message = `The Mac answered with status ${res.status}.`;
+	let body: unknown;
 	try {
-		const body = (await res.json()) as { error?: unknown };
-		if (typeof body.error === "string" && body.error) message = body.error;
+		body = await res.json();
+		const error = (body as { error?: unknown } | null)?.error;
+		if (typeof error === "string" && error) message = error;
 	} catch {
 		/* not JSON */
 	}
-	return new SessionApiError(message, res.status);
+	return new SessionApiError(message, res.status, body);
 }
 
 export async function listSessions(fetchImpl: typeof fetch): Promise<ChatListItem[]> {
@@ -73,7 +82,7 @@ export async function startSession(
 	prompts: OpeningPrompts = openingPrompts,
 ): Promise<string> {
 	const first = text.trim();
-	if (!first) throw new SessionApiError("Write what you want to learn.");
+	if (!first) throw new UserFacingError(userMessage("Write what you want to learn."));
 	const res = await fetchImpl("/api/chats", {
 		method: "POST",
 		headers: { "content-type": "application/json" },
@@ -81,7 +90,8 @@ export async function startSession(
 	});
 	if (!res.ok) throw await failure(res);
 	const body = (await res.json()) as { id?: unknown };
-	if (!isSessionId(body.id)) throw new SessionApiError("The Mac sent an invalid session.");
+	if (!isSessionId(body.id))
+		throw new UserFacingError(userMessage("The Mac sent an invalid session."));
 	prompts.put(body.id, first);
 	return body.id;
 }
@@ -98,7 +108,7 @@ export async function readSession(fetchImpl: typeof fetch, id: string): Promise<
 	if (!isSessionId(id)) throw new SessionApiError(`Not a session id: ${id}`);
 	const res = await fetchImpl(`/api/chats/${id}`);
 	if (res.status === 404)
-		throw new SessionApiError("This session is not on the Mac any more.", 404);
+		throw new UserFacingError(userMessage("This session is not on the Mac any more."));
 	if (!res.ok) throw await failure(res);
 	const body = (await res.json()) as {
 		title?: unknown;

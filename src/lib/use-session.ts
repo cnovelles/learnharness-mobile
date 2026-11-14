@@ -6,6 +6,10 @@
  * hook does (fork components/session.ts):
  * - A turn that runs on the Mac: reattach to its stream.
  * - A new session: send the opening text once (OpeningPrompts).
+ * - A text that the Mac refuses before it saves it (for example, no model
+ *   is set) is not a failed turn: SessionModel removes its bubble, the
+ *   text goes back to the composer, and Try again sends the same text. A
+ *   `retry` is only for a saved turn that failed.
  * - Otherwise: continue a turn that the record still owes (for example,
  *   a background job result that came in while no screen was open).
  * - When a reattached turn settles: read the record again.
@@ -23,10 +27,11 @@ import {
 	type QuestionAnswerData,
 	type SessionState,
 } from "./shared";
+import { describeError, type UserMessage } from "./user-error";
 
 export type SessionLoad =
 	| { status: "loading" }
-	| { status: "error"; message: string }
+	| { status: "error"; userText: UserMessage }
 	| { status: "ready"; record: SessionRecord };
 
 export function useSessionRecord(
@@ -39,9 +44,7 @@ export function useSessionRecord(
 		let current = true;
 		readSession(macFetch, chatId).then(
 			(record) => current && setLoad({ status: "ready", record }),
-			(e: unknown) =>
-				current &&
-				setLoad({ status: "error", message: e instanceof Error ? e.message : String(e) }),
+			(e: unknown) => current && setLoad({ status: "error", userText: describeError(e) }),
 		);
 		return () => {
 			current = false;
@@ -61,7 +64,10 @@ export interface SessionControls {
 	/** A question call with bad input, when no turn runs and no question waits. */
 	malformed: ReturnType<typeof malformedQuestionsOf>[number] | null;
 	sendText(text: string): Promise<boolean>;
+	/** The last text that the Mac did not accept. The composer shows it again. */
+	unsentText: string | null;
 	answer(tool: string, toolCallId: string, answer: QuestionAnswerData): Promise<void>;
+	/** Send the unsent text again, or retry the failed saved turn. */
 	retry(): Promise<boolean>;
 	/** Ask the teacher again for a malformed question (the desktop's "retry-question"). */
 	retryQuestion(): Promise<boolean>;
@@ -107,6 +113,18 @@ export function useSessionModel(
 	const { model } = store;
 	const attached = useRef(false);
 	const hub = useEventHub();
+	const [unsentText, setUnsentText] = useState<string | null>(null);
+
+	const sendText = useCallback(
+		async (text: string) => {
+			// onAccepted makes SessionModel remove the text's own bubble when the
+			// Mac does not accept it, as the desktop does for its opening text.
+			const accepted = await model.send({ type: "text", text }, () => {});
+			setUnsentText(accepted ? null : text);
+			return accepted;
+		},
+		[model],
+	);
 
 	// Turns that the Mac starts by itself, and records that change without a turn.
 	useEffect(() => attachSessionEvents(model, hub), [model, hub]);
@@ -126,7 +144,10 @@ export function useSessionModel(
 			attached.current = true;
 			const opening = prompts.take(record.id);
 			if (record.turnInFlight) void model.resumeStream(false);
-			else if (opening) void model.send({ type: "text", text: opening });
+			else if (opening)
+				void model
+					.send({ type: "text", text: opening }, () => {})
+					.then((accepted) => !accepted && setUnsentText(opening));
 			else void model.continueIfOwed(record.messages);
 		}
 		return () => model.stop();
@@ -151,9 +172,10 @@ export function useSessionModel(
 		state,
 		pending,
 		malformed,
-		sendText: (text) => model.send({ type: "text", text }),
+		sendText,
+		unsentText,
 		answer: (tool, toolCallId, answer) => model.submitAnswer(tool, toolCallId, answer),
-		retry: () => model.send({ type: "retry" }),
+		retry: () => (unsentText !== null ? sendText(unsentText) : model.send({ type: "retry" })),
 		retryQuestion: () =>
 			malformed
 				? model.send({

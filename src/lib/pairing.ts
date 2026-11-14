@@ -12,6 +12,8 @@
  * on another network never gets the pairing code or the token.
  */
 
+import { UserFacingError, userMessage, type UserMessage } from "./user-error";
+
 export const PROTOCOL = 2;
 
 export interface PairingPayload {
@@ -32,7 +34,13 @@ export interface Connection {
 	pairedAt: string;
 }
 
-export class PairingError extends Error {}
+/** Pairing failed. The text is written for the user (see user-error.ts). */
+export class PairingError extends UserFacingError {
+	constructor(text: UserMessage) {
+		super(text);
+		this.name = "PairingError";
+	}
+}
 
 /** The server certificate does not have the pinned public key. Nothing was sent. */
 export class PinMismatchError extends Error {
@@ -83,7 +91,7 @@ export function parsePairingPayload(text: string): PairingPayload {
 		// straight quotes to curly ones. The payload has no other double quotes.
 		raw = JSON.parse(text.trim().replace(/[“”„‟″]/g, '"'));
 	} catch {
-		throw new PairingError("This is not a LearnHarness pairing code.");
+		throw new PairingError(userMessage("This is not a LearnHarness pairing code."));
 	}
 	const value = raw as {
 		lh?: unknown;
@@ -93,23 +101,27 @@ export function parsePairingPayload(text: string): PairingPayload {
 		code?: unknown;
 	};
 	if (typeof value !== "object" || value === null || !("lh" in value))
-		throw new PairingError("This is not a LearnHarness pairing code.");
+		throw new PairingError(userMessage("This is not a LearnHarness pairing code."));
 	if (value.lh !== PROTOCOL)
 		throw new PairingError(
-			"This pairing code is from a different LearnHarness version. Update the app on the Mac and on the phone.",
+			userMessage(
+				"This pairing code is from a different LearnHarness version. Update the app on the Mac and on the phone.",
+			),
 		);
 	if (typeof value.code !== "string" || value.code.length < 16)
-		throw new PairingError("The pairing code is incomplete.");
+		throw new PairingError(userMessage("The pairing code is incomplete."));
 	if (!isValidPin(value.pin))
 		throw new PairingError(
-			"The pairing code has no valid certificate pin. Show a new QR code on the Mac.",
+			userMessage("The pairing code has no valid certificate pin. Show a new QR code on the Mac."),
 		);
 	const urls = Array.isArray(value.urls)
 		? [...new Set(value.urls.map(gatewayOrigin).filter((u): u is string => u !== null))]
 		: [];
 	if (urls.length === 0)
 		throw new PairingError(
-			"The Mac has no network address. Connect it to Wi-Fi or Tailscale and show a new code.",
+			userMessage(
+				"The Mac has no network address. Connect it to Wi-Fi or Tailscale and show a new code.",
+			),
 		);
 	return {
 		name: typeof value.name === "string" && value.name ? value.name : "Mac",
@@ -135,14 +147,20 @@ async function fetchWithTimeout(
 	}
 }
 
-async function errorText(res: Response): Promise<string> {
-	try {
-		const body = (await res.json()) as { error?: unknown };
-		if (typeof body.error === "string") return body.error;
-	} catch {
-		/* not JSON */
-	}
-	return `The Mac answered with status ${res.status}.`;
+/**
+ * The text for a refused pairing, from the status. The gateway's 401 text
+ * (fork electron/phone-access.cjs) is the same as the phone's text here.
+ */
+function pairingRefusal(status: number): UserMessage {
+	if (status === 401)
+		return userMessage(
+			"The pairing code is not valid or has expired. Show a new QR code on the Mac.",
+		);
+	if (status === 502)
+		return userMessage("LearnHarness on the Mac is not ready. Wait a moment, and then try again.");
+	return userMessage(
+		"The Mac refused the pairing. Show a new QR code on the Mac, and then try again.",
+	);
 }
 
 const isPinMismatch = (err: unknown) =>
@@ -162,7 +180,7 @@ export async function pair(
 ): Promise<Connection> {
 	if (!isValidPin(payload.pin))
 		throw new PairingError(
-			"The pairing code has no valid certificate pin. Show a new QR code on the Mac.",
+			userMessage("The pairing code has no valid certificate pin. Show a new QR code on the Mac."),
 		);
 	let mismatch = false;
 	for (const candidate of payload.urls) {
@@ -185,7 +203,7 @@ export async function pair(
 			if (isPinMismatch(err)) mismatch = true;
 			continue;
 		}
-		if (!res.ok) throw new PairingError(await errorText(res));
+		if (!res.ok) throw new PairingError(pairingRefusal(res.status));
 		const body = (await res.json()) as {
 			token?: unknown;
 			deviceId?: unknown;
@@ -193,9 +211,9 @@ export async function pair(
 			server?: { name?: unknown };
 		};
 		if (typeof body.token !== "string" || typeof body.deviceId !== "string")
-			throw new PairingError("The Mac sent an invalid pairing answer.");
+			throw new PairingError(userMessage("The Mac sent an invalid pairing answer."));
 		if (body.protocol !== PROTOCOL)
-			throw new PairingError("The Mac runs a different phone protocol version.");
+			throw new PairingError(userMessage("The Mac runs a different phone protocol version."));
 		// The address that answered goes first: it is the one that works now.
 		const urls = [url, ...payload.urls.filter((u) => u !== url)];
 		const name = typeof body.server?.name === "string" ? body.server.name : payload.name;
@@ -210,10 +228,14 @@ export async function pair(
 	}
 	if (mismatch)
 		throw new PairingError(
-			`A device answered at the address of ${payload.name}, but it is not ${payload.name}. Nothing was sent. Check the network, then show a new QR code on the Mac.`,
+			userMessage(
+				`A device answered at the address of ${payload.name}, but it is not ${payload.name}. Nothing was sent. Check the network, then show a new QR code on the Mac.`,
+			),
 		);
 	throw new PairingError(
-		`The phone cannot reach ${payload.name}. Check that the phone and the Mac are on the same Wi-Fi or both on Tailscale.`,
+		userMessage(
+			`The phone cannot reach ${payload.name}. Check that the phone and the Mac are on the same Wi-Fi or both on Tailscale.`,
+		),
 	);
 }
 

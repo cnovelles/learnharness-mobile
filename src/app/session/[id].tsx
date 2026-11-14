@@ -24,9 +24,17 @@ import { useMacFetch } from "@/lib/connection-context";
 import type { SessionRecord } from "@/lib/sessions";
 import { transcriptRows } from "@/lib/transcript";
 import { useSessionModel, useSessionRecord } from "@/lib/use-session";
+import { describeError } from "@/lib/user-error";
 
-function Composer({ onSend }: { onSend: (text: string) => Promise<boolean> }) {
-	const [text, setText] = useState("");
+function Composer({
+	onSend,
+	initialText,
+}: {
+	onSend: (text: string) => Promise<boolean>;
+	/** A text that the Mac did not accept, shown again so the user can send it. */
+	initialText: string;
+}) {
+	const [text, setText] = useState(initialText);
 	const [sending, setSending] = useState(false);
 	async function send() {
 		const value = text.trim();
@@ -95,7 +103,7 @@ function SessionBody({ record }: { record: SessionRecord }) {
 				) : null}
 				{state.error ? (
 					<Panel>
-						<ErrorText testID="session-error">{state.error.message}</ErrorText>
+						<ErrorText testID="session-error">{describeError(state.error)}</ErrorText>
 						<View style={styles.row}>
 							<Button title="Try again" onPress={() => void session.retry()} testID="retry-turn" />
 							<Button
@@ -125,8 +133,12 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						/>
 					</Panel>
 				) : null}
-				{!running && !pending && state.status === "ready" ? (
-					<Composer onSend={session.sendText} />
+				{!running && !pending && (state.status === "ready" || session.unsentText !== null) ? (
+					<Composer
+						key={session.unsentText ?? ""}
+						onSend={session.sendText}
+						initialText={session.unsentText ?? ""}
+					/>
 				) : null}
 			</ScrollView>
 		</SafeAreaView>
@@ -146,7 +158,7 @@ export default function SessionScreen() {
 			) : load.status === "error" ? (
 				<Screen>
 					<Panel>
-						<ErrorText testID="session-load-error">{load.message}</ErrorText>
+						<ErrorText testID="session-load-error">{load.userText}</ErrorText>
 						<Button title="Try again" onPress={reload} testID="reload-session" />
 					</Panel>
 				</Screen>
