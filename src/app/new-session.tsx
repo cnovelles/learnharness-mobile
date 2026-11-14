@@ -28,7 +28,7 @@ export default function NewSessionScreen() {
 	return (
 		<Screen>
 			<Panel>
-				<Body>What do you want to learn?</Body>
+				<Body testID="new-session-prompt">What do you want to learn?</Body>
 				<Field
 					value={text}
 					onChangeText={setText}

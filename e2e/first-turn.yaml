@@ -15,7 +15,9 @@ appId: dev.local.learnharnessmobile
 - tapOn:
     id: "pairing-text"
 - inputText: ${PAIRING}
-- hideKeyboard
+# hideKeyboard fails for a multiline field on iOS. A tap on static text
+# closes the keyboard (Screen uses keyboardShouldPersistTaps="handled").
+- tapOn: "Or paste the pairing text"
 - tapOn:
     id: "pair"
 - extendedWaitUntil:
@@ -26,7 +28,8 @@ appId: dev.local.learnharnessmobile
 - tapOn:
     id: "opening-text"
 - inputText: "Teach me how the tides work."
-- hideKeyboard
+- tapOn:
+    id: "new-session-prompt"
 - tapOn:
     id: "start-session"
 - extendedWaitUntil:
