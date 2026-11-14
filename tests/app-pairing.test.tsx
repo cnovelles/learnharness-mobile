@@ -187,4 +187,39 @@ describe("a paired phone", () => {
 		await waitFor(() => expect(screen).toHavePathname("/pair"));
 		expect(mockKeychain.size).toBe(0);
 	});
+
+	describe("developer section (feature flags)", () => {
+		const realDev = __DEV__;
+		afterEach(() => {
+			(globalThis as unknown as { __DEV__: boolean }).__DEV__ = realDev;
+		});
+
+		it("is hidden in a release build until Version is tapped 7 times, and stays open", async () => {
+			(globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+			await renderRouter(APP, { initialUrl: "/settings" });
+			const version = await screen.findByTestId("version");
+			for (let i = 0; i < 6; i++) await fireEvent.press(version);
+			expect(screen.queryByText("Developer: modes")).toBeNull();
+			await fireEvent.press(version);
+			expect(await screen.findByText("Developer: modes")).toBeTruthy();
+			expect(JSON.parse(mockKeychain.get("lh.flags.v1")!)).toMatchObject({ developer: true });
+		});
+
+		it("saves a mode switch on this phone and refuses to turn off the last mode", async () => {
+			await renderRouter(APP, { initialUrl: "/settings" });
+			expect(await screen.findByText("Developer: modes")).toBeTruthy();
+			expect(screen.getByTestId("flag-onPhone").props.value).toBe(false);
+
+			await act(async () => fireEvent(screen.getByTestId("flag-onPhone"), "valueChange", true));
+			await waitFor(() => expect(screen.getByTestId("flag-onPhone").props.value).toBe(true));
+			expect(JSON.parse(mockKeychain.get("lh.flags.v1")!).overrides).toEqual({ onPhone: true });
+
+			await act(async () => fireEvent(screen.getByTestId("flag-onPhone"), "valueChange", false));
+			await act(async () => fireEvent(screen.getByTestId("flag-macRemote"), "valueChange", false));
+			expect(await screen.findByText("At least one mode must stay on.")).toBeTruthy();
+			expect(screen.getByTestId("flag-macRemote").props.value).toBe(true);
+			// The pairing is untouched by flag changes.
+			expect(mockKeychain.has("lh.connection.v1")).toBe(true);
+		});
+	});
 });

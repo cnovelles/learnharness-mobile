@@ -4,6 +4,7 @@ Parent: `docs/PRD.md`. Labels: `needs-triage` on all. Status: `todo`, `doing`, `
 Each issue is a vertical slice: it is done only when its tests pass and the upstream suite in the fork still passes (except the known upstream failure in `tests/subscription-auth.test.ts`).
 
 Order: 01 → 01b → 02 → 03 → 04 → (05, 06, 07, 08 in any order) → 09 → 10 → 11 → 12 → (13, 14) → 15.
+17 (feature flags) is done. Later modes and features add their flag there.
 16 (ChatGPT sign-in test on the iPhone) can run at any time after a development build runs on the user's iPhone. Its result decides the sign-in part of 12.
 
 ---
@@ -196,3 +197,15 @@ Acceptance:
 - On the user's real iPhone (not only the Simulator): sign-in completes, one streamed reply arrives, and the token refresh works.
 - A short report in this issue: works / works only with the paste fallback / does not work, with the iOS version and the steps. If it does not work, mode 3 uses API keys only, and the learner signs in to ChatGPT on the Mac for mode 1.
 - No real tokens in the repository, logs or tests. Automatic tests use a fake OAuth server.
+
+## 17 Feature flags for the modes `done`
+
+Asked by the user on 2026-11-14: turn each mode on or off without a new design.
+
+- `src/lib/feature-flags.ts`: flags `macRemote`, `onPhone`, `cloudHost`. Base defaults: only Mac remote is on, because only finished modes are on by default.
+- Build defaults: `EXPO_PUBLIC_LH_FLAGS`, for example `onPhone=1,cloudHost=0`. Unknown names and bad values are reported and ignored.
+- Local overrides on this phone only (Keychain, this device only). No remote flags, because the free path has no server.
+- At least one mode is always on. `resolveMode` moves the learner off a turned-off mode to the first mode that is on. Issue 11 must sync first when it can. A flag change never deletes learner data.
+- Settings: a hidden developer section. Tap "Version" 7 times to open it in a release build. Development builds always show it. It has a switch for each mode and "Use the build defaults".
+- When a mode is built (03–04 for Mac remote, 12 for On phone, 14 for Cloud host), the mode reads its flag, and the base default turns on only after its E2E tests pass.
+  Acceptance (met): unit tests for parsing, overrides, the last-mode rule, resolveMode, save failures and damaged records; app tests for the hidden unlock and the switches.
