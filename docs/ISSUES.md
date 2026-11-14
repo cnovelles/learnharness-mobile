@@ -251,3 +251,13 @@ Asked by the user on 2026-11-14: turn each mode on or off without a new design.
 - Settings: a hidden developer section. Tap "Version" 7 times to open it in a release build. Development builds always show it. It has a switch for each mode and "Use the build defaults".
 - When a mode is built (03–04 for Mac remote, 12 for On phone, 14 for Cloud host), the mode reads its flag, and the base default turns on only after its E2E tests pass.
   Acceptance (met): unit tests for parsing, overrides, the last-mode rule, resolveMode, save failures and damaged records; app tests for the hidden unlock and the switches.
+
+## 18 Visual design that matches the desktop `todo`
+
+Blocked by: 04, 05. Requested by the user on 2026-11-14, after the real lesson check: the phone looks too plain next to the desktop.
+
+- Take the desktop's look as the reference: the dark theme (and light), the monospace small-caps labels ("YOU", "AGENT'S THINKING", "PROBE"), card borders and radius, spacing and typography. Read the fork's Tailwind theme and components for the exact values; do not guess (upstream `AGENTS.md`: ask the user about design decisions).
+- Question cards as on the desktop: the kind tag (PROBE, CHECK), the CORRECT or INCORRECT tag, ✓ on the correct option and ✗ on the chosen wrong one, the confidence bar with its stops, and "Your thinking" folded.
+- Tool rows as on the desktop: the tool name in small caps with its main argument (for example `LIST_PROPOSITIONS chat_…`), folded, and they open to show the input and the output.
+- Error states: errors, empty lists and loading states get the same design care (see `AGENTS.md`, "Error states").
+  Acceptance: screenshots of the same session on the desktop and the phone side by side, approved by the user; screen tests still pass.
