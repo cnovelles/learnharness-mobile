@@ -5,28 +5,18 @@ Last update: 2026-11-14. Read with `docs/PRD.md` (Status) and `docs/ISSUES.md`.
 ## GitHub fork
 
 - Account: `cnovelles`. Fork: https://github.com/cnovelles/learnharness (public). Git remote `fork` in `~/Development/learnharness`. `origin` stays the upstream author's repository: never push there.
-- Commit email for both repos: `278555343+cnovelles@users.noreply.github.com` (set in each repo's local git config). Never commit with the personal Gmail address: the fork is public.
-- Pushed: `mobile/phone-access` at `4800177`. PR: https://github.com/cnovelles/learnharness/pull/1 into the fork's `main` (still upstream main).
-- CI has not run yet:
-  1. GitHub keeps workflows off on a new fork. The user must open the fork's Actions tab and turn them on.
-  2. PR #1 conflicts with upstream v0.6.1 until the sync below is merged into `mobile/phone-access` and pushed.
+- Commit email for both repos: `278555343+cnovelles@users.noreply.github.com` (set in each repo's local git config). Never commit with a personal Gmail address. Do not add Co-Authored-By or "Generated with Claude Code" lines (global CLAUDE.md rule).
+- Pushed: `mobile/phone-access` at `8c1744d`. PR: https://github.com/cnovelles/learnharness/pull/1 into the fork's `main` (upstream v0.6.1, `cb25c8e`). Mergeable.
+- Actions are on. All 5 checks passed for `82fdb3e` (typecheck, tests, lint; phone gateway integration; standalone builds for mac-arm64, linux-x64, windows-x64).
+- The release workflows ("Desktop release" on `v*` tags, "Notify website" on releases) stay on (user decision). Never push a `v*` tag or publish a release on the fork.
 
-## Upstream v0.6.1 sync (done, not merged into the working branch yet)
+## Upstream v0.6.1 sync (done)
 
-- Worktree `~/Development/learnharness-upstream-sync`, branch `mobile/sync-upstream-0.6.1`, merge commit `48339e9` (upstream `cb25c8e` + `4800177`). Own `node_modules` (v0.6.1).
-- Conflicts resolved and fork fixes described in the merge commit message.
-- `npm test` there: 5343 pass, 3 fail. The same 3 fail on clean upstream v0.6.1. Typecheck: the same 176 errors as clean upstream. Lint: 0 errors.
+- Merge commit `48339e9`, merged into `mobile/phone-access` as `5a7a216`. The sync worktree and branch are removed.
+- The fork keeps the gateway stop inside `killServer()` (upstream tests expect 1 `before-quit` listener) and reads the app version lazily.
 
-## Next steps (in this order)
+## Next upstream update
 
-1. Wait until the issue 01 session commits its current slice on `mobile/phone-access` (it was asked to send "committed" with the hash and pause).
-2. In `~/Development/learnharness`: `git merge mobile/sync-upstream-0.6.1`, resolve any conflicts with the session's new files (it changed `electron/main.cjs`, `electron/phone-access*.{cjs,html,js}`), then `npm ci`.
-3. Run `npm test`, `npm run typecheck`, `npm run lint`. Expect only the 3 upstream failures and the 176 upstream type errors.
-4. Push `mobile/phone-access` to `fork`. Check that PR #1 is mergeable and that CI runs (after the user turns on workflows).
-5. Remove the sync worktree: `git worktree remove ~/Development/learnharness-upstream-sync`.
-
-## Open work in the issue 01 session (sent as messages)
-
-- Gateway security fixes: pairing lockout (counter per pairing code, cancel the code after 10 bad attempts) and revocation closes the device's open streams.
-- User decision: Tailscale + LAN with HTTPS and SPKI pinning now (new issue between 01 and 02). The app stays React Native; use a pinning library if it covers the SDK 58 streaming fetch, else a small Swift Expo module.
-- CI: `npm run test:phone-integration` (tests outside the `npm test` glob) and a separate `phone-integration` job in `.github/workflows/ci.yml`.
+1. `git fetch origin --tags`, then a trial merge in a temporary worktree (git 2.21 has no `merge-tree --write-tree`).
+2. Merge into `mobile/phone-access`, then `npm ci`, `npm test`, `npm run typecheck`, `npm run lint`, `npm run test:phone-integration`.
+3. Push to `fork` and check the CI on PR #1.

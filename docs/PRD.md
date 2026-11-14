@@ -14,7 +14,7 @@ Last update: 2026-11-14 (Simulator check for 01b and 02 passed).
   - Upstream v0.6.1 is merged. After the merge: `npm ci`; `npm test` 5354 of 5361 pass (the 3 known upstream failures: `passive-tooltip`, `plugin-document-proxy`, `subscription-auth`; `headless-helper-lifecycle` fails only under full-suite load and passes alone); typecheck 0 errors; lint 0 errors; integration test passes against the v0.6.1 server.
   - Security fixes (from an automatic review): wrong pairing codes count against the active code only, and the 10th cancels it (no global lockout); `revoke()` closes the device's open streams on both sides.
   - Issue 01b (fork side): the gateway serves HTTPS only (no plain HTTP listener). `electron/phone-access-tls.cjs` makes a self-signed P-256 certificate with `node:crypto` and a small DER writer (user choice: no new dependency). Key (mode 0600) and certificate are in `userData/phone-access-tls`. The pairing payload is protocol 2: `https://` addresses and `pin` (`sha256/` + base64 SHA-256 of the SPKI). A new certificate removes the paired phones. `npm test`: only the 3 known upstream failures.
-  - CI: job `phone-integration` in `.github/workflows/ci.yml` runs `npm run test:phone-integration` next to the `quality` job. Not run on GitHub yet (see `docs/UPSTREAM-SYNC.md`).
+  - CI: job `phone-integration` in `.github/workflows/ci.yml` runs `npm run test:phone-integration` next to the `quality` job. All 5 CI checks passed on the fork for `82fdb3e` (fork PR #1). The 3 test failures and the type errors seen on this Mac do not happen in CI.
   - Open question for a later issue: v0.6.1 added routes (side chats, chat images, plugins, themes). The gateway refuses them (403). Ask the user before the phone uses any of them.
   - `electron/phone-access.cjs`: phone gateway (pairing, token gate, route allowlist, streaming proxy, `onPaired` callback). The allowlist matches the real routes (chat settings is `PUT` only, `artifact-ui` is `POST`).
   - `electron/phone-access-window.cjs`, `phone-access-preload.cjs`, `phone-access.html`, `phone-access.js`: "Phone Access…" menu window (on/off, QR, "Copy pairing text", device list). Checked in the real Electron window (issue 01).
@@ -25,7 +25,11 @@ Last update: 2026-11-14 (Simulator check for 01b and 02 passed).
   - Tests: `tests/phone-access.test.ts` (22), `tests/phone-access-window.test.ts` (7), `tests/helpers/pinned-fetch.ts` (a test client that checks the pin before it sends a byte), `tests/fake-openai-provider.test.ts` (4), `tests/question-data-for-call.test.ts`, `tests/automatic-updates.test.ts` (fork flag).
   - Integration: `npm run test:phone-integration` (9 tests, about 2 minutes; includes a server with a wrong certificate that gets no request). Not part of `npm test`. Stop `npm run desktop:dev` first: both use the `.next/dev` lock.
   - Full upstream suite: 3216 of 3217 pass. The 1 failure also fails on unchanged upstream (`tests/subscription-auth.test.ts`, pi-ai "No exports main").
-- Phone app: Expo SDK 58 project at `~/Development/learnharness-mobile`, branch `phase-1/pairing`. Commit `ce6da79` (issue 02 code).
+- Phone app: Expo SDK 58 project at `~/Development/learnharness-mobile`, branch `phase-1/pairing`. Commit `ce6da79` (issue 02 code), `18f7a4f` (Simulator check).
+  - GitHub: private repo `cnovelles/learnharness-mobile` (remote `origin`, default branch `master`). PR #1 `phase-1/pairing` → `master`. All commits use the noreply email (the 2 first commits were rewritten on 2026-11-14). The main session pushes; other sessions commit only.
+  - CI (`.github/workflows/ci.yml`): format check, lint, typecheck, Jest on ubuntu. It checks out the public fork (`mobile/phone-access`) next to the app, because Metro and the crypto shim test read `../learnharness`.
+  - Prettier 3.10.1 (`npm run format`, `npm run format:check`): tabs, double quotes, width 100; JSON, Markdown and YAML keep spaces; `.claude/` is not formatted. `eslint-config-prettier` is last in `eslint.config.js`.
+  - Feature flags (issue 17): `src/lib/feature-flags.ts`, `src/lib/flags-context.tsx`, hidden developer section in Settings.
   - `metro.config.js`: watches `../learnharness`, maps `node:crypto` to `src/shims/node-crypto.ts`.
   - `src/shims/node-crypto.ts` (SHA-256 via `@noble/hashes`), `src/shims/polyfills.ts` (crypto, DOMException).
   - `src/lib/pairing.ts`: parse QR payload (protocol 2: pin required, addresses checked with `new URL()`, https origins only), pair, find reachable address, `remoteFetch`. Every request goes through a `PinnedFetch`. A server that fails the pin gets nothing, and its answers never delete the pairing.
@@ -39,6 +43,8 @@ Last update: 2026-11-14 (Simulator check for 01b and 02 passed).
   - **Simulator check for 01b and 02 passed (2026-11-14):** pairing through the paste field over HTTPS with the pin, "connected", and after "Remove" on the Mac the app asks to pair again. Two fixes from the check: the parser accepts curly double quotes (iOS smart punctuation changes typed quotes, also with `autoCorrect={false}`), and the placeholder shows protocol 2.
   - **Manual check setup:** keep the test data in a temporary folder (`LH_DATA_DIR`, `LH_AUTH_FILE`). The dev shell keeps Phone Access state in the `LearnHarness-dev` userData folder, not in the real one. Electron waits only 30 s for `next dev`, and the first compile can take longer while an iOS build runs. So start `npm run dev` first, load `http://localhost:3000` once, then start `LH_DEV_URL=http://localhost:3000 npx electron .`. Start Metro with `npx expo start` (the app was built with `--no-bundler`).
   - **Metro on this Mac does not see file changes** (no watchman, and the fallback watcher missed new and changed files). After a change, stop Metro, start it again with `npx expo start --clear`, and reload the app. In the Simulator, typing with the simulator tool is more reliable than the Paste menu.
+
+**Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
 **Next step:** issue 03. Open follow-up from 01b: show `wrongCertificate` on the home screen. See `docs/ISSUES.md`.
 
