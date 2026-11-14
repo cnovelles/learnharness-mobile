@@ -9,14 +9,16 @@ Last update: 2026-11-14.
 
 **Done**
 - Investigation and approved plan: `~/.claude/plans/there-is-this-open-source-ethereal-pearl.md`.
-- Desktop fork: branch `mobile/phone-access` in `~/Development/learnharness` (not committed yet).
-  - `electron/phone-access.cjs`: phone gateway (pairing, token gate, route allowlist, streaming proxy). 15 tests pass in `tests/phone-access.test.ts`.
-  - `electron/phone-access-window.cjs`, `phone-access-preload.cjs`, `phone-access.html`, `phone-access.js`: "Phone Access…" menu window (on/off, QR, device list). Not yet run in a real Electron window.
+- Desktop fork: branch `mobile/phone-access` in `~/Development/learnharness`. Commits `3b5307d` (gateway) and `2657a55` (issue 01).
+  - `electron/phone-access.cjs`: phone gateway (pairing, token gate, route allowlist, streaming proxy, `onPaired` callback). The allowlist matches the real routes (chat settings is `PUT` only, `artifact-ui` is `POST`).
+  - `electron/phone-access-window.cjs`, `phone-access-preload.cjs`, `phone-access.html`, `phone-access.js`: "Phone Access…" menu window (on/off, QR, "Copy pairing text", device list). Checked in the real Electron window (issue 01).
   - `electron/main.cjs`: gateway wiring, menu item, upstream auto-update off (`LH_FORK_UPSTREAM_UPDATES=1` turns it on for the upstream updater tests).
   - `electron-builder.yml`: ships `qrcode` + `dijkstrajs`.
-  - `src/core/question-core.ts`: new shared `questionDataForCall` (moved from `components/question-dock.tsx`, behavior unchanged). Tests: `tests/question-data-for-call.test.ts`.
-  - `tests/automatic-updates.test.ts`: fork flag + `getVersion` fake + 2 fork tests. 30 pass.
-  - Full upstream suite: 1 failure that also fails on unchanged upstream (`tests/subscription-auth.test.ts`, pi-ai "No exports main"). Not caused by the fork.
+  - `src/core/question-core.ts`: shared `questionDataForCall` (moved from `components/question-dock.tsx`, behavior unchanged).
+  - Test base: `tests/helpers/fake-openai-provider.ts` (scripted OpenAI-compatible model; the role comes from the tool names), `tests/helpers/next-dev-server.ts` (starts `next dev` in a temporary HOME and data folder).
+  - Tests: `tests/phone-access.test.ts` (15), `tests/phone-access-window.test.ts` (6), `tests/fake-openai-provider.test.ts` (4), `tests/question-data-for-call.test.ts`, `tests/automatic-updates.test.ts` (fork flag).
+  - Integration: `npm run test:phone-integration` (8 tests, about 1 minute). Not part of `npm test`. Stop `npm run desktop:dev` first: both use the `.next/dev` lock.
+  - Full upstream suite: 3216 of 3217 pass. The 1 failure also fails on unchanged upstream (`tests/subscription-auth.test.ts`, pi-ai "No exports main").
 - Phone app: Expo SDK 58 project at `~/Development/learnharness-mobile` (no git repo yet).
   - Template screens removed. `src/app/_layout.tsx` and `src/app/index.tsx` still hold template code and must be rewritten.
   - `metro.config.js`: watches `../learnharness`, maps `node:crypto` to `src/shims/node-crypto.ts`.
@@ -24,7 +26,7 @@ Last update: 2026-11-14.
   - `src/lib/pairing.ts`: parse QR payload, pair, find reachable address, `remoteFetch`. No tests yet.
   - Installed: expo-camera, expo-secure-store, expo-crypto, @noble/hashes.
 
-**Next step:** issue 01, then 02. See `docs/issues/`.
+**Next step:** issue 02 (phone pairing). Issue 01 is done. The "Copy pairing text" button of issue 02 is already in the desktop window. See `docs/ISSUES.md`.
 
 **Facts found during the work**
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.
@@ -33,6 +35,10 @@ Last update: 2026-11-14.
 - Route methods: rename is `PUT /api/chats/:id`, session settings `PUT`, dictation token `GET /api/stt/token`.
 - Tailscale is not installed on the Mac. The user must install it and sign in (account creation is the user's action).
 - The user's real data: `~/Library/Application Support/LearnHarness/data`. Never use it in tests. Use a temporary `LH_DATA_DIR`.
+- `proxy.ts` refuses every `/api` request without the desktop secret when `LH_DESKTOP_SERVER=1` (the packaged app). The gateway adds the secret, so the phone works there.
+- The turn stream (`/api/chats/:id/stream`) sends each `message_update` as the whole message so far, not as a delta. A reattach replays the event log from `agent_start`.
+- In dev (`npm run desktop:dev`), the server uses the repo `data/` folder unless `LH_DATA_DIR` is set, and Electron uses `~/Library/Application Support/LearnHarness-dev`. For manual checks, set `LH_DATA_DIR` and `LH_AUTH_FILE` to a temporary folder.
+- Next's telemetry flush runs detached at shutdown and writes `Library/Preferences/nextjs-nodejs` under HOME. The test helper removes the temporary HOME again after it.
 
 ## Problem Statement
 

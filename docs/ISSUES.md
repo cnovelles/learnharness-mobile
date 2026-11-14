@@ -7,7 +7,7 @@ Order: 01 → 02 → 03 → 04 → (05, 06, 07, 08 in any order) → 09 → 10 �
 
 ---
 
-## 01 Fake provider + gateway against the real server `todo`
+## 01 Fake provider + gateway against the real server `done`
 Blocked by: none.
 
 Build the deterministic test base and prove the gateway with the real upstream server.
@@ -17,6 +17,8 @@ Build the deterministic test base and prove the gateway with the real upstream s
 
 Acceptance: integration test passes; manual window check done; never touches the user's real data folder.
 
+Result (fork commit `2657a55`): `npm run test:phone-integration` passes (8 tests). The window check found two bugs: the device list did not update after a pairing, and the spent QR code stayed on screen. Both are fixed and checked in the real window. The allowlist now matches the real routes. "Copy pairing text" (from 02) is done.
+
 ## 02 Phone pairing `todo`
 Blocked by: 01.
 
@@ -25,7 +27,7 @@ Blocked by: 01.
 - Connection store in the secure store (save, load, forget).
 - Rewrite `src/app/_layout.tsx` (polyfills first, Stack) and `src/app/index.tsx`.
 - Pairing screen: camera QR scan (`expo-camera`, `barcodeTypes: ["qr"]`) and a paste field.
-- Desktop window: add "Copy pairing text" for the Simulator.
+- Desktop window: add "Copy pairing text" for the Simulator. (Done in 01.)
 - `app.json`: camera permission text, `NSLocalNetworkUsageDescription`, ATS local networking. Development build (`npx expo run:ios`).
 - Settings screen: connected Mac name, address in use, "Forget this Mac".
 
