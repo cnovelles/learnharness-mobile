@@ -19,7 +19,7 @@ Acceptance: integration test passes; manual window check done; never touches the
 
 Result (fork commits `2657a55`, `78bb2bf`, `82fdb3e`): security fixes added (per-code pairing lockout; revoke closes open streams). CI job `phone-integration` added; it runs `npm run test:phone-integration`, which passes locally, also against upstream v0.6.1. Earlier result (`2657a55`): `npm run test:phone-integration` passes (8 tests). The window check found two bugs: the device list did not update after a pairing, and the spent QR code stayed on screen. Both are fixed and checked in the real window. The allowlist now matches the real routes. "Copy pairing text" (from 02) is done.
 
-## 01b HTTPS with certificate pinning `todo`
+## 01b HTTPS with certificate pinning `doing`
 Blocked by: 01. User decision 2026-11-14: "Tailscale + LAN TLS now".
 
 Why: the phone sends its token to saved LAN addresses before it knows that the server is the Mac (on another network, a device at the same IP gets the token), and LAN traffic is plain text.
@@ -31,6 +31,13 @@ Why: the phone sends its token to saved LAN addresses before it knows that the s
 - Tests: gateway HTTPS and the pin in the QR payload; the phone refuses a wrong pin (unit test with an injected verifier); integration test with a wrong certificate; certificate rotation (a new certificate means pairing again).
 
 Acceptance: all tests pass; no plain HTTP listener; the phone sends no token to a server with a wrong pin.
+
+State (fork `8c1744d`, phone see PRD Status): all code and tests done.
+- Certificate: own `node:crypto` code (user choice), P-256, no new dependency.
+- Phone library: a local Swift Expo module (`modules/pinned-fetch`). The library option does not fit (TrustKit refuses self-signed certificates and hooks only React Native networking).
+- Tests: fork 22 + 7 + 9 integration; phone 86 Jest; `npm run test:native-pin` checks the Swift pin check and URLSession on macOS against a real HTTPS server.
+- Left: compile `PinnedFetchModule.swift` in the iOS build and check pairing on the Simulator. Both wait for a newer Xcode (see 02).
+- Follow-up for the 02 screens: show `wrongCertificate` (another device at the Mac's address, or a new certificate on the Mac) on the home screen. `src/app` was not changed in 01b.
 
 ## 02 Phone pairing `doing`
 Blocked by: 01, 01b.

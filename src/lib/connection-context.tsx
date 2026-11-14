@@ -6,11 +6,12 @@ import { createContext, use, useEffect, useRef, useState, useSyncExternalStore, 
 import { AppState } from "react-native";
 import { createConnectionMonitor, type ConnectionMonitor, type ConnectionState } from "./connection-monitor";
 import { secureConnectionStore } from "./connection-store";
+import { nativePinnedFetch } from "./native-pinned-fetch";
 
 const MonitorContext = createContext<ConnectionMonitor | null>(null);
 
 export function ConnectionProvider({ children, monitor: injected }: { children: ReactNode; monitor?: ConnectionMonitor }) {
-	const [monitor] = useState(() => injected ?? createConnectionMonitor({ store: secureConnectionStore, fetchImpl: (url, init) => fetch(url, init) }));
+	const [monitor] = useState(() => injected ?? createConnectionMonitor({ store: secureConnectionStore, fetchImpl: nativePinnedFetch() }));
 	// The monitor lives as long as the app. Start it once, even when React
 	// runs the effect twice in development.
 	const started = useRef(false);

@@ -5,7 +5,7 @@
  * another phone.
  */
 import * as SecureStore from "expo-secure-store";
-import type { Connection } from "./pairing";
+import { gatewayOrigin, isValidPin, type Connection } from "./pairing";
 
 const KEY = "lh.connection.v1";
 const OPTIONS: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
@@ -25,9 +25,11 @@ function isConnection(value: unknown): value is Connection {
 		c.token.length > 0 &&
 		typeof c.deviceId === "string" &&
 		typeof c.pairedAt === "string" &&
+		// A record without a pin (protocol 1, plain HTTP) can never connect safely.
+		isValidPin(c.pin) &&
 		Array.isArray(c.urls) &&
 		c.urls.length > 0 &&
-		c.urls.every((u) => typeof u === "string")
+		c.urls.every((u) => gatewayOrigin(u) === u)
 	);
 }
 

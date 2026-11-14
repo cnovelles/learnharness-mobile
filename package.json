@@ -54,7 +54,8 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:native-pin": "sh modules/pinned-fetch/tests/run-pin-check-test.sh"
   },
   "private": true,
   "jest": {

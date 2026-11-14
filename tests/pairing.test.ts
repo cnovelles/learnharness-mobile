@@ -1,57 +1,116 @@
 /**
- * src/lib/pairing.ts: payload parse, pairing (first answer decides),
- * reachability (401 = unpaired) and the remote fetch adapter. A fake fetch
- * stands in for the Mac's phone gateway (electron/phone-access.cjs).
+ * src/lib/pairing.ts: payload parse (pin, https origins with new URL()),
+ * pairing (first answer decides), reachability (401 = unpaired, only from a
+ * server that passes the pin) and the remote fetch adapter.
+ *
+ * The fake network acts like the native PinnedFetch: each server has a
+ * certificate pin, and a request whose pin does not match is refused
+ * BEFORE the server receives it. `received` shows what each server got.
  */
-import { PairingError, findReachableUrl, pair, parsePairingPayload, remoteFetch, type Connection } from "@/lib/pairing";
+import {
+	PairingError,
+	PinMismatchError,
+	findReachableUrl,
+	gatewayOrigin,
+	isValidPin,
+	pair,
+	parsePairingPayload,
+	remoteFetch,
+	type Connection,
+	type PinnedFetch,
+} from "@/lib/pairing";
 
 const CODE = "c".repeat(24);
-const payloadText = (over: Record<string, unknown> = {}) =>
-	JSON.stringify({ lh: 1, name: "Studio Mac", urls: ["http://100.64.0.5:47821", "http://192.168.1.20:47821"], code: CODE, ...over });
+const PIN = `sha256/${"A".repeat(42)}Q=`;
+const OTHER_PIN = `sha256/${"B".repeat(42)}Q=`;
+const TAILSCALE = "https://100.64.0.5:47821";
+const LAN = "https://192.168.1.20:47821";
+const payloadText = (over: Record<string, unknown> = {}) => JSON.stringify({ lh: 2, name: "Studio Mac", urls: [TAILSCALE, LAN], pin: PIN, code: CODE, ...over });
 
-type Call = { url: string; init?: RequestInit };
-/** A fetch whose answer depends on the URL. "unreachable" rejects like a network error. */
-function fakeFetch(answers: Record<string, Response | "unreachable" | "hang">) {
-	const calls: Call[] = [];
-	const fetchImpl = (url: string, init?: RequestInit) => {
-		calls.push({ url, init });
-		const host = Object.keys(answers).find((prefix) => url.startsWith(prefix));
-		const answer = host ? answers[host] : "unreachable";
-		if (answer === "unreachable") return Promise.reject(new TypeError("Network request failed"));
-		if (answer === "hang")
-			return new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
-		return Promise.resolve(answer.clone());
+type Answer = Response | "unreachable" | "hang";
+type Received = { url: string; authorization: string | null; body: unknown };
+
+/** Servers by origin, each with its certificate pin. */
+function fakeNetwork(servers: Record<string, { pin?: string; answer: Answer }>) {
+	const received: Record<string, Received[]> = {};
+	const attempts: { url: string; pin: string }[] = [];
+	const fetchImpl: PinnedFetch = (url, init) => {
+		attempts.push({ url, pin: init.pin });
+		const origin = new URL(url).origin;
+		const server = servers[origin];
+		if (!server || server.answer === "unreachable") return Promise.reject(new TypeError("Network request failed"));
+		// The verifier: the TLS handshake ends here when the pin is wrong.
+		if ((server.pin ?? PIN) !== init.pin) return Promise.reject(new PinMismatchError());
+		if (server.answer === "hang") return new Promise<Response>((_, reject) => init.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+		(received[origin] ??= []).push({ url, authorization: new Headers(init.headers).get("authorization"), body: init.body });
+		return Promise.resolve(server.answer.clone());
 	};
-	return { fetchImpl, calls };
+	return { fetchImpl, received, attempts };
 }
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-const PAIRED = { token: "t".repeat(43), deviceId: "dev_abc", protocol: 1, server: { name: "Studio Mac (server)", version: "0.4.1" } };
+const PAIRED = { token: "t".repeat(43), deviceId: "dev_abc", protocol: 2, server: { name: "Studio Mac (server)", version: "0.6.1" } };
+
+describe("gatewayOrigin (new URL())", () => {
+	it.each([
+		[TAILSCALE, TAILSCALE],
+		[`${LAN}/`, LAN],
+		["https://[fd7a:115c:a1e0::1]:47821", "https://[fd7a:115c:a1e0::1]:47821"],
+	])("accepts %s", (text, origin) => {
+		expect(gatewayOrigin(text)).toBe(origin);
+	});
+
+	it.each([
+		["plain http", "http://100.64.0.5:47821"],
+		["another scheme", "ftp://100.64.0.5:47821"],
+		["user info", "https://user:pw@100.64.0.5:47821"],
+		["a path", "https://100.64.0.5:47821/phone"],
+		["a query", "https://100.64.0.5:47821?x=1"],
+		["a fragment", "https://100.64.0.5:47821#x"],
+		["a space", "https://a b:47821"],
+		["a default port written out", "https://100.64.0.5:443"],
+		["no host", "https://"],
+		["not text", 5],
+		["a host that new URL() rewrites", "https://0x7f.1:47821"],
+	])("refuses %s", (_name, text) => {
+		expect(gatewayOrigin(text)).toBeNull();
+	});
+});
 
 describe("parsePairingPayload", () => {
-	it("reads a valid payload, ignoring surrounding whitespace", () => {
-		expect(parsePairingPayload(`  ${payloadText()}\n`)).toEqual({ name: "Studio Mac", urls: ["http://100.64.0.5:47821", "http://192.168.1.20:47821"], code: CODE });
+	it("reads the name, the https addresses, the pin and the code; ignores space around the text", () => {
+		expect(parsePairingPayload(`  ${payloadText()}\n`)).toEqual({ name: "Studio Mac", urls: [TAILSCALE, LAN], pin: PIN, code: CODE });
 	});
 
-	it("refuses text that is not JSON", () => {
-		expect(() => parsePairingPayload("hello")).toThrow(new PairingError("This is not a LearnHarness pairing code."));
+	it("refuses text that is not a pairing code", () => {
+		expect(() => parsePairingPayload("hello")).toThrow(PairingError);
+		expect(() => parsePairingPayload("{}")).toThrow("not a LearnHarness pairing code");
+		expect(() => parsePairingPayload("null")).toThrow("not a LearnHarness pairing code");
 	});
 
-	it("refuses another protocol version", () => {
-		expect(() => parsePairingPayload(payloadText({ lh: 2 }))).toThrow("different LearnHarness version");
+	it("refuses another protocol, including the plain HTTP protocol 1", () => {
+		expect(() => parsePairingPayload(payloadText({ lh: 1 }))).toThrow("different LearnHarness version");
+		expect(() => parsePairingPayload(payloadText({ lh: 3 }))).toThrow("different LearnHarness version");
+	});
+
+	it("refuses a payload without a valid pin", () => {
+		for (const pin of [undefined, "", "sha256/short", `sha1/${"A".repeat(42)}Q=`, `sha256/${"A".repeat(43)}`, 7]) {
+			expect(() => parsePairingPayload(payloadText({ pin }))).toThrow("no valid certificate pin");
+		}
 	});
 
 	it("refuses a short or missing code", () => {
-		expect(() => parsePairingPayload(payloadText({ code: "short" }))).toThrow("incomplete");
+		expect(() => parsePairingPayload(payloadText({ code: "abc" }))).toThrow("incomplete");
 		expect(() => parsePairingPayload(payloadText({ code: undefined }))).toThrow("incomplete");
 	});
 
-	it("keeps only plain http(s) origins and refuses a payload with none", () => {
-		const parsed = parsePairingPayload(payloadText({ urls: ["http://10.0.0.2:47821", "ftp://x", "http://a b", "http://h/path", 5] }));
-		expect(parsed.urls).toEqual(["http://10.0.0.2:47821"]);
+	it("keeps only https gateway origins, without duplicates, and refuses a payload with none", () => {
+		const parsed = parsePairingPayload(payloadText({ urls: ["http://10.0.0.2:47821", "https://10.0.0.2:47821", "https://10.0.0.2:47821/", "ftp://x", "https://h/path", 5] }));
+		expect(parsed.urls).toEqual(["https://10.0.0.2:47821"]);
 		expect(() => parsePairingPayload(payloadText({ urls: [] }))).toThrow("no network address");
+		expect(() => parsePairingPayload(payloadText({ urls: ["http://100.64.0.5:47821"] }))).toThrow("no network address");
 	});
 
-	it("uses \"Mac\" when the name is missing", () => {
+	it("uses a default name", () => {
 		expect(parsePairingPayload(payloadText({ name: "" })).name).toBe("Mac");
 	});
 });
@@ -59,98 +118,151 @@ describe("parsePairingPayload", () => {
 describe("pair", () => {
 	const payload = parsePairingPayload(payloadText());
 
-	it("posts the code and device name and returns the connection", async () => {
-		const { fetchImpl, calls } = fakeFetch({ "http://100.64.0.5": json(200, PAIRED) });
-		const connection = await pair(payload, "Ana's iPhone", fetchImpl);
-		expect(calls).toHaveLength(1);
-		expect(calls[0].url).toBe("http://100.64.0.5:47821/phone/v1/pair");
-		expect(calls[0].init?.method).toBe("POST");
-		expect(JSON.parse(String(calls[0].init?.body))).toEqual({ code: CODE, deviceName: "Ana's iPhone" });
-		expect(connection).toMatchObject({ name: "Studio Mac (server)", urls: payload.urls, token: PAIRED.token, deviceId: "dev_abc" });
-		expect(Number.isNaN(Date.parse(connection.pairedAt))).toBe(false);
+	it("posts the code and the device name with the pin, and returns the connection with the pin", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { answer: json(200, PAIRED) } });
+		const connection = await pair(payload, "Test iPhone", net.fetchImpl);
+		expect(net.attempts).toEqual([{ url: `${TAILSCALE}/phone/v1/pair`, pin: PIN }]);
+		expect(JSON.parse(String(net.received[TAILSCALE]![0]!.body))).toEqual({ code: CODE, deviceName: "Test iPhone" });
+		expect(connection).toMatchObject({ name: "Studio Mac (server)", urls: payload.urls, pin: PIN, token: PAIRED.token, deviceId: "dev_abc" });
 	});
 
-	it("moves past an unreachable address and puts the answering one first", async () => {
-		const { fetchImpl, calls } = fakeFetch({ "http://100.64.0.5": "unreachable", "http://192.168.1.20": json(200, PAIRED) });
-		const connection = await pair(payload, "iPhone", fetchImpl);
-		expect(calls.map((c) => c.url)).toEqual(["http://100.64.0.5:47821/phone/v1/pair", "http://192.168.1.20:47821/phone/v1/pair"]);
-		expect(connection.urls).toEqual(["http://192.168.1.20:47821", "http://100.64.0.5:47821"]);
+	it("moves on from an unreachable address and puts the working address first", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { answer: "unreachable" }, [LAN]: { answer: json(200, PAIRED) } });
+		const connection = await pair(payload, "iPhone", net.fetchImpl);
+		expect(net.attempts.map((a) => a.url)).toEqual([`${TAILSCALE}/phone/v1/pair`, `${LAN}/phone/v1/pair`]);
+		expect(connection.urls).toEqual([LAN, TAILSCALE]);
 	});
 
-	it("treats a timeout as unreachable", async () => {
-		const { fetchImpl } = fakeFetch({ "http://100.64.0.5": "hang", "http://192.168.1.20": json(200, PAIRED) });
-		const connection = await pair(payload, "iPhone", fetchImpl, 20);
-		expect(connection.urls[0]).toBe("http://192.168.1.20:47821");
+	it("moves on from an address that does not answer in time", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { answer: "hang" }, [LAN]: { answer: json(200, PAIRED) } });
+		expect((await pair(payload, "iPhone", net.fetchImpl, 20)).urls[0]).toBe(LAN);
 	});
 
-	it("stops at the first answer: a refusal there is final, the next address is not tried", async () => {
-		const { fetchImpl, calls } = fakeFetch({
-			"http://100.64.0.5": json(401, { error: "The pairing code is not valid or has expired. Show a new QR code on the Mac." }),
-			"http://192.168.1.20": json(200, PAIRED),
+	it("sends the code only to the server that passes the pin", async () => {
+		// Another device at the Tailscale address (another network): it gets nothing.
+		const net = fakeNetwork({ [TAILSCALE]: { pin: OTHER_PIN, answer: json(200, { ...PAIRED, token: "stolen".repeat(8) }) }, [LAN]: { answer: json(200, PAIRED) } });
+		const connection = await pair(payload, "iPhone", net.fetchImpl);
+		expect(net.received[TAILSCALE]).toBeUndefined();
+		expect(connection.token).toBe(PAIRED.token);
+		expect(connection.urls[0]).toBe(LAN);
+	});
+
+	it("says so when only devices with another certificate answer", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { pin: OTHER_PIN, answer: json(200, PAIRED) }, [LAN]: { answer: "unreachable" } });
+		await expect(pair(payload, "iPhone", net.fetchImpl)).rejects.toThrow("but it is not Studio Mac. Nothing was sent.");
+		expect(net.received).toEqual({});
+	});
+
+	it("refuses a payload without a valid pin before it sends anything", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { answer: json(200, PAIRED) } });
+		await expect(pair({ ...payload, pin: "" }, "iPhone", net.fetchImpl)).rejects.toThrow("no valid certificate pin");
+		expect(net.attempts).toEqual([]);
+	});
+
+	it("never sends the code to an http address, even when the payload object has one", async () => {
+		const net = fakeNetwork({ "http://100.64.0.5:47821": { answer: json(200, PAIRED) } });
+		await expect(pair({ ...payload, urls: ["http://100.64.0.5:47821"] }, "iPhone", net.fetchImpl)).rejects.toThrow("cannot reach");
+		expect(net.attempts).toEqual([]);
+	});
+
+	it("stops at the first refusal: the code is one-use", async () => {
+		const net = fakeNetwork({
+			[TAILSCALE]: { answer: json(401, { error: "The pairing code is not valid or has expired. Show a new QR code on the Mac." }) },
+			[LAN]: { answer: json(200, PAIRED) },
 		});
-		await expect(pair(payload, "iPhone", fetchImpl)).rejects.toThrow("The pairing code is not valid or has expired");
-		expect(calls).toHaveLength(1);
+		await expect(pair(payload, "iPhone", net.fetchImpl)).rejects.toThrow("The pairing code is not valid or has expired");
+		expect(net.attempts).toHaveLength(1);
 	});
 
-	it("gives a status message when the refusal has no JSON error", async () => {
-		const { fetchImpl } = fakeFetch({ "http://100.64.0.5": new Response("busy", { status: 503 }) });
-		await expect(pair(payload, "iPhone", fetchImpl)).rejects.toThrow("The Mac answered with status 503.");
+	it("shows the status when the refusal has no message", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { answer: new Response("busy", { status: 503 }) } });
+		await expect(pair(payload, "iPhone", net.fetchImpl)).rejects.toThrow("status 503");
 	});
 
 	it("refuses an invalid answer and another protocol", async () => {
-		await expect(pair(payload, "iPhone", fakeFetch({ "http://100.64.0.5": json(200, { deviceId: "x" }) }).fetchImpl)).rejects.toThrow("invalid pairing answer");
-		await expect(pair(payload, "iPhone", fakeFetch({ "http://100.64.0.5": json(200, { ...PAIRED, protocol: 2 }) }).fetchImpl)).rejects.toThrow("different phone protocol");
+		await expect(pair(payload, "iPhone", fakeNetwork({ [TAILSCALE]: { answer: json(200, { deviceId: "x" }) } }).fetchImpl)).rejects.toThrow("invalid pairing answer");
+		await expect(pair(payload, "iPhone", fakeNetwork({ [TAILSCALE]: { answer: json(200, { ...PAIRED, protocol: 1 }) } }).fetchImpl)).rejects.toThrow("different phone protocol");
 	});
 
 	it("names the Mac when no address answers", async () => {
-		await expect(pair(payload, "iPhone", fakeFetch({}).fetchImpl)).rejects.toThrow("The phone cannot reach Studio Mac.");
+		await expect(pair(payload, "iPhone", fakeNetwork({}).fetchImpl)).rejects.toThrow("The phone cannot reach Studio Mac.");
 	});
 });
 
 describe("findReachableUrl", () => {
-	const connection: Connection = { name: "Mac", urls: ["http://100.64.0.5:47821", "http://192.168.1.20:47821"], token: "tok_" + "x".repeat(30), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00Z" };
+	const connection: Connection = { name: "Mac", urls: [TAILSCALE, LAN], pin: PIN, token: "tok_" + "x".repeat(30), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00Z" };
 
-	it("pings with the token and returns the first answering address", async () => {
-		const { fetchImpl, calls } = fakeFetch({ "http://100.64.0.5": "unreachable", "http://192.168.1.20": json(200, { ok: true }) });
-		expect(await findReachableUrl(connection, fetchImpl)).toEqual({ kind: "ok", url: "http://192.168.1.20:47821" });
-		expect(calls[1].url).toBe("http://192.168.1.20:47821/phone/v1/ping");
-		expect(new Headers(calls[1].init?.headers).get("authorization")).toBe(`Bearer ${connection.token}`);
+	it("pings with the token and the pin, and returns the first answering address", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { answer: "unreachable" }, [LAN]: { answer: json(200, { ok: true }) } });
+		expect(await findReachableUrl(connection, net.fetchImpl)).toEqual({ kind: "ok", url: LAN });
+		expect(net.attempts[1]).toEqual({ url: `${LAN}/phone/v1/ping`, pin: PIN });
+		expect(net.received[LAN]![0]!.authorization).toBe(`Bearer ${connection.token}`);
 	});
 
-	it("reports unpaired on 401", async () => {
-		const { fetchImpl } = fakeFetch({ "http://100.64.0.5": json(401, { error: "This phone is not paired" }) });
-		expect(await findReachableUrl(connection, fetchImpl)).toEqual({ kind: "unpaired" });
+	it("reports unpaired on a 401 from the Mac", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { answer: json(401, { error: "This phone is not paired" }) } });
+		expect(await findReachableUrl(connection, net.fetchImpl)).toEqual({ kind: "unpaired" });
+	});
+
+	it("never sends the token to a server with another certificate, and its 401 does not unpair", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { pin: OTHER_PIN, answer: json(401, {}) }, [LAN]: { pin: OTHER_PIN, answer: json(401, {}) } });
+		expect(await findReachableUrl(connection, net.fetchImpl)).toEqual({ kind: "unreachable", wrongCertificate: true });
+		expect(net.received).toEqual({});
+	});
+
+	it("passes a wrong-certificate address and uses the Mac at the next one", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { pin: OTHER_PIN, answer: json(200, {}) }, [LAN]: { answer: json(200, { ok: true }) } });
+		expect(await findReachableUrl(connection, net.fetchImpl)).toEqual({ kind: "ok", url: LAN });
+		expect(net.received[TAILSCALE]).toBeUndefined();
 	});
 
 	it("reports unreachable when no address answers or all fail with other errors", async () => {
-		expect(await findReachableUrl(connection, fakeFetch({}).fetchImpl)).toEqual({ kind: "unreachable" });
-		const { fetchImpl } = fakeFetch({ "http://100.64.0.5": json(502, {}), "http://192.168.1.20": "hang" });
-		expect(await findReachableUrl(connection, fetchImpl, 20)).toEqual({ kind: "unreachable" });
+		expect(await findReachableUrl(connection, fakeNetwork({}).fetchImpl)).toEqual({ kind: "unreachable", wrongCertificate: false });
+		const net = fakeNetwork({ [TAILSCALE]: { answer: json(502, {}) }, [LAN]: { answer: "hang" } });
+		expect(await findReachableUrl(connection, net.fetchImpl, 20)).toEqual({ kind: "unreachable", wrongCertificate: false });
+	});
+
+	it("sends nothing for a stored connection without a valid pin or with http addresses", async () => {
+		const net = fakeNetwork({ [TAILSCALE]: { answer: json(200, {}) }, "http://10.0.0.2:47821": { answer: json(200, {}) } });
+		expect((await findReachableUrl({ ...connection, pin: "" }, net.fetchImpl)).kind).toBe("unreachable");
+		expect((await findReachableUrl({ ...connection, urls: ["http://10.0.0.2:47821"] }, net.fetchImpl)).kind).toBe("unreachable");
+		expect(net.attempts).toEqual([]);
 	});
 });
 
 describe("remoteFetch", () => {
-	it("adds the base URL and the token, and keeps the caller's method, body and headers", async () => {
-		const { fetchImpl, calls } = fakeFetch({ "http://10.0.0.2": json(200, {}) });
-		const f = remoteFetch("http://10.0.0.2:47821", "secret-token", fetchImpl);
+	const auth = { token: "secret-token", pin: PIN };
+
+	it("adds the base URL, the token and the pin, and keeps the caller's method, body and headers", async () => {
+		const net = fakeNetwork({ [LAN]: { answer: json(200, {}) } });
+		const f = remoteFetch(LAN, auth, net.fetchImpl);
 		await f("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-		expect(calls[0].url).toBe("http://10.0.0.2:47821/api/chat");
-		const headers = new Headers(calls[0].init?.headers);
-		expect(headers.get("authorization")).toBe("Bearer secret-token");
-		expect(headers.get("content-type")).toBe("application/json");
-		expect(calls[0].init?.method).toBe("POST");
-		expect(calls[0].init?.body).toBe("{}");
+		expect(net.attempts).toEqual([{ url: `${LAN}/api/chat`, pin: PIN }]);
+		expect(net.received[LAN]![0]).toEqual({ url: `${LAN}/api/chat`, authorization: "Bearer secret-token", body: "{}" });
 	});
 
 	it("accepts a URL object path with a query", async () => {
-		const { fetchImpl, calls } = fakeFetch({ "http://10.0.0.2": json(200, {}) });
-		await remoteFetch("http://10.0.0.2:47821", "t", fetchImpl)(new URL("http://ignored/api/chats?x=1"));
-		expect(calls[0].url).toBe("http://10.0.0.2:47821/api/chats?x=1");
+		const net = fakeNetwork({ [LAN]: { answer: json(200, {}) } });
+		await remoteFetch(LAN, auth, net.fetchImpl)(new URL("http://ignored/api/chats?x=1"));
+		expect(net.attempts[0]!.url).toBe(`${LAN}/api/chats?x=1`);
 	});
 
-	it("refuses an absolute URL, so the token never goes to another host", () => {
-		const { fetchImpl, calls } = fakeFetch({});
-		expect(() => remoteFetch("http://10.0.0.2:47821", "t", fetchImpl)("https://evil.example/api")).toThrow("expected a relative path");
-		expect(calls).toHaveLength(0);
+	it("refuses an absolute or protocol-relative URL, so the token never goes to another host", () => {
+		const net = fakeNetwork({});
+		const f = remoteFetch(LAN, auth, net.fetchImpl);
+		expect(() => f("https://evil.example/api")).toThrow("expected a relative path");
+		expect(() => f("//evil.example/api")).toThrow("expected a relative path");
+		expect(net.attempts).toHaveLength(0);
+	});
+
+	it("refuses an http base URL and a missing pin", () => {
+		const net = fakeNetwork({});
+		expect(() => remoteFetch("http://10.0.0.2:47821", auth, net.fetchImpl)).toThrow("not an https gateway address");
+		expect(() => remoteFetch(LAN, { token: "t", pin: "" }, net.fetchImpl)).toThrow("no valid pin");
+	});
+
+	it("isValidPin matches the gateway format", () => {
+		expect(isValidPin(PIN)).toBe(true);
+		expect(isValidPin(PIN.replace("sha256/", "sha256//"))).toBe(false);
 	});
 });

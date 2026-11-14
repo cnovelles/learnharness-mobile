@@ -5,9 +5,12 @@
  * Pings: when the app starts, when it returns to the foreground, and every
  * 30 seconds while it is in the foreground. A 401 means the Mac removed this
  * phone: the monitor deletes the stored token and asks for a new pairing.
+ * Every request is pinned (PinnedFetch): a 401 can come only from the Mac.
+ * A server with another certificate gets nothing and makes the state
+ * "unreachable" with `wrongCertificate`; the pairing stays.
  */
 import type { ConnectionStore } from "./connection-store";
-import { findReachableUrl, pair, parsePairingPayload, type Connection } from "./pairing";
+import { findReachableUrl, pair, parsePairingPayload, type Connection, type PinnedFetch } from "./pairing";
 
 export const PING_INTERVAL_MS = 30_000;
 
@@ -18,9 +21,7 @@ export type ConnectionState =
 	| { status: "unpaired"; message?: string }
 	| { status: "checking"; connection: Connection; url?: string }
 	| { status: "connected"; connection: Connection; url: string; checkedAt: string }
-	| { status: "unreachable"; connection: Connection; checkedAt: string };
-
-type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
+	| { status: "unreachable"; connection: Connection; checkedAt: string; wrongCertificate?: boolean };
 
 export interface ConnectionMonitor {
 	state(): ConnectionState;
@@ -45,7 +46,7 @@ export function createConnectionMonitor({
 	intervalMs = PING_INTERVAL_MS,
 }: {
 	store: ConnectionStore;
-	fetchImpl: Fetch;
+	fetchImpl: PinnedFetch;
 	now?: () => Date;
 	intervalMs?: number;
 }): ConnectionMonitor {
@@ -82,7 +83,7 @@ export function createConnectionMonitor({
 		if (mine !== generation || stopped) return;
 		const checkedAt = now().toISOString();
 		if (result.kind === "ok") set({ status: "connected", connection, url: result.url, checkedAt });
-		else if (result.kind === "unreachable") set({ status: "unreachable", connection, checkedAt });
+		else if (result.kind === "unreachable") set({ status: "unreachable", connection, checkedAt, ...(result.wrongCertificate ? { wrongCertificate: true } : {}) });
 		else {
 			generation++;
 			await store.forget();

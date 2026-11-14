@@ -1,7 +1,8 @@
 /**
  * The app shell (src/app) with expo-router's test renderer: the root layout,
  * its guards and the pair, home and settings screens. The Keychain is an
- * in-memory mock and the Mac is a fake behind global fetch.
+ * in-memory mock and the Mac is a fake behind the pinned fetch (the native
+ * module is mocked; a wrong pin rejects like the native module does).
  */
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 import path from "node:path";
@@ -15,6 +16,14 @@ jest.mock("expo-secure-store", () => ({
 	deleteItemAsync: async (key: string) => void mockKeychain.delete(key),
 }));
 jest.mock("expo-device", () => ({ deviceName: "Test iPhone" }));
+// The native PinnedFetch: delegates to fetchMock after the pin check.
+jest.mock("@/lib/native-pinned-fetch", () => {
+	const { PinMismatchError } = jest.requireActual("@/lib/pairing");
+	return {
+		nativePinnedFetch: () => (url: string, init: RequestInit & { pin: string }) =>
+			init.pin === mockMacPin ? (globalThis.fetch as typeof fetch)(url, init) : Promise.reject(new PinMismatchError()),
+	};
+});
 jest.mock("expo-camera", () => ({
 	CameraView: () => null,
 	useCameraPermissions: () => [{ granted: false }, async () => ({ granted: false })],
@@ -22,7 +31,10 @@ jest.mock("expo-camera", () => ({
 
 const APP = path.resolve(__dirname, "../src/app");
 const CODE = "c".repeat(24);
-const PAYLOAD = JSON.stringify({ lh: 1, name: "Studio Mac", urls: ["http://192.168.1.20:47821"], code: CODE });
+const PIN = `sha256/${"A".repeat(42)}Q=`;
+/** The pin of the certificate that the fake Mac shows. */
+let mockMacPin = PIN;
+const PAYLOAD = JSON.stringify({ lh: 2, name: "Studio Mac", urls: ["https://192.168.1.20:47821"], pin: PIN, code: CODE });
 
 /** The fake Mac. `pingStatus` changes what /phone/v1/ping answers. */
 let pingStatus = 200;
@@ -32,7 +44,7 @@ const fakeMac = async (url: string, init?: RequestInit) => {
 		const body = JSON.parse(String(init?.body));
 		if (body.code !== CODE) return new Response(JSON.stringify({ error: "The pairing code is not valid or has expired. Show a new QR code on the Mac." }), { status: 401 });
 		pairedDevices.push(body.deviceName);
-		return new Response(JSON.stringify({ token: "t".repeat(43), deviceId: "dev_1", protocol: 1, server: { name: "Studio Mac", version: "0.4.1" } }), { status: 200 });
+		return new Response(JSON.stringify({ token: "t".repeat(43), deviceId: "dev_1", protocol: 2, server: { name: "Studio Mac", version: "0.6.1" } }), { status: 200 });
 	}
 	if (url.endsWith("/phone/v1/ping")) return new Response(JSON.stringify({ ok: pingStatus === 200 }), { status: pingStatus });
 	throw new TypeError("Network request failed");
@@ -42,6 +54,7 @@ const fetchMock = jest.fn(fakeMac);
 beforeEach(() => {
 	mockKeychain.clear();
 	pingStatus = 200;
+	mockMacPin = PIN;
 	pairedDevices = [];
 	fetchMock.mockReset();
 	fetchMock.mockImplementation(fakeMac);
@@ -81,7 +94,7 @@ it("text that is not a pairing code shows a clear error", async () => {
 
 describe("a paired phone", () => {
 	beforeEach(() => {
-		mockKeychain.set("lh.connection.v1", JSON.stringify({ name: "Studio Mac", urls: ["http://192.168.1.20:47821"], token: "t".repeat(43), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00.000Z" }));
+		mockKeychain.set("lh.connection.v1", JSON.stringify({ name: "Studio Mac", urls: ["https://192.168.1.20:47821"], pin: PIN, token: "t".repeat(43), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00.000Z" }));
 	});
 
 	it("opens connected, and settings show the Mac and the address in use", async () => {
@@ -89,7 +102,7 @@ describe("a paired phone", () => {
 		expect(await screen.findByText("Connected to Studio Mac.")).toBeTruthy();
 		await fireEvent.press(screen.getByTestId("open-settings"));
 		expect(await screen.findByTestId("mac-name")).toHaveTextContent("Studio Mac");
-		expect(screen.getByTestId("mac-address")).toHaveTextContent("http://192.168.1.20:47821");
+		expect(screen.getByTestId("mac-address")).toHaveTextContent("https://192.168.1.20:47821");
 	});
 
 	it("shows what to check when the Mac does not answer", async () => {
@@ -106,6 +119,14 @@ describe("a paired phone", () => {
 		expect(await screen.findByTestId("removed-message")).toHaveTextContent("This phone was removed on the Mac. Pair again.");
 		expect(screen).toHavePathname("/pair");
 		expect(mockKeychain.size).toBe(0);
+	});
+
+	it("another certificate at the Mac's address gets no token, and the pairing stays", async () => {
+		mockMacPin = `sha256/${"B".repeat(42)}Q=`;
+		await renderRouter(APP, { initialUrl: "/" });
+		expect(await screen.findByText(/The phone cannot reach Studio Mac/)).toBeTruthy();
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(mockKeychain.size).toBe(1);
 	});
 
 	it("\"Forget this Mac\" asks first, then deletes the pairing", async () => {

@@ -13,7 +13,7 @@ jest.mock("expo-secure-store", () => ({
 // eslint-disable-next-line import/first
 import { secureConnectionStore as store } from "@/lib/connection-store";
 
-const CONNECTION: Connection = { name: "Studio Mac", urls: ["http://100.64.0.5:47821"], token: "t".repeat(43), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00.000Z" };
+const CONNECTION: Connection = { name: "Studio Mac", urls: ["https://100.64.0.5:47821"], pin: `sha256/${"A".repeat(42)}Q=`, token: "t".repeat(43), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00.000Z" };
 
 beforeEach(() => {
 	mockItems.clear();
@@ -48,7 +48,18 @@ it("removes a damaged record and reports no connection", async () => {
 	expect(mockItems.size).toBe(0);
 });
 
+it("removes a protocol 1 record (plain HTTP, no pin): it can never connect safely", async () => {
+	const { pin: _pin, ...withoutPin } = CONNECTION;
+	mockItems.set("lh.connection.v1", JSON.stringify({ ...withoutPin, urls: ["http://100.64.0.5:47821"] }));
+	expect(await store.load()).toBeNull();
+	expect(mockItems.size).toBe(0);
+	mockItems.set("lh.connection.v1", JSON.stringify({ ...CONNECTION, urls: ["http://100.64.0.5:47821"] }));
+	expect(await store.load()).toBeNull();
+	expect(mockItems.size).toBe(0);
+});
+
 it("refuses to save an incomplete connection", async () => {
 	await expect(store.save({ ...CONNECTION, urls: [] })).rejects.toThrow("incomplete");
+	await expect(store.save({ ...CONNECTION, pin: "" })).rejects.toThrow("incomplete");
 	expect(mockItems.size).toBe(0);
 });

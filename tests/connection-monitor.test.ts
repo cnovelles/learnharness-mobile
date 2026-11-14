@@ -4,9 +4,10 @@
  */
 import type { ConnectionStore } from "@/lib/connection-store";
 import { createConnectionMonitor, PING_INTERVAL_MS, REMOVED_MESSAGE, type ConnectionState } from "@/lib/connection-monitor";
-import type { Connection } from "@/lib/pairing";
+import { PinMismatchError, type Connection } from "@/lib/pairing";
 
-const CONNECTION: Connection = { name: "Studio Mac", urls: ["http://100.64.0.5:47821", "http://192.168.1.20:47821"], token: "t".repeat(43), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00.000Z" };
+const PIN = `sha256/${"A".repeat(42)}Q=`;
+const CONNECTION: Connection = { name: "Studio Mac", urls: ["https://100.64.0.5:47821", "https://192.168.1.20:47821"], pin: PIN, token: "t".repeat(43), deviceId: "dev_1", pairedAt: "2026-11-14T00:00:00.000Z" };
 
 function memoryStore(initial: Connection | null = null) {
 	let value = initial;
@@ -19,24 +20,25 @@ function memoryStore(initial: Connection | null = null) {
 	return store;
 }
 
-/** The Mac: answers pings by status; counts them. */
-function mac(initial: number | "down" = 200) {
-	let status: number | "down" = initial;
+/** The Mac: answers pings by status; counts them. "impostor": another certificate at its addresses. */
+function mac(initial: number | "down" | "impostor" = 200) {
+	let status: number | "down" | "impostor" = initial;
 	const pings: string[] = [];
-	const fetchImpl = async (url: string, init?: RequestInit) => {
+	const fetchImpl = async (url: string, init: RequestInit & { pin: string }) => {
+		if (status === "impostor" || init.pin !== PIN) throw new PinMismatchError();
 		if (url.endsWith("/phone/v1/ping")) {
 			pings.push(url);
 			if (status === "down") throw new TypeError("Network request failed");
 			return new Response(JSON.stringify({ ok: status === 200 }), { status });
 		}
 		if (url.endsWith("/phone/v1/pair")) {
-			const body = JSON.parse(String(init?.body));
+			const body = JSON.parse(String(init.body));
 			if (body.code !== "c".repeat(24)) return new Response(JSON.stringify({ error: "The pairing code is not valid or has expired." }), { status: 401 });
-			return new Response(JSON.stringify({ token: "n".repeat(43), deviceId: "dev_new", protocol: 1, server: { name: "Studio Mac" } }), { status: 200 });
+			return new Response(JSON.stringify({ token: "n".repeat(43), deviceId: "dev_new", protocol: 2, server: { name: "Studio Mac" } }), { status: 200 });
 		}
 		throw new Error(`unexpected ${url}`);
 	};
-	return { fetchImpl, pings, set: (s: number | "down") => (status = s) };
+	return { fetchImpl, pings, set: (s: number | "down" | "impostor") => (status = s) };
 }
 
 const flush = async () => {
@@ -126,8 +128,8 @@ it("pairs from pairing text, saves the connection and starts pinging", async () 
 	const store = memoryStore();
 	const monitor = createConnectionMonitor({ store, fetchImpl: m.fetchImpl });
 	await monitor.start();
-	await monitor.pairWith(JSON.stringify({ lh: 1, name: "Studio Mac", urls: ["http://192.168.1.20:47821"], code: "c".repeat(24) }), "Sim iPhone");
-	expect(monitor.state()).toMatchObject({ status: "connected", url: "http://192.168.1.20:47821" });
+	await monitor.pairWith(JSON.stringify({ lh: 2, name: "Studio Mac", urls: ["https://192.168.1.20:47821"], pin: PIN, code: "c".repeat(24) }), "Sim iPhone");
+	expect(monitor.state()).toMatchObject({ status: "connected", url: "https://192.168.1.20:47821" });
 	expect(store.value()).toMatchObject({ token: "n".repeat(43), deviceId: "dev_new" });
 	await jest.advanceTimersByTimeAsync(PING_INTERVAL_MS);
 	expect(m.pings).toHaveLength(1);
@@ -139,7 +141,7 @@ it("a refused pairing keeps the unpaired state and stores nothing", async () => 
 	const store = memoryStore();
 	const monitor = createConnectionMonitor({ store, fetchImpl: m.fetchImpl });
 	await monitor.start();
-	await expect(monitor.pairWith(JSON.stringify({ lh: 1, name: "Mac", urls: ["http://192.168.1.20:47821"], code: "x".repeat(24) }), "iPhone")).rejects.toThrow("not valid");
+	await expect(monitor.pairWith(JSON.stringify({ lh: 2, name: "Mac", urls: ["https://192.168.1.20:47821"], pin: PIN, code: "x".repeat(24) }), "iPhone")).rejects.toThrow("not valid");
 	expect(monitor.state().status).toBe("unpaired");
 	expect(store.value()).toBeNull();
 	monitor.stop();
@@ -155,6 +157,21 @@ it("forget deletes the connection and stops pinging", async () => {
 	expect(store.value()).toBeNull();
 	await jest.advanceTimersByTimeAsync(PING_INTERVAL_MS * 2);
 	expect(m.pings).toHaveLength(1);
+	monitor.stop();
+});
+
+it("another certificate at the Mac's addresses keeps the pairing and reports wrongCertificate", async () => {
+	const m = mac("impostor");
+	const store = memoryStore(CONNECTION);
+	const monitor = createConnectionMonitor({ store, fetchImpl: m.fetchImpl });
+	await monitor.start();
+	expect(monitor.state()).toMatchObject({ status: "unreachable", wrongCertificate: true });
+	expect(await store.load()).toEqual(CONNECTION);
+	expect(m.pings).toEqual([]);
+	m.set(200);
+	await monitor.check();
+	expect(monitor.state().status).toBe("connected");
+	expect("wrongCertificate" in monitor.state()).toBe(false);
 	monitor.stop();
 });
 
