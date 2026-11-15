@@ -51,3 +51,16 @@ export {
 	type QuestionAnswerData,
 	type QuestionData,
 } from "@lh/src/core";
+// The plan graph layout (issue 05 slice 0): dagre placement and edge paths,
+// with no DOM. The desktop draws the same numbers in components/plan-block.tsx.
+export {
+	ARROW_HEAD,
+	GRAPH_PAD,
+	HEAD_H,
+	HEAD_W,
+	STROKE_W,
+	blockLayout,
+	edgePathD,
+	wrapTitle,
+	type LayoutNode,
+} from "@lh/components/plan-layout";

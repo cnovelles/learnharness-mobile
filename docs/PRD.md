@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (issue 05 approach chosen: native hybrid renderer; artifacts split into issue 19).
+Last update: 2026-11-14 (issue 05 slice 0 done: the shared plan layout, fork `c6e79ca`).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-14 (issue 05 approach chosen: native hybrid renderer; artif
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 05 (rich rendering), slice 0 (fork: shared plan layout), then A (Markdown). The user chose the approach on 2026-11-14 from mockups: a native hybrid renderer, KaTeX and Mermaid in WebView islands, artifacts in issue 19, copy with a long press. Decisions, slices and 17 error states: `docs/ISSUES.md`, issue 05. Slice B starts with a check that Shiki's JavaScript regex engine runs on Hermes (not checked yet). New native modules (`react-native-svg`, `react-native-webview`, `expo-clipboard`) need a new dev build. Issue 04 is done (fix `1f2f104`); Jest: 267 pass.
+**Next step:** issue 05 (rich rendering), slice A (Markdown). Slice 0 is done (fork `c6e79ca`, `components/plan-layout.ts`). The user chose the approach on 2026-11-14 from mockups: a native hybrid renderer, KaTeX and Mermaid in WebView islands, artifacts in issue 19, copy with a long press. Decisions, slices and 17 error states: `docs/ISSUES.md`, issue 05. Slice B starts with a check that Shiki's JavaScript regex engine runs on Hermes (not checked yet). New native modules (`react-native-svg`, `react-native-webview`, `expo-clipboard`) need a new dev build. Issue 04 is done (fix `1f2f104`); Jest: 273 pass.
 
 **Facts found during the work**
 
