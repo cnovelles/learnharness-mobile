@@ -51,6 +51,11 @@ Last update: 2026-11-14 (issue 04 slices 0 to E done; the user's real teach cycl
 
 **Facts found during the work**
 
+- Jest screen tests: `renderRouter` (expo-router testing library) turns on Jest's fake timers. `package.json` keeps `nextTick` and `queueMicrotask` real (`jest.fakeTimers.doNotFake`), or the web streams of later tests stop. Advance timers inside `act` (`jest.advanceTimersByTimeAsync`); a real `setTimeout` in a test never fires.
+- The fake Mac for screen tests is `tests/helpers/fake-mac.ts`. A held turn must end with a `turn-settled` SSE event; a bare `[DONE]` after a held stream makes SessionModel read it as a dropped stream.
+- E2E: each Maestro flow needs a new `npm run e2e:mac` (one-use pairing code, one scripted lesson). Start Metro with `npx expo start --clear` after code changes. Stop both after the run.
+- State at the clear (2026-11-14): the fork dev server and Electron that the user ran for manual checks are stopped. CI for `f8e26e5` passed; CI for `b532627` was still running.
+
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.
 - `components/session-core.ts` (`SessionModel`) is pure TypeScript with an injectable fetch. The phone uses it unchanged with `remoteFetch`.
 - The only Node import reachable from `SessionModel` is `node:crypto` in `src/core/coverage.ts` (via the barrel).
