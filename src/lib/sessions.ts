@@ -76,17 +76,27 @@ export class OpeningPrompts {
 
 export const openingPrompts = new OpeningPrompts();
 
+/** A teaching session or a practice session (fork `kind: "practice"`). */
+export type SessionKind = "teach" | "practice";
+
 export async function startSession(
 	fetchImpl: typeof fetch,
 	text: string,
 	prompts: OpeningPrompts = openingPrompts,
+	kind: SessionKind = "teach",
 ): Promise<string> {
 	const first = text.trim();
-	if (!first) throw new UserFacingError(userMessage("Write what you want to learn."));
+	if (!first)
+		throw new UserFacingError(
+			kind === "practice"
+				? userMessage("Write what you want to practice.")
+				: userMessage("Write what you want to learn."),
+		);
 	const res = await fetchImpl("/api/chats", {
 		method: "POST",
 		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ title: first }),
+		// The Mac makes a practice session only for `kind: "practice"`.
+		body: JSON.stringify(kind === "practice" ? { title: first, kind } : { title: first }),
 	});
 	if (!res.ok) throw await failure(res);
 	const body = (await res.json()) as { id?: unknown };
@@ -99,6 +109,8 @@ export async function startSession(
 export interface SessionRecord {
 	id: string;
 	title: string;
+	/** A record without a kind is a teaching session (as on the Mac). */
+	kind: SessionKind;
 	messages: LhMessage[];
 	turnInFlight: boolean;
 	turnError?: string;
@@ -114,6 +126,7 @@ export async function readSession(fetchImpl: typeof fetch, id: string): Promise<
 	if (!res.ok) throw await failure(res);
 	const body = (await res.json()) as {
 		title?: unknown;
+		kind?: unknown;
 		messages?: unknown;
 		turnInFlight?: unknown;
 		turnError?: unknown;
@@ -122,6 +135,7 @@ export async function readSession(fetchImpl: typeof fetch, id: string): Promise<
 	return {
 		id,
 		title: typeof body.title === "string" ? body.title : "",
+		kind: body.kind === "practice" ? "practice" : "teach",
 		messages: Array.isArray(body.messages) ? (body.messages as LhMessage[]) : [],
 		turnInFlight: body.turnInFlight === true,
 		compacting: body.compacting === true,

@@ -36,7 +36,13 @@ export function pairedConnection(): string {
 export class FakeMac {
 	chats = new Map<
 		string,
-		{ title: string; messages: Rec[]; turnError?: string; compacting?: boolean }
+		{
+			title: string;
+			messages: Rec[];
+			kind?: "practice";
+			turnError?: string;
+			compacting?: boolean;
+		}
 	>();
 	inputs: Rec[] = [];
 	/** The next POST /api/chat gets this answer and saves nothing (a gate refusal). */
@@ -52,6 +58,8 @@ export class FakeMac {
 	steerAnswer: { status: number; body: Rec } | null = null;
 	abortAnswer: { status: number; body: Rec } | null = null;
 	dismissAnswer: { status: number; body: Rec } | null = null;
+	/** The answer for the next POST /api/chats (a refused new session). */
+	createAnswer: { status: number; body: Rec } | null = null;
 	/** The next N record reads fail with 500. */
 	failRecordReads = 0;
 	private seq = 0;
@@ -85,9 +93,9 @@ export class FakeMac {
 		return this.listeners.length;
 	}
 
-	add(title: string, messages: Rec[] = []) {
+	add(title: string, messages: Rec[] = [], kind?: "practice") {
 		const id = `chat_${++this.seq}`;
-		this.chats.set(id, { title, messages });
+		this.chats.set(id, { title, messages, ...(kind ? { kind } : {}) });
 		return id;
 	}
 
@@ -146,7 +154,7 @@ export class FakeMac {
 					title: c.title,
 					createdAt: "2026-11-14T10:00:00.000Z",
 					updatedAt: "2026-11-14T10:00:00.000Z",
-					kind: "teach",
+					kind: c.kind ?? "teach",
 					messageCount: c.messages.length,
 					phase: "probe",
 					pendingQuestion: false,
@@ -156,8 +164,13 @@ export class FakeMac {
 				})),
 			});
 		if (p === "/api/chats" && method === "POST") {
-			const body = JSON.parse(String(init?.body)) as { title: string };
-			const id = this.add(body.title);
+			if (this.createAnswer) {
+				const { status, body } = this.createAnswer;
+				this.createAnswer = null;
+				return this.json(body, status);
+			}
+			const body = JSON.parse(String(init?.body)) as { title: string; kind?: unknown };
+			const id = this.add(body.title, [], body.kind === "practice" ? "practice" : undefined);
 			return this.json({ id, title: body.title });
 		}
 		const steer = p.match(/^\/api\/chats\/([^/]+)\/steer$/);
@@ -216,6 +229,7 @@ export class FakeMac {
 			return this.json({
 				id: record[1],
 				title: chat.title,
+				...(chat.kind ? { kind: chat.kind } : {}),
 				messages: chat.messages,
 				turnInFlight: false,
 				compacting: chat.compacting === true,

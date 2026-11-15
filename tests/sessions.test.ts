@@ -80,6 +80,26 @@ describe("startSession", () => {
 		expect(prompts.take("chat_1")).toBeUndefined();
 	});
 
+	it("practice: sends kind practice, so the Mac opens the practice agent", async () => {
+		const prompts = new OpeningPrompts();
+		const { fetchImpl, calls } = fakeFetch(() => json({ id: "chat_2", title: "Recurrences" }));
+		const id = await startSession(fetchImpl, " Linear recurrences ", prompts, "practice");
+		expect(id).toBe("chat_2");
+		expect(JSON.parse(String(calls[0]!.init?.body))).toEqual({
+			title: "Linear recurrences",
+			kind: "practice",
+		});
+		expect(prompts.take("chat_2")).toBe("Linear recurrences");
+	});
+
+	it("practice: refuses empty text with the practice wording", async () => {
+		const { fetchImpl, calls } = fakeFetch(() => json({}));
+		await expect(startSession(fetchImpl, " ", new OpeningPrompts(), "practice")).rejects.toThrow(
+			"Write what you want to practice.",
+		);
+		expect(calls).toHaveLength(0);
+	});
+
 	it("refuses empty text without a request", async () => {
 		const { fetchImpl, calls } = fakeFetch(() => json({}));
 		await expect(startSession(fetchImpl, "   ", new OpeningPrompts())).rejects.toThrow(
@@ -114,11 +134,19 @@ describe("readSession", () => {
 		expect(record).toEqual({
 			id: "c1",
 			title: "T",
+			kind: "teach",
 			messages,
 			turnInFlight: true,
 			turnError: "Rate limit",
 			compacting: true,
 		});
+	});
+
+	it("reads kind practice; any other kind reads as a teaching session", async () => {
+		const practice = fakeFetch(() => json({ id: "c1", kind: "practice", messages: [] }));
+		expect((await readSession(practice.fetchImpl, "c1")).kind).toBe("practice");
+		const odd = fakeFetch(() => json({ id: "c1", kind: "quiz", messages: [] }));
+		expect((await readSession(odd.fetchImpl, "c1")).kind).toBe("teach");
 	});
 
 	it("error state: a compaction flag that is not true reads as false", async () => {

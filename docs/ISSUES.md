@@ -291,12 +291,46 @@ New native modules: `react-native-svg`, `react-native-webview`, `expo-clipboard`
 
 Acceptance: golden-fixture sessions render without errors; each error state above has a Jest test; Maestro screenshots of the scripted lesson; the user checks one real lesson on the Simulator.
 
-## 06 Practice on the phone `todo`
+## 06 Practice on the phone `doing`
 
 Blocked by: 04.
 
 - New practice session; `problem` dock with thinking submissions; `conclude` with solution reveal; Next problem; dismiss.
   Acceptance: Maestro E2E for one practice problem with the fake provider.
+
+### How the desktop does it (fork, read 2026-11-15)
+
+- Start: `POST /api/chats` with `kind: "practice"` (fork `components/home.tsx`, `new-session.tsx`). Graph picks (`graphContext`) come with issue 08 (graph list). The phone starts practice from text only.
+- The practice agent has two tools (`src/agent/tools/practice.ts`): `problem` (statement, mode, target, modelSolution; it ends the turn) and `conclude` (outcome, verdict, rung, missClass, retest). Only one problem can be active. `activeProblemOf` (shared) is the gate.
+- The dock (`components/practice-dock.tsx`): an active problem replaces the composer. "PROBLEM" eyebrow and the statement (Markdown and math), then "YOUR THINKING" field and "Submit thinking". It sends `{ type: "thinking", problemCallId, text }`. Each submission starts a turn. The model solution is never shown before `conclude`.
+- Transcript (`components/practice-cards.tsx`, `src/core/view.ts`): `tool-problem` (problem card), `data-practice-thinking` (thinking row), `tool-conclude` (eyebrow "CONCLUDED", outcome chip, verdict at 50%, "MODEL SOLUTION" from `part.reveal`, and a "METADATA" box: mode, targets, outcome, hint rung, miss class, retest). Outcome "dismissed" shows only "Problem dismissed." `data-practice-next` shows a centered "→ NEXT PROBLEM" line.
+- Next problem (`components/composer.tsx`, `chat.tsx` `nextReady`): in the practice pause (practice kind, no problem, no question, no turn, no compaction, at least one problem posed), an empty composer shows a green "NEXT PROBLEM →" button. It sends `{ type: "next" }`. Text in the field makes it the normal send again.
+- Dismiss: Esc and a confirm on the desktop. `SessionModel.dismissProblem` adds the `problem-dismissed` marker and calls `POST /api/chats/:id/dismiss` with `dismiss-problem` (the gateway allows it). No turn starts. During a turn, the desktop also stops the turn (the Mac parks the dismissal and answers 202).
+- Plugin problems (`pluginProblem`) need plugins. The gateway refuses plugin routes, so the phone does not run them.
+
+### Slices
+
+- A. Start a practice session: a second "New practice" button on the home screen, next to "New session" (user decision 2026-11-15, option B). It opens the new-session screen in practice mode (title "New practice", "What do you want to practice?", "Start practice"). The screen has no switch.
+- B. Transcript rows: problem card, thinking row, conclude card with outcome chip, verdict, model solution and metadata, the dismissed line, the Next problem line. Golden transcript test. Metadata: a tap on "METADATA" opens the rows inside the card, a second tap closes them (user decision 2026-11-15, option A).
+- C. Practice dock: statement, thinking field, Submit thinking, Dismiss with a confirm, the waiting states. A long statement scrolls inside the dock at a maximum of about 35% of the screen height. A chevron collapses the dock to a slim "PROBLEM · statement…" bar; a tap on the bar opens it again, and the thinking text stays (user decision 2026-11-15, option A). Dismiss: a quiet "Dismiss" text button in the PROBLEM row opens an iOS alert (Cancel / Dismiss) (user decision 2026-11-15, option A).
+- D. Next problem button in the practice pause.
+- E. Fake Mac practice script, Maestro flow `e2e/practice.yaml` (pose, thinking, conclude, Next problem, second problem, dismiss), screenshots on the SE and the Pro Max.
+
+### Error states
+
+| State                                                                        | What the learner sees                                                                                                              | Test                             |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| The Mac refuses the new practice session (no model set, server error)        | The New session error banner from `describeError`. The text stays.                                                                 | Jest, new-session screen         |
+| The Mac refuses a thinking submission (the problem is no longer active, 409) | The thinking text stays in the field. Banner: "This problem is not active anymore. Read the session again." with Try again (sync). | Jest                             |
+| Network loss while the thinking goes out                                     | The text stays in the field. The usual connection banner with Try again (resend).                                                  | Jest                             |
+| The Mac compacts                                                             | Submit thinking and Next problem wait: "The Mac is making the history shorter…"                                                    | Jest                             |
+| The turn after a submission fails                                            | The existing failed-turn banner with Try again (retry-turn). The problem stays active.                                             | Jest                             |
+| Dismiss fails (network, server error)                                        | Banner from `describeError` (never the raw "The dismissal failed (500)." text). The dock comes back after the sync.                | Jest, `tests/user-error.test.ts` |
+| Dismiss while a turn runs                                                    | The phone stops the turn, then dismisses. A failed stop shows the existing stop banner.                                            | Jest                             |
+| Next problem refused (a turn or a problem is active on the Mac)              | Banner with Try again (sync).                                                                                                      | Jest                             |
+| A `problem` call with bad input (the agent gets an error and tries again)    | The quiet tool error row. No dock.                                                                                                 | Jest, transcript                 |
+| A problem card or a conclude card with missing fields                        | The card shows what it has. No chip for an unknown outcome. Never raw data.                                                        | Jest, transcript                 |
+| A plugin problem (made on the Mac)                                           | Panel: "This problem uses a plugin. Work on it on the Mac." with Dismiss. No thinking field.                                       | Jest                             |
 
 ## 07 Dictation `todo`
 

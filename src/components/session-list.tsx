@@ -99,29 +99,64 @@ function Row({ chat }: { chat: ChatListItem }) {
 	);
 }
 
+/** One of the two outlined buttons on home (user decision 2026-11-15: two buttons, no switch). */
+function NewButton({
+	testID,
+	icon,
+	title,
+	enabled,
+	onPress,
+}: {
+	testID: string;
+	icon: "plus" | "target";
+	title: string;
+	enabled: boolean;
+	onPress: () => void;
+}) {
+	const c = usePalette();
+	return (
+		<Pressable
+			testID={testID}
+			onPress={onPress}
+			accessibilityRole="button"
+			accessibilityState={{ disabled: !enabled }}
+			disabled={!enabled}
+			style={({ pressed }) => [
+				styles.newSession,
+				{
+					borderColor: c.line,
+					backgroundColor: pressed ? c.hover : "transparent",
+					opacity: enabled ? 1 : 0.4,
+				},
+			]}
+		>
+			<Icon name={icon} size={12} color={c.text} />
+			<Text style={[LABEL, styles.wide, { color: c.text }]}>{title}</Text>
+		</Pressable>
+	);
+}
+
 export function SessionList({ enabled, list }: { enabled: boolean; list: SessionListState }) {
 	const c = usePalette();
 	const { chats, error } = list;
 	return (
 		<View style={styles.list}>
-			<Pressable
-				testID="new-session"
-				onPress={() => router.push("/new-session")}
-				accessibilityRole="button"
-				accessibilityState={{ disabled: !enabled }}
-				disabled={!enabled}
-				style={({ pressed }) => [
-					styles.newSession,
-					{
-						borderColor: c.line,
-						backgroundColor: pressed ? c.hover : "transparent",
-						opacity: enabled ? 1 : 0.4,
-					},
-				]}
-			>
-				<Icon name="plus" size={12} color={c.text} />
-				<Text style={[LABEL, styles.wide, { color: c.text }]}>New session</Text>
-			</Pressable>
+			<View style={styles.newRow}>
+				<NewButton
+					testID="new-session"
+					icon="plus"
+					title="New session"
+					enabled={enabled}
+					onPress={() => router.push("/new-session")}
+				/>
+				<NewButton
+					testID="new-practice"
+					icon="target"
+					title="New practice"
+					enabled={enabled}
+					onPress={() => router.push({ pathname: "/new-session", params: { kind: "practice" } })}
+				/>
+			</View>
 			<SectionLabel>Sessions</SectionLabel>
 			{error ? <ErrorBanner testID="sessions-error" text={error} /> : null}
 			{chats === null ? (
@@ -145,9 +180,10 @@ export function SessionList({ enabled, list }: { enabled: boolean; list: Session
 
 const styles = StyleSheet.create({
 	list: { gap: SPACE.md },
+	/** The two buttons wrap to two rows only if a large text size needs it. */
+	newRow: { flexDirection: "row", flexWrap: "wrap", gap: SPACE.sm },
 	newSession: {
 		flexDirection: "row",
-		alignSelf: "flex-start",
 		alignItems: "center",
 		gap: SPACE.xs,
 		borderWidth: 1,
