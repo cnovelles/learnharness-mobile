@@ -18,7 +18,7 @@
  * tsconfig.json paths), so the phone parses with the same versions as the
  * desktop.
  */
-import type { Blockquote, Nodes, Paragraph, Root, RootContent } from "mdast";
+import type { Blockquote, Code, Nodes, Paragraph, Root, RootContent } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { mathFromMarkdown } from "mdast-util-math";
@@ -28,12 +28,49 @@ import remend from "remend";
 
 import { transformMathDelimiters } from "./shared";
 
+declare module "mdast" {
+	interface CodeData {
+		/** The fence has no closing line yet (a reply that streams). */
+		open?: boolean;
+	}
+}
+
+/** A closing fence line: indent or quote marks, then 3 or more backticks or
+ *  tildes. */
+const CLOSING_FENCE = /(?:^|\n)[ \t>]*(?:`{3,}|~{3,})[ \t]*$/;
+
+/**
+ * Marks each code fence that the text does not close yet. `remend` can add
+ * the closing line, and a fence also ends at the end of the text, so the
+ * check is on the text before `remend`: a closed fence ends inside it, on a
+ * closing line.
+ */
+function markOpenFences(root: Root, source: string, before: string) {
+	const visit = (node: Nodes) => {
+		if (node.type === "code") {
+			const end = node.position?.end.offset;
+			const indented = !/^ {0,3}(?:`{3}|~{3})/.test(
+				source.slice(node.position?.start.offset ?? 0, end),
+			);
+			const closed =
+				indented ||
+				(end !== undefined && end <= before.length && CLOSING_FENCE.test(source.slice(0, end)));
+			if (!closed) (node as Code).data = { ...node.data, open: true };
+		}
+		if ("children" in node) for (const child of node.children as Nodes[]) visit(child);
+	};
+	visit(root);
+}
+
 export function parseMarkdown(text: string): Root {
-	const source = remend(transformMathDelimiters(text), { htmlTags: false });
-	return fromMarkdown(source, {
+	const before = transformMathDelimiters(text);
+	const source = remend(before, { htmlTags: false });
+	const root = fromMarkdown(source, {
 		extensions: [gfm(), math({ singleDollarTextMath: true })],
 		mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown()],
 	});
+	markOpenFences(root, source, before);
+	return root;
 }
 
 /** Link schemes that the phone opens. Every other link shows as text. */

@@ -4,6 +4,11 @@
  */
 import * as ExpoCrypto from "expo-crypto";
 
+import { fixMatchAll } from "./match-all";
+
+// Hermes drops the groups of matchAll matches (Shiki needs them).
+fixMatchAll();
+
 const g = globalThis as unknown as {
 	crypto?: { getRandomValues?: <T extends ArrayBufferView>(a: T) => T; randomUUID?: () => string };
 	DOMException?: unknown;

@@ -5,16 +5,26 @@
 import fs from "node:fs";
 import path from "node:path";
 import { render, screen, fireEvent } from "@testing-library/react-native";
-import { Alert, Linking } from "react-native";
+import * as ReactNative from "react-native";
+import { Alert, Linking, StyleSheet } from "react-native";
 
 import { Markdown } from "@/components/markdown";
 import { Transcript } from "@/components/transcript";
+import * as highlight from "@/lib/code-highlight";
 import * as md from "@/lib/markdown";
 
 const BASE = { fontSize: 16, lineHeight: 23, color: "#111" };
 const show = (text: string) => render(<Markdown text={text} style={BASE} testID="md" />);
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => {
+	jest.restoreAllMocks();
+	highlight.resetCodeHighlighter();
+});
+
+/** The color of the first code token with this text. */
+const tokenColor = (text: string) => StyleSheet.flatten(screen.getByText(text).props.style)?.color;
+const blockColor = (testID: string) =>
+	StyleSheet.flatten(screen.getByTestId(testID).props.style)?.backgroundColor;
 
 describe("Markdown blocks and inline text", () => {
 	it("draws headings, bold, italic and lists with no Markdown signs", async () => {
@@ -171,6 +181,55 @@ describe("Markdown error states", () => {
 		let node = text.parent;
 		while (node && node.type !== "RCTScrollView") node = node.parent;
 		expect(node?.props.horizontal).toBe(true);
+	});
+});
+
+describe("code blocks (slice B)", () => {
+	it("colors a fence in the desktop's light theme, with line numbers", async () => {
+		await show("```ts\nconst total = 1;\n// done\n```");
+		expect(screen.getByTestId("md-code-colored")).toBeTruthy();
+		expect(tokenColor("const")).toBe("#D73A49");
+		expect(tokenColor("// done")).toBe("#6A737D");
+		expect(blockColor("md-code-colored")).toBe("#fff");
+		expect(screen.getByTestId("md-code-lines")).toHaveTextContent("1\n2");
+		expect(screen.getByTestId("md-code-text")).toHaveTextContent("const total = 1;\n// done");
+	});
+
+	it("16. draws the colors again when the mode changes to dark", async () => {
+		const scheme = jest.spyOn(ReactNative, "useColorScheme").mockReturnValue("light");
+		const view = await show("```js\nconst a = 1;\n```");
+		expect(tokenColor("const")).toBe("#D73A49");
+		scheme.mockReturnValue("dark");
+		await view.rerender(<Markdown text={"```js\nconst a = 1;\n```"} style={BASE} testID="md" />);
+		expect(tokenColor("const")).toBe("#F97583");
+		expect(blockColor("md-code-colored")).toBe("#24292e");
+	});
+
+	it("1. keeps an open fence plain while it streams, and colors it when it closes", async () => {
+		const spy = jest.spyOn(highlight, "highlightCode");
+		const view = await show("Look:\n\n```js\nconst a = 1;");
+		expect(screen.getByTestId("md-code")).toBeTruthy();
+		expect(screen.getByTestId("md-code-text")).toHaveTextContent("const a = 1;");
+		expect(screen.queryByText(/```/)).toBeNull();
+		expect(spy).not.toHaveBeenCalled();
+		await view.rerender(<Markdown text={"Look:\n\n```js\nconst a = 1;\n```"} style={BASE} />);
+		expect(screen.getByTestId("md-code-colored")).toBeTruthy();
+	});
+
+	it("3. shows an unknown language as a plain block with line numbers", async () => {
+		await show("```klingon\nqapla'\nbatlh\n```");
+		expect(screen.getByTestId("md-code")).toBeTruthy();
+		expect(screen.getByTestId("md-code-lines")).toHaveTextContent("1\n2");
+		expect(screen.getByTestId("md-code-text")).toHaveTextContent("qapla'\nbatlh");
+	});
+
+	it("4. shows a plain block when the highlighter fails or the block is too large", async () => {
+		await show(`\`\`\`js\n${"let a = 1;\n".repeat(highlight.MAX_LINES + 1)}\`\`\``);
+		expect(screen.getByTestId("md-code")).toBeTruthy();
+		jest.spyOn(highlight, "highlightCode").mockReturnValue(null);
+		await show("```js\nlet a = 1;\n```");
+		expect(screen.getByTestId("md-code")).toBeTruthy();
+		expect(screen.getByTestId("md-code-text")).toHaveTextContent("let a = 1;");
 	});
 });
 

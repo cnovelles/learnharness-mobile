@@ -61,4 +61,54 @@ module.exports = function buildEsmToCjs() {
 			`module.exports = { __esModule: true, ...require("./bundle.cjs").m${i} };\n`,
 		);
 	});
+	buildShiki(esbuild);
 };
+
+/**
+ * Shiki (issue 05 slice B) in its own bundle, so that only the code color
+ * tests load the grammars. The import paths are `@shikijs/...`; the grammar
+ * list comes from the `require` calls in src/lib/code-highlight.ts.
+ * package.json maps `^@shikijs/(.*)$` to `shikijs/$1.cjs`.
+ */
+function buildShiki(esbuild) {
+	const source = fs.readFileSync(
+		path.resolve(__dirname, "../../src/lib/code-highlight.ts"),
+		"utf8",
+	);
+	const langs = [...source.matchAll(/require\("(@shikijs\/langs\/[\w-]+)"\)/g)].map((m) => m[1]);
+	const specs = [
+		"@shikijs/core",
+		"@shikijs/engine-javascript",
+		"@shikijs/themes/github-light",
+		"@shikijs/themes/github-dark",
+		...langs,
+	];
+	const dir = path.join(OUT, "shikijs");
+	fs.mkdirSync(dir, { recursive: true });
+	esbuild.buildSync({
+		stdin: {
+			contents: specs
+				.map((spec, i) => `export * as m${i} from ${JSON.stringify(spec)};`)
+				.join("\n"),
+			resolveDir: FORK,
+			loader: "js",
+		},
+		nodePaths: [path.join(FORK, "node_modules/@streamdown/code/node_modules")],
+		bundle: true,
+		format: "cjs",
+		platform: "neutral",
+		mainFields: ["module", "main"],
+		conditions: ["import", "default"],
+		outfile: path.join(dir, "bundle.cjs"),
+		logLevel: "error",
+	});
+	specs.forEach((spec, i) => {
+		const file = path.join(OUT, "shikijs", `${spec.slice("@shikijs/".length)}.cjs`);
+		fs.mkdirSync(path.dirname(file), { recursive: true });
+		const bundle = path.relative(path.dirname(file), path.join(dir, "bundle.cjs"));
+		fs.writeFileSync(
+			file,
+			`module.exports = { __esModule: true, ...require(${JSON.stringify(`./${bundle}`)}).m${i} };\n`,
+		);
+	});
+}

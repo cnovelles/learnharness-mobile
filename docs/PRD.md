@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (issue 05 slice A done: Markdown as native views).
+Last update: 2026-11-15 (issue 05 slice B: code colors done, copy waits for a dev build).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-14 (issue 05 slice A done: Markdown as native views).
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 05 (rich rendering), slice B (code colors with Shiki and copy). It starts with a check that Shiki's JavaScript regex engine runs on Hermes (not checked yet). Slices 0 and A are done; slice A is not checked on the Simulator yet (the running Metro does not see file changes: restart it with `--clear`, after you ask the user). Decisions, slices and error states: `docs/ISSUES.md`, issue 05. New native modules for B to E (`react-native-svg`, `react-native-webview`, `expo-clipboard`) need a new dev build. Jest: 297 pass.
+**Next step:** issue 05 (rich rendering), the rest of slice B: long press to copy with `expo-clipboard`. It is a native module, so it needs a new dev build: ask the user before the build. The code colors of slice B are done (Shiki with the `matchAll` shim for Hermes). Slices A and B are not checked on the Simulator yet (the running Metro does not see file changes: restart it with `--clear`, after you ask the user). Decisions, slices and error states: `docs/ISSUES.md`, issue 05. New native modules for B to E (`react-native-svg`, `react-native-webview`, `expo-clipboard`) need a new dev build. Jest: 313 pass.
 
 **Facts found during the work**
 
@@ -63,6 +63,10 @@ Last update: 2026-11-14 (issue 05 slice A done: Markdown as native views).
 
 - Shared packages for the phone's own code (issue 05): the Markdown parser packages are not phone dependencies. `tsconfig.json` `paths` point to the fork's `node_modules`, Metro finds them through `nodeModulesPaths`, and Jest bundles them in `tests/setup/esm-to-cjs.cjs` (the shim sets `__esModule`, so a default import such as `remend` works). React retries a render one time after an error, so a test that makes a render throw must throw on every call, not once.
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.
+- Hermes (260318099.0.5): `String.prototype.matchAll` gives matches with no `groups` (`exec` is correct), and there is no `v` RegExp flag. `src/shims/match-all.ts` fixes `matchAll`. To run code on the real Hermes VM without the Simulator: compile a small JSI host against `ios/Pods/hermes-engine/destroot` (`include/` and `Library/Frameworks/macosx/hermesvm.framework`), bundle the code with the fork's esbuild, and run the bundle. The host of 2026-11-14 was in the session scratchpad; it is about 30 lines of C++ (`makeHermesRuntime` with the microtask queue, a `print` function, `evaluateJavaScript`, `drainMicrotasks`).
+- Expo's Metro and esbuild read the `paths` in `tsconfig.json`. A path to a `.d.mts` type file breaks the bundle. Load such packages with `require` (the Shiki themes and grammars in `src/lib/code-highlight.ts`).
+- Jest's Babel rewrites RegExp literals with named groups or the `u` flag. Tests of RegExp behavior make each RegExp from a string. Metro's Hermes preset keeps the literals.
+- Shiki (code colors) comes from `../learnharness/node_modules/@streamdown/code/node_modules` (the desktop's copy): a Metro `nodeModulesPaths` entry, `tsconfig.json` paths for `@shikijs/core` and `@shikijs/engine-javascript`, and a separate Jest bundle (`tests/setup/esm-to-cjs.cjs`, `buildShiki`; the grammar list comes from the `require` calls).
 - `components/session-core.ts` (`SessionModel`) is pure TypeScript with an injectable fetch. The phone uses it unchanged with `remoteFetch`.
 - The only Node import reachable from `SessionModel` is `node:crypto` in `src/core/coverage.ts` (via the barrel).
 - Route methods: rename is `PUT /api/chats/:id`, session settings `PUT`, dictation token `GET /api/stt/token`.

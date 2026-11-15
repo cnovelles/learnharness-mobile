@@ -13,9 +13,12 @@ const config = getDefaultConfig(projectRoot);
 config.watchFolders = [...(config.watchFolders ?? []), forkRoot];
 // Shared files find their own packages (typebox, katex, ...) in the fork's
 // node_modules. The shared code imports no React, so one React copy stays.
+// Shiki (code colors, issue 05 slice B) is the copy that the desktop's
+// @streamdown/code uses, with the same version.
 config.resolver.nodeModulesPaths = [
 	path.resolve(projectRoot, "node_modules"),
 	path.resolve(forkRoot, "node_modules"),
+	path.resolve(forkRoot, "node_modules/@streamdown/code/node_modules"),
 ];
 
 const shims = {

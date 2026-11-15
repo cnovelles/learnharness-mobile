@@ -12,7 +12,11 @@
       "mdast-util-math": ["../learnharness/node_modules/mdast-util-math"],
       "micromark-extension-gfm": ["../learnharness/node_modules/micromark-extension-gfm"],
       "micromark-extension-math": ["../learnharness/node_modules/micromark-extension-math"],
-      "remend": ["../learnharness/node_modules/remend"]
+      "remend": ["../learnharness/node_modules/remend"],
+      "@shikijs/core": ["../learnharness/node_modules/@streamdown/code/node_modules/@shikijs/core"],
+      "@shikijs/engine-javascript": [
+        "../learnharness/node_modules/@streamdown/code/node_modules/@shikijs/engine-javascript"
+      ]
     },
     "types": ["jest"],
     "allowImportingTsExtensions": true

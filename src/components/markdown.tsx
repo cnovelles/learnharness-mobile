@@ -9,8 +9,10 @@
  *   sharp corners, no label (the desktop's `MarkdownBlockquote`).
  * - Inline code: a mono font on a colored band. Native nested text cannot
  *   take padding or rounded corners (issue 05, "Accepted limit").
- * - Code fences: a mono block with line numbers that scrolls sideways.
- *   Slice B adds the syntax colors and copy.
+ * - Code fences: a mono block with line numbers that scrolls sideways, in
+ *   the desktop's Shiki colors (src/lib/code-highlight.ts). A fence that is
+ *   still open while the reply streams, an unknown language, a large block
+ *   or a highlighter failure show the same block with no colors.
  * - Math: the TeX source in mono for now. Slice C draws it with KaTeX.
  * - Images never load (the desktop blocks remote images too).
  * - Links open only for http, https and mailto. Raw HTML shows as text.
@@ -19,7 +21,7 @@
  * shows as plain text, and the rest of the transcript still shows.
  */
 import type { Definition, Nodes, PhrasingContent, Root, RootContent, Table } from "mdast";
-import { Component, useMemo, type ReactNode } from "react";
+import { Component, Fragment, useMemo, type ReactNode } from "react";
 import {
 	Alert,
 	Linking,
@@ -28,9 +30,11 @@ import {
 	StyleSheet,
 	Text,
 	View,
+	useColorScheme,
 	type TextStyle,
 } from "react-native";
 
+import { CODE_COLORS, highlightCode, type CodeScheme, type CodeToken } from "@/lib/code-highlight";
 import { alertContent, parseMarkdown, plainText, safeLinkUrl } from "@/lib/markdown";
 import { usePalette, type Palette } from "./ui";
 
@@ -40,6 +44,8 @@ const HEADING_SIZE: Record<number, number> = { 1: 22, 2: 19, 3: 17 };
 
 type Ctx = {
 	c: Palette;
+	/** The light or dark mode, for the code colors. */
+	scheme: CodeScheme;
 	/** The text style of the surface: size, line height, color, weight. */
 	base: TextStyle;
 	/** Less space between blocks (options, cards). */
@@ -225,7 +231,15 @@ function Block({ node, ctx }: { node: RootContent; ctx: Ctx }): ReactNode {
 				</View>
 			);
 		case "code":
-			return <CodeBlock value={node.value} meta={node.meta ?? ""} ctx={ctx} />;
+			return (
+				<CodeBlock
+					value={node.value}
+					lang={node.lang}
+					meta={node.meta ?? ""}
+					open={node.data?.open === true}
+					ctx={ctx}
+				/>
+			);
 		case "math":
 			return (
 				<ScrollView horizontal showsHorizontalScrollIndicator={false} testID="md-math">
@@ -254,25 +268,81 @@ function Block({ node, ctx }: { node: RootContent; ctx: Ctx }): ReactNode {
 	}
 }
 
+function tokenStyle(token: CodeToken): TextStyle | undefined {
+	if (!token.color && !token.italic && !token.bold && !token.underline && !token.strikethrough) {
+		return undefined;
+	}
+	const line = [token.underline && "underline", token.strikethrough && "line-through"]
+		.filter(Boolean)
+		.join(" ");
+	return {
+		color: token.color,
+		fontStyle: token.italic ? "italic" : undefined,
+		fontWeight: token.bold ? "700" : undefined,
+		textDecorationLine: line ? (line as TextStyle["textDecorationLine"]) : undefined,
+	};
+}
+
+/** The colored lines of a block, as nested text in one text node. */
+function ColoredCode({ lines }: { lines: CodeToken[][] }) {
+	return lines.map((line, i) => (
+		<Fragment key={i}>
+			{i > 0 ? "\n" : null}
+			{line.map((token, j) => {
+				const style = tokenStyle(token);
+				return style ? (
+					<Text key={j} style={style}>
+						{token.content}
+					</Text>
+				) : (
+					token.content
+				);
+			})}
+		</Fragment>
+	));
+}
+
 /** A code fence: line numbers (unless the meta has `noLineNumbers`, and from
- *  `startLine=N`), no wrap, and a sideways scroll for long lines. */
-function CodeBlock({ value, meta, ctx }: { value: string; meta: string; ctx: Ctx }) {
-	const { c } = ctx;
+ *  `startLine=N`), no wrap, a sideways scroll for long lines, and the syntax
+ *  colors of the light or dark mode. */
+function CodeBlock({
+	value,
+	lang,
+	meta,
+	open,
+	ctx,
+}: {
+	value: string;
+	lang: string | null | undefined;
+	meta: string;
+	open: boolean;
+	ctx: Ctx;
+}) {
+	const { c, scheme } = ctx;
 	const lines = value.split("\n");
 	const startMatch = /startLine=(\d+)/.exec(meta);
 	const start = startMatch ? Math.max(1, Number.parseInt(startMatch[1]!, 10)) : 1;
 	const numbered = !/\bnoLineNumbers\b/.test(meta);
+	// An open fence changes with each streamed word: color it when it closes.
+	const colored = useMemo(
+		() => (open ? null : highlightCode(value, lang, scheme)),
+		[open, value, lang, scheme],
+	);
+	const colors = CODE_COLORS[scheme];
 	const code = { fontFamily: MONO, fontSize: 13, lineHeight: 20 };
 	return (
-		<View style={[styles.code, { backgroundColor: c.codeBg }]} testID="md-code">
+		<View
+			style={[styles.code, { backgroundColor: colors.bg, borderColor: c.line }]}
+			testID={colored ? "md-code-colored" : "md-code"}
+		>
 			{numbered ? (
 				<Text style={[code, styles.lineNumbers, { color: c.muted }]} testID="md-code-lines">
 					{lines.map((_, i) => String(start + i)).join("\n")}
 				</Text>
 			) : null}
 			<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.codeScroll}>
-				<Text style={[code, { color: c.text }]} testID="md-code-text">
-					{value}
+				<Text style={[code, { color: colors.fg }]} testID="md-code-text">
+					{colored ? <ColoredCode lines={colored.lines} /> : value}
 				</Text>
 			</ScrollView>
 		</View>
@@ -348,9 +418,10 @@ function MarkdownTree({
 	compact: boolean;
 }) {
 	const c = usePalette();
+	const scheme: CodeScheme = useColorScheme() === "dark" ? "dark" : "light";
 	const root = useMemo(() => parseMarkdown(text), [text]);
 	const definitions = useMemo(() => collectDefinitions(root), [root]);
-	return <Blocks nodes={root.children} ctx={{ c, base, compact, definitions }} />;
+	return <Blocks nodes={root.children} ctx={{ c, scheme, base, compact, definitions }} />;
 }
 
 type BoundaryProps = { text: string; base: TextStyle; children: ReactNode };
@@ -421,7 +492,13 @@ const styles = StyleSheet.create({
 	item: { flexDirection: "row", gap: 6 },
 	marker: { minWidth: 16 },
 	itemBody: { flex: 1 },
-	code: { flexDirection: "row", borderRadius: 8, paddingVertical: 10, paddingHorizontal: 10 },
+	code: {
+		flexDirection: "row",
+		borderRadius: 8,
+		borderWidth: StyleSheet.hairlineWidth,
+		paddingVertical: 10,
+		paddingHorizontal: 10,
+	},
 	lineNumbers: { textAlign: "right", marginRight: 12, minWidth: 18 },
 	codeScroll: { flex: 1 },
 	tableRow: { flexDirection: "row" },
