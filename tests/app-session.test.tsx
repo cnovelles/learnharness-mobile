@@ -283,6 +283,8 @@ describe("teach-phase checks", () => {
 
 		expect(await screen.findByText("Check your understanding")).toBeTruthy();
 		expect(screen.queryByTestId("dock-question")).toBeNull();
+		// No Skip on the closed check (user decision 2026-11-14).
+		expect(screen.queryByText("Skip")).toBeNull();
 		await fireEvent.changeText(
 			screen.getByTestId("reading-thinking"),
 			"The near side is pulled more.",
@@ -290,6 +292,8 @@ describe("teach-phase checks", () => {
 		await fireEvent.press(screen.getByTestId("reveal-open"));
 
 		expect(await screen.findByTestId("dock-question")).toBeTruthy();
+		expect(screen.getByTestId("dock-kind")).toHaveTextContent("CHECK");
+		expect(screen.queryByText("Skip")).toBeNull();
 		expect(screen.queryByTestId("reading-thinking")).toBeNull();
 		await fireEvent.press(screen.getByTestId("option-moon"));
 		await fireEvent.press(screen.getByTestId("submit-answer"));
@@ -297,6 +301,44 @@ describe("teach-phase checks", () => {
 		expect(await screen.findByText("Right. Next step.")).toBeTruthy();
 		expect(mac.inputs[0]).toMatchObject({ type: "answer", toolCallId: "call_check" });
 		expect((mac.inputs[0]!.answer as Rec).readingThinking).toBe("The near side is pulled more.");
+	});
+
+	it("a prediction with literal \\n text (Claude Code) shows real line breaks and the PREDICTION label", async () => {
+		const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
+		const raw = "```js\\nconsole.log('1');\\nconsole.log('2');\\n```\\nWhat prints first?";
+		mac.chats.get(id)!.messages.push(
+			mac.assistant([
+				{
+					type: "toolCall",
+					id: "call_predict",
+					name: "quiz",
+					arguments: {
+						...PROBE,
+						type: "predict",
+						question: raw,
+						options: [
+							{ label: "`1` then `2`", value: "moon" },
+							{ label: "`2` first", value: "wind" },
+						],
+					},
+				},
+			]),
+		);
+		mac.turns.push(() => [mac.assistant([{ type: "text", text: "Right." }])]);
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+
+		const question = await screen.findByTestId("dock-question");
+		expect(question.props.children).toBe(
+			"```js\nconsole.log('1');\nconsole.log('2');\n```\nWhat prints first?",
+		);
+		expect(screen.queryByText(/\\n/)).toBeNull();
+		expect(screen.getByTestId("dock-kind")).toHaveTextContent("PREDICTION");
+
+		// The answer record keeps the original text, as on the desktop.
+		await fireEvent.press(screen.getByTestId("option-moon"));
+		await fireEvent.press(screen.getByTestId("submit-answer"));
+		expect(await screen.findByText("Right.")).toBeTruthy();
+		expect((mac.inputs[0]!.answer as Rec).questionText).toBe(raw);
 	});
 
 	it("an answer that the Mac refuses keeps the open check, the choice and the reading thinking", async () => {

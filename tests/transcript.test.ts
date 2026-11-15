@@ -378,3 +378,72 @@ describe("compaction dividers (issue 04 slice D)", () => {
 		expect(rows).toEqual([{ kind: "compaction", id: "cc", at: "cut" }]);
 	});
 });
+
+describe("literal \\n text from the teacher (seen with the Claude Code CLI)", () => {
+	const RAW = "```ts\\nconst a = 1;\\n```\\nWhat is `a`?";
+	const FIXED = "```ts\nconst a = 1;\n```\nWhat is `a`?";
+	const RAW_PROBE = {
+		...PROBE,
+		question: RAW,
+		options: [
+			{ label: "`1`", value: "moon" },
+			{ label: "`undefined`", value: "wind" },
+		],
+		explanation: "Line one.\\n\\nLine two.",
+	};
+	const turn = [
+		user("u1", "Teach me.\\nPlease."),
+		assistant("a1", [
+			{ type: "thinking", thinking: "Plan:\\n\\nprobe first." },
+			{ type: "text", text: "First:\\n\\n- a probe" },
+			{ type: "toolCall", id: "call_1", name: "probe", arguments: RAW_PROBE },
+		]),
+	];
+
+	it("the teacher's text, the reasoning and a waiting question get real line breaks", () => {
+		const rows = transcriptRows(projectView(turn));
+		expect(rows[1]).toMatchObject({ kind: "reasoning", text: "Plan:\n\nprobe first." });
+		expect(rows[2]).toMatchObject({ kind: "text", text: "First:\n\n- a probe" });
+		expect(rows[3]).toMatchObject({ kind: "question", question: FIXED, status: "waiting" });
+	});
+
+	it("the learner's own text stays as typed", () => {
+		expect(transcriptRows(projectView(turn))[0]).toMatchObject({
+			kind: "user",
+			text: "Teach me.\\nPlease.",
+		});
+	});
+
+	it("an answered card gets real line breaks in the question, the options and Why", () => {
+		const qd = questionDataForCall("probe", "call_1", RAW_PROBE);
+		const answer = buildAnswer(qd, { values: ["moon"], confidence: 50 }, "probe");
+		const row = transcriptRows(projectView([...turn, result("r1", "call_1", "probe", answer)])).at(
+			-1,
+		);
+		expect(row).toMatchObject({
+			status: "answered",
+			card: {
+				question: FIXED,
+				explanation: "Line one.\n\nLine two.",
+				options: expect.arrayContaining([{ label: "`1`", selected: true, mark: "check" }]),
+			},
+		});
+	});
+
+	it("a single \\n outside a code fence stays, as on the desktop (it can be a math command such as \\nabla)", () => {
+		const rows = transcriptRows(
+			projectView([
+				user("u1", "x"),
+				assistant("a1", [{ type: "text", text: "$\\nabla f$ and a\\nb" }]),
+			]),
+		);
+		expect(rows[1]).toMatchObject({ kind: "text", text: "$\\nabla f$ and a\\nb" });
+	});
+
+	it("text that is already correct does not change", () => {
+		const rows = transcriptRows(
+			projectView([user("u1", "x"), assistant("a1", [{ type: "text", text: FIXED }])]),
+		);
+		expect(rows[1]).toMatchObject({ kind: "text", text: FIXED });
+	});
+});

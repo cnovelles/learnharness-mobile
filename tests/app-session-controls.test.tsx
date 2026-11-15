@@ -189,40 +189,32 @@ describe("steer, stop, skip, retry and foreground (slice C)", () => {
 		return id;
 	}
 
-	it("Skip asks first, then sends the dismissal; the card shows skipped and the composer returns", async () => {
-		const alert = confirmAlerts();
+	it("a waiting probe has no Skip: the dock starts with PROBE and offers I don't know", async () => {
 		const id = waitingProbe();
 		await renderRouter(APP, { initialUrl: `/session/${id}` });
-		await fireEvent.press(await screen.findByTestId("skip-question"));
-		expect(alert).toHaveBeenCalledWith(
-			"Skip this question?",
-			"The teacher moves on without it.",
-			expect.any(Array),
-		);
-		await waitFor(() => expect(mac.dismissals).toHaveLength(1));
-		expect(mac.dismissals[0]).toMatchObject({
-			type: "dismiss",
-			toolCallId: "call_probe",
-			answer: { dismissed: true, questionText: PROBE.question },
-		});
-		expect(await screen.findByText("You skipped this question.")).toBeTruthy();
-		expect(screen.queryByTestId("dock-question")).toBeNull();
-		expect(await screen.findByTestId("composer")).toBeTruthy();
-		// No turn: the dismissal wakes nothing.
-		expect(mac.inputs).toEqual([]);
+		expect(await screen.findByTestId("dock-question")).toBeTruthy();
+		expect(screen.getByTestId("dock-kind")).toHaveTextContent("PROBE");
+		expect(screen.getByTestId("dont-know")).toBeTruthy();
+		expect(screen.queryByTestId("skip-question")).toBeNull();
+		expect(screen.queryByText("Skip")).toBeNull();
+		expect(mac.dismissals).toEqual([]);
 	});
 
-	it("error state: a skip that fails keeps the question in the dock with a clear message", async () => {
-		confirmAlerts();
+	it("a question that was dismissed on the Mac still shows as skipped in the transcript", async () => {
 		const id = waitingProbe();
-		mac.dismissAnswer = { status: 500, body: { error: "dismiss exploded" } };
+		mac.chats.get(id)!.messages.push({
+			role: "toolResult",
+			id: "r_probe",
+			toolCallId: "call_probe",
+			toolName: "probe",
+			content: [{ type: "text", text: "dismissed" }],
+			details: { dismissed: true, kind: "quiz", questionText: PROBE.question },
+			isError: false,
+			timestamp: 3,
+		});
 		await renderRouter(APP, { initialUrl: `/session/${id}` });
-		await fireEvent.press(await screen.findByTestId("skip-question"));
-		expect(
-			await screen.findByText("The phone could not skip the question. Try again."),
-		).toBeTruthy();
-		expect(await screen.findByTestId("dock-question")).toBeTruthy();
-		expect(screen.queryByText(/exploded/)).toBeNull();
+		expect(await screen.findByText("You skipped this question.")).toBeTruthy();
+		expect(screen.queryByTestId("dock-question")).toBeNull();
 	});
 
 	it("error state: no Try again when the record does not end in a failed turn (nothing to retry)", async () => {

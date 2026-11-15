@@ -25,8 +25,7 @@
  * - Stop: stop reading, then POST /api/activity/abort. A 409 (no turn runs
  *   anymore) is not an error. Another failure says that the turn still
  *   runs on the Mac, and the phone attaches again.
- * - Skip: dismissQuestion with dismissedAnswer. When it fails, the record
- *   read puts the question back in the dock.
+ * - No Skip (user decision 2026-11-14): "I don't know" is the honest answer.
  * - Compaction: `compacting` from the record and from compaction-changed.
  *   Sends, answers and retry wait. Reading and Stop still work. While it
  *   runs, the phone reads the record every 30 s, so a missed end event
@@ -42,11 +41,9 @@ import { attachSessionEvents, syncSession, type SessionEventHooks } from "./sess
 import { openingPrompts, readSession, type OpeningPrompts, type SessionRecord } from "./sessions";
 import {
 	SessionModel,
-	dismissedAnswer,
 	endsInFailedTurn,
 	malformedQuestionsOf,
 	pendingQuestionOf,
-	questionDataForCall,
 	visibleQueuedSteers,
 	type SteerQueueItem,
 	type QuestionAnswerData,
@@ -129,8 +126,6 @@ export interface SessionControls {
 	queuedSteers: SteerQueueItem[];
 	/** Stop the running turn on the Mac. */
 	stopTurn(): Promise<void>;
-	/** Skip the waiting question. */
-	skipQuestion(): Promise<void>;
 	/** The Mac makes the history shorter. Sends and answers wait. */
 	compacting: boolean;
 	/** The one error banner, or null. */
@@ -341,19 +336,6 @@ export function useSessionModel(
 		}
 	}, [model, macFetch, sync]);
 
-	const skipQuestion = useCallback(async () => {
-		if (!pending) return;
-		const qd = questionDataForCall(pending.tool, pending.toolCallId, pending.input);
-		await model.dismissQuestion(
-			pending.toolCallId,
-			dismissedAnswer(qd.kind, qd.question),
-			pending.key,
-		);
-		// A failed skip leaves a skipped answer that the Mac does not have.
-		// The record read puts the question back in the dock.
-		if (model.getState().error) await model.readRecord().catch(() => undefined);
-	}, [model, pending]);
-
 	const retryTurn = useCallback(
 		() =>
 			unsent?.kind === "text"
@@ -388,7 +370,6 @@ export function useSessionModel(
 		running,
 		queuedSteers,
 		stopTurn,
-		skipQuestion,
 		compacting,
 		banner,
 		async retryBanner() {

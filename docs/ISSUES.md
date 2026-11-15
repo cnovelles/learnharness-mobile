@@ -109,7 +109,7 @@ Notes:
 - After `probe_done`, the phase is "plan" until the first teaching question.
 - Metro warns about two require cycles in the fork's `src/core` (upstream code; harmless).
 
-## 04 Full teach cycle `doing` (open: the user's real teach cycle)
+## 04 Full teach cycle `done`
 
 Blocked by: 03.
 
@@ -133,13 +133,13 @@ Each slice lists its error states (`AGENTS.md`, "Error states"). Every error on 
 - Answered cards: `src/lib/answer-card.ts` (`presentAnswer` with `answerForPresentation`). The card shows the kind label, correct, incorrect or didn't know, ✓ and ✗, the confidence, "Your thinking" and "Why" (tap to open), the reading thinking above the card, and "The answer" for explain. A skipped question shows "You skipped this question."
 - Error states and their tests: a failed plan call (`output-error`, or `ok: false`) shows a failed tool row and no map; a plan with no nodes, bad nodes or no tree gives no map; a later failed plan keeps the earlier map; a check for a step that is not in the plan moves nothing; a cycle in the tree lists each step once; a malformed answer record shows "Answered. The phone cannot show this answer." and never raw data; bad fields in a record are left out. Tests: `tests/plan.test.ts`, `tests/transcript.test.ts`, `tests/app-session.test.tsx` (slice B).
 
-**C. Steer, stop, retry, dismiss, foreground: done (2026-11-14).** Code: `src/lib/use-session.ts`, `src/lib/session-events.ts` (`syncSession`, hooks `onSnapshot`, `onSyncError`, `onCompaction`), `src/app/session/[id].tsx`, `src/components/question-dock.tsx`.
+**C. Steer, stop, retry, foreground: done (2026-11-14).** Code: `src/lib/use-session.ts`, `src/lib/session-events.ts` (`syncSession`, hooks `onSnapshot`, `onSyncError`, `onCompaction`), `src/app/session/[id].tsx`, `src/components/question-dock.tsx`.
 
 - While a turn runs, the composer sends a steer (`SessionModel.steer`); "Waiting for the teacher: …" shows until the steer is in the record (`visibleQueuedSteers`). The send resolves when the Mac accepts the text, so the composer is free during the turn.
-- Stop in the header while a turn runs (confirm "Stop this turn? The partial answer stays."), then `stop()` and `POST /api/activity/abort` `{kind:"turn", id}`, then a record read. Skip at the bottom of the dock and of the closed check (confirm "Skip this question? The teacher moves on without it."), then `dismissQuestion` with `dismissedAnswer`.
+- Stop in the header while a turn runs (confirm "Stop this turn? The partial answer stays."), then `stop()` and `POST /api/activity/abort` `{kind:"turn", id}`, then a record read. Skip was here first; the acceptance check removed it (see below).
 - Try again shows only for an unsent input or when `endsInFailedTurn` is true, and it waits while the Mac compacts. A failure that cannot be retried shows Close only, as on the desktop.
 - Background: the phone stops reading the stream; the turn runs on. Foreground: the events channel connects again and the sync attaches again.
-- Error states and their tests (`tests/app-session-controls.test.tsx`, `tests/user-error.test.ts`, `tests/session-events.test.ts`): a refused steer puts its text back with the mapped message; a steer that gets 409 while the phone still settles the turn keeps its text in the composer (SessionModel sends it as a message only when idle); an abort with 409 `not_running` is not an error; a failed abort shows "The phone could not stop the turn. It still runs on the Mac." and attaches again; a failed skip keeps the question in the dock ("The phone could not skip the question. Try again."; a record read removes the local skipped answer); a record read that fails after the foreground shows "The phone could not read this session from the Mac. Try again." with Try again; no Try again when nothing can be retried.
+- Error states and their tests (`tests/app-session-controls.test.tsx`, `tests/user-error.test.ts`, `tests/session-events.test.ts`): a refused steer puts its text back with the mapped message; a steer that gets 409 while the phone still settles the turn keeps its text in the composer (SessionModel sends it as a message only when idle); an abort with 409 `not_running` is not an error; a failed abort shows "The phone could not stop the turn. It still runs on the Mac." and attaches again; a record read that fails after the foreground shows "The phone could not read this session from the Mac. Try again." with Try again; no Try again when nothing can be retried.
 
 **D. Compaction state and error banner: done (2026-11-14).**
 
@@ -155,13 +155,28 @@ Each slice lists its error states (`AGENTS.md`, "Error states"). Every error on 
 - `scripts/e2e-mac.ts` now scripts the plan and teach turns and has a control server on 127.0.0.1 (`POST /models/clear`, `POST /models/set`; URL in `e2e/.control.txt`, not in git). `scripts/e2e-test.sh` runs one flow. Each flow needs a new `npm run e2e:mac` (the scripted lesson and the one-use pairing code are for one run).
 - A bug that the run found: the keyboard covered the message field. The session screen now uses `KeyboardAvoidingView` (`behavior="padding"`, `useHeaderHeight()` from `expo-router/react-navigation`, as the Expo keyboard guide says), the composer and the queued steers stay under the transcript, and the transcript scrolls to the end when the keyboard opens.
 
-Acceptance: the Maestro E2E passes; each error state above has a Jest test; the user checks one real teach cycle on the Simulator.
+**Acceptance check: done (2026-11-14).** The user ran one real lesson on the Simulator, paired with the fork desktop app (dev server and Electron with a temporary `LH_DATA_DIR` and `LH_AUTH_FILE`), with the Claude Code CLI (`sonnet`): probe (4 questions), `probe_done`, plan (`plan_init`), teach (a prediction, then a check behind "Check your understanding"). All phases worked. The check found 3 problems, fixed in one change:
+
+1. **Literal `\n` text.** The Claude Code CLI sent some tool arguments with the two characters `\` and `n` in place of line breaks, also in code fences. The Mac stores the text as it came. The desktop repairs it before display (`repairMathForDisplay`, `src/core/math-delims.ts`); the phone did not. Now `src/lib/teacher-text.ts` (`teacherText`) calls the same shared function for the teacher's text, the reasoning, the questions (dock, preview, transcript, answered card), the options, Why and "The answer". The learner's own text stays as typed, and the answer record keeps the original question text. The function repairs `\n` only in clear text layout (code fences, a blank line between paragraphs); a single `\n` stays, because it can be a math command such as `\nabla`. Tests: `tests/transcript.test.ts` ("literal \n text"), `tests/app-session.test.tsx` (prediction with literal `\n`).
+2. **No kind label on the open question.** The dock now starts with the desktop's label (`dockLabel`, from `cardLabel`): PROBE, RECALL, PREDICTION, CHECK, EXPLAIN or QUESTION, and " · SELECT ALL THAT APPLY" for multi-select. Tests: PROBE, CHECK and PREDICTION in the screen tests.
+3. **Skip removed (user decision).** "I don't know" gives the teacher an honest answer, and the desktop has no skip button (it dismisses a question only through the stop action, `components/chat.tsx`). Removed: both Skip buttons, the confirm, `skipQuestion` in `use-session.ts`, and the "could not skip" text in `describeError`. A question that the desktop dismissed still shows "You skipped this question." Tests: no Skip on the open probe and on the closed check; a dismissed record still shows skipped; the old dismissal text is no longer mapped.
+
+Not a bug: each quiz starts at 50% confidence; the desktop slider also starts at 50%.
+
+Found for later: rich rendering (issue 05: Markdown, code blocks, the probe assessment card, the plan graph), dictation (issue 07), the app icon and splash screen (issue 18).
+
+Acceptance: the Maestro E2E passes; each error state above has a Jest test; the user checks one real teach cycle on the Simulator. All three are done.
 
 ## 05 Rich rendering `todo`
 
 Blocked by: 03.
 
 - Markdown, KaTeX math, code, Mermaid (WebView or native renderers; choose and document).
+- Found in the issue 04 acceptance check (user screenshots of the desktop are the reference):
+  - Teacher text shows raw Markdown on the phone: `## Step 1`, `**bold**`, `*italic*`, `- ` lists and backticks.
+  - Code fences need a code block as on the desktop: a dark block with line numbers and syntax colors. Inline code (`true`, `count`) in small mono boxes, also in question options.
+  - The `probe_done` call shows as a plain "Tool: probe_done" line. The desktop shows a "Probe concluded: your assessment" card with one block for each strand.
+  - The lesson plan: the desktop draws the plan as a graph with arrows (prerequisites). The phone has only the list in the Plan sheet.
 - Visual (SVG) and demo artifacts through `/api/chats/:id/artifact-ui` in a sandboxed WebView.
   Acceptance: golden-fixture sessions render without errors; snapshot or screenshot checks.
 
@@ -289,4 +304,5 @@ Blocked by: 04, 05. Requested by the user on 2026-11-14, after the real lesson c
 - Question cards as on the desktop: the kind tag (PROBE, CHECK), the CORRECT or INCORRECT tag, ✓ on the correct option and ✗ on the chosen wrong one, the confidence bar with its stops, and "Your thinking" folded.
 - Tool rows as on the desktop: the tool name in small caps with its main argument (for example `LIST_PROPOSITIONS chat_…`), folded, and they open to show the input and the output.
 - Error states: errors, empty lists and loading states get the same design care (see `AGENTS.md`, "Error states").
+- App icon and splash screen: the app still uses the Expo starter images (`assets/images/icon.png`, `assets/expo.icon`, `assets/images/splash-icon.png` on blue `#208AEF`). Replace them with LearnHarness images (ask the user which ones).
   Acceptance: screenshots of the same session on the desktop and the phone side by side, approved by the user; screen tests still pass.

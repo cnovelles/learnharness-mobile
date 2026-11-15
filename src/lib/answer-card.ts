@@ -11,6 +11,7 @@
  *   plain line, never the raw record.
  */
 import { answerForPresentation, type QuestionAnswerData } from "./shared";
+import { teacherText } from "./teacher-text";
 
 export type CardLabel = "Probe" | "Recall" | "Prediction" | "Check" | "Explain" | "Question";
 
@@ -112,7 +113,7 @@ export function presentAnswer(
 			const sel = selected.has(o.index);
 			const key = isQuiz && correct.has(o.index);
 			const mark = !isQuiz ? undefined : key ? "check" : sel ? "x" : undefined;
-			return { label: o.label, selected: sel, ...(mark ? { mark } : {}) };
+			return { label: teacherText(o.label), selected: sel, ...(mark ? { mark } : {}) };
 		});
 	const card: AnsweredCard = {
 		label: cardLabel({
@@ -120,7 +121,7 @@ export function presentAnswer(
 			tool: typeof a.tool === "string" ? a.tool : tool,
 			questionType: typeof a.questionType === "string" ? a.questionType : undefined,
 		}),
-		question: str(a.questionText) ?? "",
+		question: teacherText(str(a.questionText) ?? ""),
 		options,
 	};
 	if (isQuiz)
@@ -141,8 +142,8 @@ export function presentAnswer(
 	const reading = str(a.readingThinking);
 	if (reading) card.readingThinking = reading;
 	const explanation = isQuiz ? str(a.explanation) : undefined;
-	if (explanation) card.explanation = explanation;
+	if (explanation) card.explanation = teacherText(explanation);
 	const committed = a.kind === "explain" ? str(a.committed) : undefined;
-	if (committed) card.committed = committed;
+	if (committed) card.committed = teacherText(committed);
 	return card;
 }

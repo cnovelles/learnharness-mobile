@@ -150,9 +150,8 @@ describe("describeError", () => {
 				"Could not sync the saved session.",
 				"The phone could not read this session from the Mac. Try again.",
 			],
-			["The dismissal failed (500).", "The phone could not skip the question. Try again."],
 			["The steer failed (500).", "The teacher did not get your message. Try again."],
-			["The dismissal failed (401).", "This phone is not paired with the Mac anymore. Pair again."],
+			["The steer failed (401).", "This phone is not paired with the Mac anymore. Pair again."],
 			[
 				"The steer failed (403).",
 				"The phone cannot do this yet. Use LearnHarness on the Mac for it.",
@@ -162,8 +161,14 @@ describe("describeError", () => {
 			expect(log).not.toHaveBeenCalled();
 		});
 
+		it("no longer maps the old skip failure: the phone has no Skip", () => {
+			expect(describeError({ message: "The dismissal failed (500)." }, log)).toBe(
+				"Something went wrong. Try again.",
+			);
+		});
+
 		it("does not take a text that only looks like the pattern", () => {
-			expect(describeError({ message: "The dismissal failed (500). Stack: x" }, log)).toBe(
+			expect(describeError({ message: "The steer failed (500). Stack: x" }, log)).toBe(
 				"Something went wrong. Try again.",
 			);
 			expect(log).toHaveBeenCalled();

@@ -13,6 +13,7 @@
  */
 import { presentAnswer, type AnsweredCard } from "./answer-card";
 import { planPartTree } from "./plan";
+import { teacherText } from "./teacher-text";
 import {
 	QUESTION_TOOLS,
 	phaseTimeline,
@@ -80,7 +81,7 @@ function questionRow(
 	malformedCallIds: ReadonlySet<string>,
 ): TranscriptRow {
 	const input = (part.input ?? {}) as { question?: unknown };
-	const question = typeof input.question === "string" ? input.question : "";
+	const question = typeof input.question === "string" ? teacherText(input.question) : "";
 	if (part.state !== "output-available")
 		return {
 			kind: "question",
@@ -132,7 +133,9 @@ export function transcriptRows(
 			if (part.type === "text") {
 				if (!text.trim()) return;
 				rows.push(
-					m.role === "user" ? { kind: "user", id, text } : { kind: "text", id, text, streaming },
+					m.role === "user"
+						? { kind: "user", id, text }
+						: { kind: "text", id, text: teacherText(text), streaming },
 				);
 			} else if (part.type === "data-compaction" || part.type === "data-compaction-cut") {
 				const before = (part.data as { details?: { tokensBefore?: unknown } } | undefined)?.details
@@ -144,7 +147,8 @@ export function transcriptRows(
 					...(typeof before === "number" && before > 0 ? { tokensBefore: before } : {}),
 				});
 			} else if (part.type === "reasoning") {
-				if (text.trim() || streaming) rows.push({ kind: "reasoning", id, text, streaming });
+				if (text.trim() || streaming)
+					rows.push({ kind: "reasoning", id, text: teacherText(text), streaming });
 			} else if (part.type.startsWith("tool-")) {
 				const name = part.type.slice("tool-".length);
 				if (isQuestionTool(name)) {

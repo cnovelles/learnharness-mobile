@@ -271,7 +271,6 @@ function SessionBody({ record }: { record: SessionRecord }) {
 							draft={session.draft(pending.key)}
 							onDraft={(draft) => session.saveDraft(pending.key, draft)}
 							onSubmit={(answer) => session.answer(pending.toolCallId, answer, pending.key)}
-							onSkip={session.skipQuestion}
 							waiting={compacting}
 						/>
 					) : null}

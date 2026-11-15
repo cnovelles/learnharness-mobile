@@ -34,6 +34,7 @@ export {
 	questionNeedsReveal,
 	projectView,
 	questionDataForCall,
+	repairMathForDisplay,
 	toggleOption,
 	toggleOther,
 	toolQuestionKind,

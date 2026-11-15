@@ -80,12 +80,8 @@ const SESSION_MODEL_TEXTS: Record<string, UserMessage> = {
 	"Could not sync the saved session.": SYNC_FAILED,
 };
 
-/** SessionModel's error texts with a status: "The dismissal failed (500)." */
+/** SessionModel's error texts with a status: "The steer failed (500)." */
 const SESSION_MODEL_PATTERNS: [RegExp, UserMessage][] = [
-	[
-		/^The dismissal failed \((\d+)\)\.$/,
-		userMessage("The phone could not skip the question. Try again."),
-	],
 	[
 		/^The steer failed \((\d+)\)\.$/,
 		userMessage("The teacher did not get your message. Try again."),

@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (issue 04 slices 0 to E done; the user's real teach cycle is open).
+Last update: 2026-11-14 (issue 04 done: the user's real teach cycle passed, and its 3 findings are fixed).
 
 **Done**
 
@@ -47,14 +47,18 @@ Last update: 2026-11-14 (issue 04 slices 0 to E done; the user's real teach cycl
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 04 acceptance: the user checks one real teach cycle on the Simulator (pair with the fork desktop app, a lesson with the Claude Code CLI through probe, plan, teach and a check). All slices (0, A to E) are done; details in `docs/ISSUES.md` (issue 04). Jest: 261 pass. `npm run test:integration`: 4 pass. Maestro: `e2e/teach-cycle.yaml` and `e2e/first-turn.yaml` pass. After issue 04: issue 05 (rich rendering) or 18 (visual design); the "Tool: probe_done" row is still a plain tool line.
+**Next step:** choose issue 05 (rich rendering) or 18 (visual design). Issue 04 is done: the user ran a real lesson with the Claude Code CLI on the Simulator (probe, plan, teach, a check), and the fix for its 3 findings is in (literal `\n` text, the kind label on the open question, Skip removed; details in `docs/ISSUES.md`, issue 04). Jest: 267 pass. Issue 05 now lists what the check found: raw Markdown, code blocks, the probe assessment card, the plan graph. Issue 18 lists the Expo starter icon and splash screen.
 
 **Facts found during the work**
 
 - Jest screen tests: `renderRouter` (expo-router testing library) turns on Jest's fake timers. `package.json` keeps `nextTick` and `queueMicrotask` real (`jest.fakeTimers.doNotFake`), or the web streams of later tests stop. Advance timers inside `act` (`jest.advanceTimersByTimeAsync`); a real `setTimeout` in a test never fires.
 - The fake Mac for screen tests is `tests/helpers/fake-mac.ts`. A held turn must end with a `turn-settled` SSE event; a bare `[DONE]` after a held stream makes SessionModel read it as a dropped stream.
 - E2E: each Maestro flow needs a new `npm run e2e:mac` (one-use pairing code, one scripted lesson). Start Metro with `npx expo start --clear` after code changes. Stop both after the run.
-- State at the clear (2026-11-14): the fork dev server and Electron that the user ran for manual checks are stopped. CI for `f8e26e5` passed; CI for `b532627` was still running.
+- CI for `b532627` was cancelled because the `ac642af` push replaced it; CI for `ac642af` (which contains it) passed.
+- Claude Code CLI on a temporary data folder: turn it on in the desktop Settings → Providers → External CLI → Claude Code. The first click can fail to save; check `GET /api/settings` (`claudeCode.enabled: true`). Turning it on also sets the Strong model to `claude-code` `sonnet`. `/api/claude-code` answers only same-origin requests, so check it in the desktop window, not with curl.
+- The Claude Code CLI can send tool arguments with literal `\n` (backslash, n). Display text goes through `teacherText` (`src/lib/teacher-text.ts`), which calls the shared `repairMathForDisplay`, as the desktop does. It repairs only fences and paragraph breaks.
+- The phone has no Skip (user decision 2026-11-14). "I don't know" is the honest answer. The desktop dismisses a question only through the stop action.
+- In the Simulator, typing a long text with the simulator tool can drop a word and finish late. Check the field before you press Start.
 
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.
 - `components/session-core.ts` (`SessionModel`) is pure TypeScript with an injectable fetch. The phone uses it unchanged with `remoteFetch`.

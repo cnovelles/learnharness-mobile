@@ -9,13 +9,18 @@
  * thinking are kept in the session's question draft, so a refused answer
  * or a turn that interrupts the dock does not lose them.
  *
- * Skip (at the bottom of the dock, user decision 2026-11-14) asks first:
- * "Skip this question? The teacher moves on without it." While the Mac
- * compacts, Send answer waits (`waiting`).
+ * The form starts with the kind label, as on the desktop: PROBE, RECALL,
+ * PREDICTION, CHECK, EXPLAIN or QUESTION. The teacher's text goes through
+ * teacherText (literal "\n" becomes a line break), as on the desktop.
+ *
+ * There is no Skip (user decision 2026-11-14): "I don't know" gives the
+ * teacher an honest answer, and the desktop has no skip button either.
+ * While the Mac compacts, Send answer waits (`waiting`).
  */
 import { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { cardLabel } from "@/lib/answer-card";
 import {
 	type QuestionForm,
 	answerFor,
@@ -34,6 +39,7 @@ import {
 	type QuestionData,
 	type QuestionDraft,
 } from "@/lib/shared";
+import { teacherText } from "@/lib/teacher-text";
 import { Body, Button, Field, Panel, usePalette } from "./ui";
 
 export interface PendingQuestionCall {
@@ -112,23 +118,10 @@ function Confidence({ index, onChange }: { index: number; onChange: (index: numb
 	);
 }
 
-/** Skip, with a confirm. */
-function SkipButton({ onSkip }: { onSkip: () => Promise<void> }) {
-	const [busy, setBusy] = useState(false);
-	function confirm() {
-		Alert.alert("Skip this question?", "The teacher moves on without it.", [
-			{ text: "Cancel", style: "cancel" },
-			{
-				text: "Skip",
-				style: "destructive",
-				onPress: () => {
-					setBusy(true);
-					void onSkip().finally(() => setBusy(false));
-				},
-			},
-		]);
-	}
-	return <Button title="Skip" kind="plain" onPress={confirm} busy={busy} testID="skip-question" />;
+/** The kind label at the top of the form, the desktop dock's text. */
+export function dockLabel(qd: QuestionData, tool: string): string {
+	const label = cardLabel({ kind: qd.kind, tool, questionType: qd.questionType }).toUpperCase();
+	return qd.mode === "multi-select" ? `${label} · SELECT ALL THAT APPLY` : label;
 }
 
 function DockForm({
@@ -137,7 +130,6 @@ function DockForm({
 	draft,
 	onDraft,
 	onSubmit,
-	onSkip,
 	waiting,
 }: {
 	qd: QuestionData;
@@ -145,9 +137,9 @@ function DockForm({
 	draft: QuestionDraft | undefined;
 	onDraft: (draft: Partial<QuestionDraft>) => void;
 	onSubmit: (answer: QuestionAnswerData) => Promise<boolean>;
-	onSkip: () => Promise<void>;
 	waiting: boolean;
 }) {
+	const c = usePalette();
 	const [form, setFormState] = useState(() => draft?.form ?? newQuestionForm());
 	function setForm(next: QuestionForm) {
 		setFormState(next);
@@ -170,10 +162,13 @@ function DockForm({
 
 	return (
 		<Panel>
+			<Text style={[styles.kind, { color: c.muted }]} testID="dock-kind">
+				{dockLabel(qd, tool)}
+			</Text>
 			<Body style={{ fontWeight: "600" }} testID="dock-question">
-				{qd.question}
+				{teacherText(qd.question)}
 			</Body>
-			{qd.context ? <Body muted>{qd.context}</Body> : null}
+			{qd.context ? <Body muted>{teacherText(qd.context)}</Body> : null}
 			{qd.mode === "text" ? (
 				<Field
 					value={form.text}
@@ -188,8 +183,8 @@ function DockForm({
 					{qd.options.map((o, i) => (
 						<Choice
 							key={o.value}
-							label={o.label}
-							detail={o.description}
+							label={teacherText(o.label)}
+							detail={o.description ? teacherText(o.description) : undefined}
 							selected={form.selection.selected.has(i)}
 							multi={multi}
 							onPress={() => setForm(chooseOption(qd, form, i))}
@@ -246,7 +241,6 @@ function DockForm({
 				busy={sending}
 				testID="submit-answer"
 			/>
-			<SkipButton onSkip={onSkip} />
 		</Panel>
 	);
 }
@@ -257,15 +251,14 @@ function RevealBar({
 	readingThinking,
 	onReadingThinking,
 	onOpen,
-	onSkip,
 }: {
 	qd: QuestionData;
 	readingThinking: string;
 	onReadingThinking: (text: string) => void;
 	onOpen: () => void;
-	onSkip: () => Promise<void>;
 }) {
-	const preview = qd.question.length > 90 ? `${qd.question.slice(0, 90)}…` : qd.question;
+	const question = teacherText(qd.question);
+	const preview = question.length > 90 ? `${question.slice(0, 90)}…` : question;
 	return (
 		<>
 			<Field
@@ -282,7 +275,6 @@ function RevealBar({
 					<Body muted>{preview}</Body>
 				</View>
 				<Button title="Open" onPress={onOpen} testID="reveal-open" />
-				<SkipButton onSkip={onSkip} />
 			</Panel>
 		</>
 	);
@@ -296,7 +288,6 @@ export function QuestionDock({
 	draft,
 	onDraft,
 	onSubmit,
-	onSkip,
 	waiting = false,
 }: {
 	call: PendingQuestionCall;
@@ -307,7 +298,6 @@ export function QuestionDock({
 	draft: QuestionDraft | undefined;
 	onDraft: (draft: Partial<QuestionDraft>) => void;
 	onSubmit: (answer: QuestionAnswerData) => Promise<boolean>;
-	onSkip: () => Promise<void>;
 	/** The Mac compacts: the answer waits. */
 	waiting?: boolean;
 }) {
@@ -330,7 +320,6 @@ export function QuestionDock({
 					onDraft({ readingThinking: text });
 				}}
 				onOpen={onOpen}
-				onSkip={onSkip}
 			/>
 		);
 	// A new question gets a new form (or its draft).
@@ -342,13 +331,13 @@ export function QuestionDock({
 			draft={draft}
 			onDraft={onDraft}
 			onSubmit={onSubmit}
-			onSkip={onSkip}
 			waiting={waiting}
 		/>
 	);
 }
 
 const styles = StyleSheet.create({
+	kind: { fontSize: 12, fontWeight: "600", letterSpacing: 0.8 },
 	choice: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 2 },
 	choiceText: { fontSize: 15, lineHeight: 21 },
 	small: { fontSize: 13, lineHeight: 18 },
