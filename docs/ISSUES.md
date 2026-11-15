@@ -258,7 +258,8 @@ Accepted limit: inline code in native text gets only a color and a background (n
     - Maestro: `e2e/rich-lesson.yaml` (`npm run e2e:rich -- --device <udid> --test-output-dir e2e/screenshots/<phone>`) runs the teach flow, then takes 7 screenshots: the probe card open, the plan block, Markdown and code, the table, math, Mermaid (the good chart and the broken one), and the Plan sheet graph with the glow. Maestro puts them in `<dir>/<run>/rich-lesson/takeScreenshot/` (not in git). It passes on the iPhone SE (3rd generation) and the iPhone 17 Pro Max. `scripts/e2e-test.sh` now passes extra Maestro options.
     - Flow facts: Maestro reads a text selector as a regex that must match the whole text (write `.*Image blocked: moon.*`, not `[Image blocked: moon]`). Maestro counts an element under the composer as visible, so a tap on it can hit the composer: move the target into the top half of the screen first.
     - Seen on the SE: the Mermaid chart is wider than the screen; it keeps its text size and scrolls sideways inside its island (checked by hand), as designed (error state 15).
-    - Open: the user checks one real lesson on the Simulator.
+    - CI: the first session screen test in `tests/app-session.test.tsx` took more than 5 s on the CI runner (about 1 s on the Mac), because it loads the whole rich renderer. The file now has a 20 s limit.
+    - Open: the user checks one real lesson on the Simulator. Claude cannot do it alone: a real lesson needs a model sign-in or an API key, and no key or local model is on this Mac (checked 2026-11-15).
 
 New native modules: `react-native-svg`, `react-native-webview`, `expo-clipboard`. Add them with `npx expo install`. They need a new dev build.
 

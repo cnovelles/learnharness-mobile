@@ -34,6 +34,10 @@ jest.mock("expo-camera", () => ({
 }));
 
 const APP = path.resolve(__dirname, "../src/app");
+// The first session screen in this file loads the whole rich renderer
+// (Markdown, Shiki, the islands, the plan graph). That takes about 1 s on a
+// Mac and more than 5 s (the Jest default) on the CI runner.
+jest.setTimeout(20_000);
 
 let mac: FakeMac;
 
