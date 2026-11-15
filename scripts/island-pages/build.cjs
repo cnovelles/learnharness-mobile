@@ -52,7 +52,7 @@ html, body { margin: 0; padding: 0; background: transparent; -webkit-user-select
 	-webkit-touch-callout: none; }
 body { overflow: hidden; }
 #root { overflow-x: auto; overflow-y: hidden; }
-#root svg { display: block; }
+#root svg { display: block; margin: 0 auto; }
 `;
 
 function shell(css) {

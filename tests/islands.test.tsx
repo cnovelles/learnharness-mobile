@@ -334,21 +334,29 @@ describe("islands near the screen (decision 3)", () => {
 	it("keep the follow during the app's own scroll to the end, and stop it only for the reader's scroll", () => {
 		const follow = createEndFollow();
 		expect(follow.follows()).toBe(true);
-		// A middle frame of the app's animated scroll, after an island grew: not at the end.
+		// The app's animated scroll after an island grew: a middle frame, then
+		// its end (iOS sends onMomentumScrollEnd for it too). Neither is the reader's.
 		follow.scrolled({ offset: 400, visible: 800, content: 2400 });
+		follow.momentumEnd({ offset: 1200, visible: 800, content: 2600 });
+		follow.dragEnd({ offset: 1200, visible: 800, content: 2600 }, false);
 		expect(follow.follows()).toBe(true);
-		// The reader drags up and lets go far from the end.
-		follow.userStart();
+		// The reader drags up and lets go with speed; the momentum ends far from the end.
+		follow.dragStart();
 		follow.scrolled({ offset: 300, visible: 800, content: 2400 });
 		expect(follow.follows()).toBe(false);
-		follow.userEnd({ offset: 200, visible: 800, content: 2400 });
+		follow.dragEnd({ offset: 250, visible: 800, content: 2400 }, true);
+		follow.momentumEnd({ offset: 200, visible: 800, content: 2400 });
 		expect(follow.follows()).toBe(false);
 		// Later app scroll events do not start the follow again.
 		follow.scrolled({ offset: 1600, visible: 800, content: 2400 });
+		follow.momentumEnd({ offset: 1600, visible: 800, content: 2400 });
 		expect(follow.follows()).toBe(false);
-		// The reader's momentum ends at the end: the follow starts again.
-		follow.userStart();
-		follow.userEnd({ offset: 1590, visible: 800, content: 2400 });
+		// The reader drags to the end and lets go with no speed: the follow starts again.
+		follow.dragStart();
+		follow.dragEnd({ offset: 1590, visible: 800, content: 2400 }, false);
+		expect(follow.follows()).toBe(true);
+		// After that drag, an app scroll frame does not count.
+		follow.scrolled({ offset: 100, visible: 800, content: 2400 });
 		expect(follow.follows()).toBe(true);
 		// A tap on the status bar goes to the top.
 		follow.toTop();

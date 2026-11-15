@@ -101,6 +101,48 @@ describe("Markdown blocks and inline text", () => {
 		expect(screen.getByText("2")).toBeTruthy();
 	});
 
+	it("15. sizes each column to its widest cell, measured on one line, up to a limit", async () => {
+		await show(
+			"| Side | Pull |\n| :--- | :---: |\n| Near | **strong** |\n| Far | weak ![moon](https://example.test/m.png) |",
+		);
+		const width = (r: number, i: number) =>
+			StyleSheet.flatten(screen.getByTestId(`md-table-cell-${r}-${i}`).props.style)?.width;
+		// Before the measure: a guess that counts a blocked image as its shown label,
+		// so the Pull column is not as narrow as "weak" (found on the Simulator).
+		expect(width(2, 1)).toBeGreaterThan(200);
+		// The measure layer is hidden from VoiceOver and from touches.
+		const layer = screen.getByTestId("md-table-measure-0-0", { includeHiddenElements: true }).parent
+			?.parent;
+		expect(layer?.props.accessibilityElementsHidden).toBe(true);
+		expect(layer?.props.pointerEvents).toBe("none");
+		const measured: Record<string, number> = {
+			"0-0": 40,
+			"0-1": 30,
+			"1-0": 44,
+			"1-1": 55,
+			"2-0": 25,
+			"2-1": 600,
+		};
+		await act(async () => {
+			for (const [at, w] of Object.entries(measured))
+				fireEvent(
+					screen.getByTestId(`md-table-measure-${at}`, { includeHiddenElements: true }),
+					"layout",
+					{
+						nativeEvent: { layout: { x: 0, y: 0, width: w, height: 20 } },
+					},
+				);
+		});
+		// The widest cell plus the cell padding; a very long cell wraps at the limit.
+		expect(width(0, 0)).toBe(44 + 12);
+		expect(width(1, 0)).toBe(44 + 12);
+		expect(width(2, 1)).toBe(240);
+		// A narrow table sits in the center; a wide one scrolls from the left edge.
+		expect(
+			StyleSheet.flatten(screen.getByTestId("md-table").props.contentContainerStyle),
+		).toMatchObject({ flexGrow: 1, justifyContent: "center" });
+	});
+
 	it("draws a footnote reference and its text", async () => {
 		await show("A claim.[^1]\n\n[^1]: The source.");
 		expect(screen.getAllByText("[1]").length).toBeGreaterThan(0);

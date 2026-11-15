@@ -29,7 +29,7 @@
  * shows as plain text, and the rest of the transcript still shows.
  */
 import type { Definition, Nodes, PhrasingContent, Root, RootContent, Table } from "mdast";
-import { Component, Fragment, useMemo, type ReactNode } from "react";
+import { Component, Fragment, useMemo, useRef, useState, type ReactNode } from "react";
 import {
 	Platform,
 	ScrollView,
@@ -42,7 +42,14 @@ import {
 
 import { CODE_COLORS, highlightCode, type CodeScheme, type CodeToken } from "@/lib/code-highlight";
 import { tableMarkdown } from "@/lib/copy-source";
-import { alertContent, parseMarkdown, plainText, safeLinkUrl } from "@/lib/markdown";
+import {
+	alertContent,
+	blockedImageText,
+	parseMarkdown,
+	plainText,
+	safeLinkUrl,
+	shownText,
+} from "@/lib/markdown";
 import { hasInlineMath, mathBlockIsland, paragraphIsland } from "@/lib/math-html";
 import { openLink } from "@/lib/open-link";
 import { CopyLabel, CopyTarget, useCopy } from "./copy";
@@ -130,7 +137,7 @@ function Inline({ node, ctx }: { node: PhrasingContent; ctx: Ctx }): ReactNode {
 		case "imageReference":
 			return (
 				<Text style={{ color: c.muted }} testID="md-image-blocked">
-					{node.alt ? `[Image blocked: ${node.alt}]` : "[Image blocked]"}
+					{blockedImageText(node.alt)}
 				</Text>
 			);
 		case "footnoteReference":
@@ -435,32 +442,97 @@ function CodeBlock({
 	);
 }
 
-/** Column width from the longest cell, so that the columns line up in every
- *  row. Text wraps inside the width. Wide tables scroll sideways. */
-function columnWidths(node: Table, fontSize: number): number[] {
+/** The widest column. Longer cell text wraps at its words. */
+export const TABLE_MAX_COL = 240;
+const TABLE_MIN_COL = 32;
+/** The right padding of a cell (styles.cell). */
+const CELL_PAD = 12;
+
+const clampColumn = (textWidth: number) =>
+	Math.min(TABLE_MAX_COL, Math.max(TABLE_MIN_COL, Math.ceil(textWidth) + CELL_PAD));
+
+/** A first guess of the column widths from the length of the shown text.
+ *  The table uses it only until the cells are measured. */
+function estimateWidths(node: Table, fontSize: number): number[] {
 	const widths: number[] = [];
-	for (const row of node.children) {
+	for (const row of node.children)
 		row.children.forEach((cell, i) => {
-			const chars = plainText(cell).length;
-			widths[i] = Math.max(widths[i] ?? 0, chars);
+			widths[i] = Math.max(widths[i] ?? 0, shownText(cell).length * fontSize * 0.55);
 		});
-	}
-	return widths.map((chars) =>
-		Math.min(240, Math.max(56, Math.ceil(chars * fontSize * 0.55) + 16)),
-	);
+	return widths.map(clampColumn);
+}
+
+/**
+ * The column widths from the measured cells: each column is as wide as its
+ * widest cell on one line, up to TABLE_MAX_COL. A hidden copy of the cells
+ * on a wide layer gives the one-line widths (onLayout). A guess from the
+ * text length showed "[Image blocked: moon]" letter by letter in a narrow
+ * column (Simulator, slice D).
+ */
+function useColumnWidths(node: Table, fontSize: number) {
+	const key = useMemo(() => tableMarkdown(node), [node]);
+	const estimate = useMemo(() => estimateWidths(node, fontSize), [node, fontSize]);
+	const [measured, setMeasured] = useState<{ key: string; widths: number[] } | null>(null);
+	// The one-line width of each cell ("row:column"), new for new table text.
+	const cells = useRef<{ key: string; sizes: Map<string, number> } | null>(null);
+	const total = node.children.reduce((n, row) => n + row.children.length, 0);
+	const onCell = (r: number, i: number, width: number) => {
+		if (cells.current?.key !== key) cells.current = { key, sizes: new Map() };
+		const { sizes } = cells.current;
+		sizes.set(`${r}:${i}`, width);
+		if (sizes.size < total) return;
+		const widths: number[] = [];
+		for (const [at, w] of sizes) {
+			const col = Number(at.split(":")[1]);
+			widths[col] = Math.max(widths[col] ?? 0, w);
+		}
+		const next = widths.map((w) => clampColumn(w ?? 0));
+		setMeasured((old) =>
+			old?.key === key && old.widths.every((w, j) => w === next[j]) ? old : { key, widths: next },
+		);
+	};
+	return { widths: measured?.key === key ? measured.widths : estimate, onCell };
 }
 
 function TableBlock({ node, ctx }: { node: Table; ctx: Ctx }) {
 	const { c, base } = ctx;
-	const widths = columnWidths(node, fontSizeOf(base));
+	const { widths, onCell } = useColumnWidths(node, fontSizeOf(base));
 	const { copy, state } = useCopy(() => tableMarkdown(node));
 	const align = (i: number): TextStyle["textAlign"] => {
 		const a = node.align?.[i];
 		return a === "center" ? "center" : a === "right" ? "right" : "left";
 	};
+	const cellText = (r: number) => [base, r === 0 ? styles.strong : null];
 	return (
 		<View>
-			<ScrollView horizontal showsHorizontalScrollIndicator={false} testID="md-table">
+			{/* The hidden measure layer: each cell on one line, never seen or read. */}
+			<View
+				style={styles.measure}
+				pointerEvents="none"
+				accessibilityElementsHidden
+				importantForAccessibility="no-hide-descendants"
+			>
+				{node.children.map((row, r) =>
+					row.children.map((cell, i) => (
+						<View key={`${r}:${i}`} style={styles.measureRow}>
+							<Text
+								style={cellText(r)}
+								onLayout={(e) => onCell(r, i, e.nativeEvent.layout.width)}
+								testID={`md-table-measure-${r}-${i}`}
+							>
+								{inlines(cell.children, ctx)}
+							</Text>
+						</View>
+					)),
+				)}
+			</View>
+			<ScrollView
+				horizontal
+				showsHorizontalScrollIndicator={false}
+				// A narrow table sits in the center, as the charts do; a wide one scrolls.
+				contentContainerStyle={styles.tableCenter}
+				testID="md-table"
+			>
 				<CopyTarget onCopy={copy} what="table">
 					{node.children.map((row, r) => (
 						<View
@@ -474,8 +546,12 @@ function TableBlock({ node, ctx }: { node: Table; ctx: Ctx }) {
 							]}
 						>
 							{row.children.map((cell, i) => (
-								<View key={i} style={[styles.cell, { width: widths[i] }]}>
-									<Text style={[base, { textAlign: align(i) }, r === 0 ? styles.strong : null]}>
+								<View
+									key={i}
+									style={[styles.cell, { width: widths[i] }]}
+									testID={`md-table-cell-${r}-${i}`}
+								>
+									<Text style={[cellText(r), { textAlign: align(i) }]}>
 										{inlines(cell.children, ctx)}
 									</Text>
 								</View>
@@ -595,5 +671,9 @@ const styles = StyleSheet.create({
 	lineNumbers: { textAlign: "right", marginRight: 12, minWidth: 18 },
 	codeScroll: { flex: 1 },
 	tableRow: { flexDirection: "row" },
-	cell: { paddingVertical: 6, paddingRight: 12 },
+	tableCenter: { flexGrow: 1, justifyContent: "center" },
+	cell: { paddingVertical: 6, paddingRight: CELL_PAD },
+	// Wide enough that no cell wraps; absolute, so it takes no space.
+	measure: { position: "absolute", top: 0, left: 0, width: 10000, opacity: 0 },
+	measureRow: { flexDirection: "row" },
 });

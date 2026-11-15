@@ -223,8 +223,12 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		follow.scrolled(metrics(event));
 		viewport.notify();
 	};
-	const onUserScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
-		follow.userEnd(metrics(event));
+	const onDragEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+		const v = event.nativeEvent.velocity;
+		follow.dragEnd(metrics(event), Math.abs(v?.y ?? 0) > 0.01);
+	};
+	const onMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
+		follow.momentumEnd(metrics(event));
 	// The keyboard covers the screen on iOS: pad the view by its height
 	// (Expo keyboard guide). The offset is the header height.
 	const headerHeight = useHeaderHeight();
@@ -260,10 +264,9 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						viewport.notify();
 					}}
 					onScroll={onTranscriptScroll}
-					onScrollBeginDrag={follow.userStart}
-					onScrollEndDrag={onUserScrollEnd}
-					onMomentumScrollBegin={follow.userStart}
-					onMomentumScrollEnd={onUserScrollEnd}
+					onScrollBeginDrag={follow.dragStart}
+					onScrollEndDrag={onDragEnd}
+					onMomentumScrollEnd={onMomentumEnd}
 					onScrollToTop={follow.toTop}
 					onLayout={viewport.notify}
 					scrollEventThrottle={100}

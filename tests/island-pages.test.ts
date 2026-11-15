@@ -34,6 +34,10 @@ describe("island pages", () => {
 		expect(pages.MATH_HTML).not.toMatch(/url\((?!data:)/);
 	});
 
+	it("center the chart in the island (it sat at the left edge, Simulator slice D)", () => {
+		expect(pages.MERMAID_HTML).toContain("#root svg { display: block; margin: 0 auto; }");
+	});
+
 	it("put Mermaid and the page scripts in the injected script, not in the page", () => {
 		expect(pages.MERMAID_SCRIPT.length).toBeGreaterThan(1_000_000);
 		expect(pages.MERMAID_SCRIPT).toContain('globalThis["mermaid"]');

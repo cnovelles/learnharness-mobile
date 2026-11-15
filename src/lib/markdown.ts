@@ -90,6 +90,19 @@ export function safeLinkUrl(url: string | null | undefined): string | null {
 	return trimmed;
 }
 
+/** The text that a blocked image shows, as on the desktop. */
+export function blockedImageText(alt: string | null | undefined): string {
+	return alt ? `[Image blocked: ${alt}]` : "[Image blocked]";
+}
+
+/** The text of a node as the screen shows it: a blocked image is its label. */
+export function shownText(node: Nodes): string {
+	if (node.type === "image") return blockedImageText(node.alt);
+	if ("value" in node && typeof node.value === "string") return node.value;
+	if ("children" in node) return (node.children as Nodes[]).map(shownText).join("");
+	return "";
+}
+
 /** The text of a node and its children, with no Markdown. */
 export function plainText(node: Nodes): string {
 	if ("value" in node && typeof node.value === "string") return node.value;

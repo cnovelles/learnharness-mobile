@@ -69,11 +69,12 @@ export interface ScrollMetrics {
 
 /**
  * Decides if new content scrolls the transcript to the end. Only the
- * reader's own scroll (a drag, its momentum, a tap on the status bar)
+ * reader's own drag (and the momentum after it) or a tap on the status bar
  * changes the decision. The app's own animated scrollToEnd also sends
- * scroll events: a middle frame of it, after the content grew again, is
- * not at the end, and it must not stop the follow (found on the Simulator,
- * slice D: a growing island left the check card under the screen).
+ * scroll events, and on iOS also onMomentumScrollEnd: a frame of it after
+ * the content grew again is not at the end, and it must not stop the
+ * follow (found on the Simulator, slice D: a growing island left the check
+ * card under the screen).
  */
 export function createEndFollow() {
 	let following = true;
@@ -84,16 +85,23 @@ export function createEndFollow() {
 	return {
 		/** True when new content scrolls to the end. */
 		follows: () => following,
-		/** A drag or its momentum starts. */
-		userStart: () => {
+		/** The reader starts a drag. */
+		dragStart: () => {
 			userScroll = true;
 		},
 		/** Each scroll event. Only a scroll by the reader changes the decision. */
 		scrolled: (m: ScrollMetrics) => {
 			if (userScroll) read(m);
 		},
-		/** A drag or its momentum ends. */
-		userEnd: (m: ScrollMetrics) => {
+		/** The drag ends. With no speed left, no momentum follows: the reader's scroll ends. */
+		dragEnd: (m: ScrollMetrics, moving: boolean) => {
+			if (!userScroll) return;
+			read(m);
+			if (!moving) userScroll = false;
+		},
+		/** A momentum ends. It counts only after the reader's drag. */
+		momentumEnd: (m: ScrollMetrics) => {
+			if (!userScroll) return;
 			read(m);
 			userScroll = false;
 		},
