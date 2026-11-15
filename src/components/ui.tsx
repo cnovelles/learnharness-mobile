@@ -239,19 +239,19 @@ export function Button({
 			style={({ pressed }) => [
 				styles.button,
 				{
-					backgroundColor: primary ? c.accent : "transparent",
-					borderColor: primary ? c.accent : c.line,
+					backgroundColor: primary ? c.primary : "transparent",
+					borderColor: primary ? c.primary : c.line,
 					opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
 				},
 			]}
 		>
 			{busy ? (
-				<ActivityIndicator color={primary ? c.onAccent : c.text} />
+				<ActivityIndicator color={primary ? c.onPrimary : c.text} />
 			) : (
 				<Text
 					style={[
 						styles.buttonText,
-						{ color: primary ? c.onAccent : kind === "danger" ? c.danger : c.text },
+						{ color: primary ? c.onPrimary : kind === "danger" ? c.danger : c.text },
 					]}
 				>
 					{title}
@@ -314,30 +314,34 @@ const styles = StyleSheet.create({
 	scroll: { flexGrow: 1 },
 	inner: { padding: SPACE.lg, gap: SPACE.lg },
 	panel: {
-		borderWidth: StyleSheet.hairlineWidth,
+		borderWidth: 1,
 		borderRadius: 12,
 		padding: SPACE.lg,
 		gap: SPACE.md,
 	},
-	title: { fontSize: 20, fontWeight: "600" },
-	body: { fontSize: 15, lineHeight: 21 },
+	/** Screen titles: the desktop's title font (CMU Serif Bold). */
+	title: { ...TYPE.xxl, fontFamily: FONT.title, fontWeight: "700" },
+	body: { ...TYPE.lg, fontFamily: FONT.prose },
+	/** Inputs: the prose font. */
 	field: {
-		borderWidth: StyleSheet.hairlineWidth,
+		borderWidth: 1,
 		borderRadius: 10,
 		paddingHorizontal: SPACE.md,
 		paddingVertical: SPACE.md,
-		fontSize: 15,
+		fontSize: 16,
+		fontFamily: FONT.prose,
 	},
 	fieldMulti: { minHeight: 72, textAlignVertical: "top" },
+	/** Buttons: the desktop's ink buttons (`--primary`) with mono text. */
 	button: {
 		borderWidth: 1,
-		borderRadius: 10,
+		borderRadius: 8,
 		paddingVertical: SPACE.md,
 		paddingHorizontal: SPACE.lg,
 		alignItems: "center",
 		justifyContent: "center",
 		minHeight: 46,
 	},
-	buttonText: { fontSize: 16, fontWeight: "600" },
+	buttonText: { ...TYPE.base, fontFamily: FONT.ui, fontWeight: "500" },
 	center: { flex: 1, alignItems: "center", justifyContent: "center" },
 });

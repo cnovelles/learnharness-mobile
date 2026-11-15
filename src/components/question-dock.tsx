@@ -42,7 +42,8 @@ import {
 import { markdownPreview } from "@/lib/markdown";
 import { teacherText } from "@/lib/teacher-text";
 import { Markdown } from "./markdown";
-import { Body, Button, Field, Panel, usePalette } from "./ui";
+import { confidenceColor } from "./confidence-rail";
+import { Body, Button, FONT, Field, LABEL, Panel, alpha, usePalette } from "./ui";
 import { SPACE } from "./spacing";
 
 export interface PendingQuestionCall {
@@ -78,8 +79,8 @@ function Choice({
 			style={[
 				styles.choice,
 				{
-					borderColor: selected ? c.accent : c.line,
-					backgroundColor: selected ? c.bg : "transparent",
+					borderColor: selected ? c.primary : c.line,
+					backgroundColor: selected ? c.hover : "transparent",
 				},
 			]}
 		>
@@ -112,15 +113,15 @@ function Confidence({ index, onChange }: { index: number; onChange: (index: numb
 						style={[
 							styles.stop,
 							{
-								borderColor: i === index ? c.accent : c.line,
-								backgroundColor: i === index ? c.accent : "transparent",
+								borderColor: i === index ? confidenceColor(stop) : c.line,
+								backgroundColor: i === index ? alpha(confidenceColor(stop), 0.15) : "transparent",
 							},
 						]}
 					>
 						<Text
 							numberOfLines={1}
 							adjustsFontSizeToFit
-							style={{ color: i === index ? c.onAccent : c.text, fontSize: 14 }}
+							style={{ color: c.text, fontSize: 13, fontFamily: FONT.ui }}
 						>
 							{stop}%
 						</Text>
@@ -353,11 +354,11 @@ export function QuestionDock({
 }
 
 const styles = StyleSheet.create({
-	kind: { fontSize: 12, fontWeight: "600", letterSpacing: 0.8 },
-	choice: { borderWidth: 1, borderRadius: 10, padding: SPACE.md, gap: SPACE.xs },
-	body: { fontSize: 15, lineHeight: 21 },
-	choiceText: { fontSize: 15, lineHeight: 21 },
-	small: { fontSize: 13, lineHeight: 18 },
+	kind: LABEL,
+	choice: { borderWidth: 1, borderRadius: 8, padding: SPACE.md, gap: SPACE.xs },
+	body: { fontSize: 15, lineHeight: 21, fontFamily: FONT.prose },
+	choiceText: { fontSize: 15, lineHeight: 21, fontFamily: FONT.prose },
+	small: { fontSize: 13, lineHeight: 18, fontFamily: FONT.prose },
 	// One row of equal stops on every iPhone width (375 pt and up): no wrap.
 	stops: { flexDirection: "row", gap: SPACE.sm },
 	stop: {
