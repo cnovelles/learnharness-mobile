@@ -120,10 +120,12 @@ export type CodeToken = {
 
 export type HighlightedCode = { lines: CodeToken[][] };
 
-/** The colors of a code block in each mode (the theme's own colors). */
-export const CODE_COLORS: Record<CodeScheme, { bg: string; fg: string }> = {
-	light: { bg: "#fff", fg: "#24292e" },
-	dark: { bg: "#24292e", fg: "#e1e4e8" },
+/** The text color of a code block in each mode (the theme's own color). The
+ *  background is the app's `codeBg`, as on the desktop, which puts its own
+ *  tint under the Shiki colors (fork app/globals.css, code-block). */
+export const CODE_COLORS: Record<CodeScheme, { fg: string }> = {
+	light: { fg: "#24292e" },
+	dark: { fg: "#e1e4e8" },
 };
 
 let highlighter: HighlighterCore | null = null;

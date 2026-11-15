@@ -63,7 +63,7 @@ import {
 	type PlanTree,
 } from "@/lib/shared";
 import { SPACE } from "./spacing";
-import { usePalette, type Palette } from "./ui";
+import { FONT, TYPE, usePalette, type Palette } from "./ui";
 
 /** The faint yellow of the current step (desktop `fill-yellow-400/25`). */
 const GLOW_COLOR = "#facc15";
@@ -433,13 +433,14 @@ export function PlanSheetGraph({
 
 const styles = StyleSheet.create({
 	center: { flexGrow: 1, justifyContent: "center", alignItems: "center" },
+	/** The desktop plan viewport: rounded-xl border. */
 	sheetGraph: {
-		borderWidth: StyleSheet.hairlineWidth,
-		borderRadius: 8,
+		borderWidth: 1,
+		borderRadius: 16,
 		paddingBottom: SPACE.sm,
 		gap: SPACE.xs,
 		overflow: "hidden",
 	},
 	frame: { overflow: "hidden" },
-	hint: { fontSize: 12, textAlign: "center" },
+	hint: { ...TYPE.xs, fontFamily: FONT.ui, textAlign: "center" },
 });

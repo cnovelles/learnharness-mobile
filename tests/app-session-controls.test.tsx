@@ -73,8 +73,12 @@ describe("steer, stop, skip, retry and foreground (slice C)", () => {
 
 	it("while a turn runs, the composer sends a steer; it shows as queued until the teacher takes it", async () => {
 		const id = await runningTurn();
-		expect(screen.getByTestId("composer").props.placeholder).toBe("Add to the teacher's turn");
+		// An empty field: the button is Stop, as on the desktop.
+		expect(screen.getByTestId("stop-turn")).toBeTruthy();
+		expect(screen.queryByTestId("send")).toBeNull();
 		await fireEvent.changeText(screen.getByTestId("composer"), "Use the Earth's spin too.");
+		// Typed text: the button sends a steer.
+		expect(screen.queryByTestId("stop-turn")).toBeNull();
 		await fireEvent.press(screen.getByTestId("send"));
 
 		await waitFor(() => expect(mac.steers).toHaveLength(1));

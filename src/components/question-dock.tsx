@@ -355,7 +355,8 @@ export function QuestionDock({
 
 const styles = StyleSheet.create({
 	kind: LABEL,
-	choice: { borderWidth: 1, borderRadius: 8, padding: SPACE.md, gap: SPACE.xs },
+	/** The desktop dock options: rounded-lg (12 in the fork's ladder). */
+	choice: { borderWidth: 1, borderRadius: 12, padding: SPACE.md, gap: SPACE.xs },
 	body: { fontSize: 15, lineHeight: 21, fontFamily: FONT.prose },
 	choiceText: { fontSize: 15, lineHeight: 21, fontFamily: FONT.prose },
 	small: { fontSize: 13, lineHeight: 18, fontFamily: FONT.prose },

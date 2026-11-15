@@ -8,7 +8,16 @@ import * as Device from "expo-device";
 import { useRef, useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 
-import { Body, Button, ErrorText, Panel, Screen, Title, usePalette } from "@/components/ui";
+import {
+	Body,
+	Button,
+	ErrorBanner,
+	FONT,
+	Screen,
+	Section,
+	TYPE,
+	usePalette,
+} from "@/components/ui";
 import { useConnection } from "@/lib/connection-context";
 import { describeError, userMessage, type UserMessage } from "@/lib/user-error";
 import { SPACE } from "@/components/spacing";
@@ -62,9 +71,8 @@ export default function PairScreen() {
 
 	return (
 		<Screen>
-			{removedMessage ? <ErrorText testID="removed-message">{removedMessage}</ErrorText> : null}
-			<Panel>
-				<Title>Scan the QR code</Title>
+			{removedMessage ? <ErrorBanner testID="removed-message" text={removedMessage} /> : null}
+			<Section title="Scan the QR code" first>
 				<Body muted>
 					{
 						'On your Mac, open LearnHarness. Select "Phone Access…" in the LearnHarness menu, turn it on, and click "Show QR code".'
@@ -95,9 +103,8 @@ export default function PairScreen() {
 						testID="scan"
 					/>
 				)}
-			</Panel>
-			<Panel>
-				<Title>Or paste the pairing text</Title>
+			</Section>
+			<Section title="Or paste the pairing text">
 				<Body muted>{'On the Mac, click "Copy pairing text". Then paste it here.'}</Body>
 				<TextInput
 					testID="pairing-text"
@@ -118,21 +125,22 @@ export default function PairScreen() {
 					busy={busy}
 					testID="pair"
 				/>
-			</Panel>
-			{error ? <ErrorText testID="pair-error">{error}</ErrorText> : null}
+			</Section>
+			{error ? <ErrorBanner testID="pair-error" text={error} /> : null}
 		</Screen>
 	);
 }
 
 const styles = StyleSheet.create({
-	camera: { aspectRatio: 1, borderRadius: 10, overflow: "hidden", backgroundColor: "#000" },
+	camera: { aspectRatio: 1, borderRadius: 16, overflow: "hidden", backgroundColor: "#000" },
+	/** The pairing text is JSON: the mono font. */
 	input: {
 		minHeight: 90,
 		borderWidth: 1,
-		borderRadius: 10,
+		borderRadius: 12,
 		padding: SPACE.md,
-		fontSize: 13,
-		fontFamily: "Menlo",
+		...TYPE.sm,
+		fontFamily: FONT.ui,
 		textAlignVertical: "top",
 	},
 });

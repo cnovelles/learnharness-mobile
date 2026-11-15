@@ -18,7 +18,7 @@ appId: dev.local.learnharnessmobile
 - tapOn:
     id: "pair"
 - extendedWaitUntil:
-    visible: "Connected to Test Mac."
+    visible: "Connected · Test Mac"
     timeout: 30000
 
 # models_not_configured: the Mac refuses the first text with a clear message.
@@ -80,7 +80,7 @@ appId: dev.local.learnharnessmobile
 - assertVisible: "Uneven pull"
 - assertVisible:
     id: "plan-step-status-pull"
-    text: "Next"
+    text: "NEXT"
 - tapOn:
     id: "plan-close"
 
@@ -128,6 +128,6 @@ appId: dev.local.learnharnessmobile
     id: "open-plan"
 - assertVisible:
     id: "plan-step-status-pull"
-    text: "Now"
+    text: "NOW"
 - tapOn:
     id: "plan-close"

@@ -5,9 +5,19 @@
  */
 import Constants from "expo-constants";
 import { useRef, useState } from "react";
-import { Alert, Pressable, Switch, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
-import { Body, Button, ErrorText, Panel, Screen, Title } from "@/components/ui";
+import {
+	alpha,
+	Body,
+	Button,
+	ErrorText,
+	FONT,
+	Screen,
+	Section,
+	TYPE,
+	usePalette,
+} from "@/components/ui";
 import { useConnection } from "@/lib/connection-context";
 import { MODES } from "@/lib/feature-flags";
 import { useFlags } from "@/lib/flags-context";
@@ -21,7 +31,21 @@ function formatDate(iso: string): string {
 	return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 }
 
+/** A label in the prose font and its value in small mono text under it. */
+function Row({ label, value, testID }: { label: string; value: string; testID?: string }) {
+	const c = usePalette();
+	return (
+		<View style={styles.row}>
+			<Text style={[styles.rowLabel, { color: c.text }]}>{label}</Text>
+			<Text style={[styles.rowValue, { color: c.muted }]} testID={testID} selectable>
+				{value}
+			</Text>
+		</View>
+	);
+}
+
 function DeveloperSection() {
+	const c = usePalette();
 	const { state, store } = useFlags();
 	const [error, setError] = useState<UserMessage | null>(null);
 
@@ -35,30 +59,21 @@ function DeveloperSection() {
 	}
 
 	return (
-		<Panel>
-			<Title>Developer: modes</Title>
-			<Body muted>
-				Turn modes on or off on this phone only. A mode that is not built yet has no effect. Your
-				lessons and data stay on this phone when you turn a mode off.
-			</Body>
+		<Section
+			title="Developer: modes"
+			hint="Turn modes on or off on this phone only. A mode that is not built yet has no effect. Your lessons and data stay on this phone when you turn a mode off."
+		>
 			{MODES.map((mode) => (
-				<View
-					key={mode.id}
-					style={{
-						flexDirection: "row",
-						alignItems: "center",
-						gap: SPACE.md,
-						paddingVertical: SPACE.sm,
-					}}
-				>
-					<View style={{ flex: 1 }}>
+				<View key={mode.id} style={styles.switchRow}>
+					<View style={styles.switchText}>
 						<Body>{mode.title}</Body>
-						<Body muted>{mode.detail}</Body>
+						<Text style={[styles.hint, { color: alpha(c.muted, 0.7) }]}>{mode.detail}</Text>
 					</View>
 					<Switch
 						testID={`flag-${mode.id}`}
 						accessibilityLabel={mode.title}
 						value={state.flags[mode.id]}
+						trackColor={{ true: c.accent }}
 						onValueChange={(value) => void run(() => store.set(mode.id, value))}
 					/>
 				</View>
@@ -67,14 +82,16 @@ function DeveloperSection() {
 			<Button
 				title="Use the build defaults"
 				kind="plain"
+				size="sm"
 				onPress={() => void run(() => store.reset())}
 				testID="flags-reset"
 			/>
-		</Panel>
+		</Section>
 	);
 }
 
 export default function SettingsScreen() {
+	const c = usePalette();
 	const { state, monitor } = useConnection();
 	const flags = useFlags();
 	const taps = useRef(0);
@@ -105,21 +122,29 @@ export default function SettingsScreen() {
 
 	return (
 		<Screen>
-			<Panel>
-				<Title>Mac</Title>
+			<Section title="Mac" first>
 				<Body testID="mac-name">{connection.name}</Body>
-				<Body muted>Address in use</Body>
-				<Body testID="mac-address">{address}</Body>
-				<Body muted>All addresses</Body>
-				<Body testID="mac-addresses">{connection.urls.join("\n")}</Body>
-				<Body muted>Paired</Body>
-				<Body>{formatDate(connection.pairedAt)}</Body>
-			</Panel>
-			<Button title="Forget this Mac" kind="danger" onPress={confirmForget} testID="forget" />
+				<Row label="Address in use" value={address} testID="mac-address" />
+				<Row label="All addresses" value={connection.urls.join("\n")} testID="mac-addresses" />
+				<Row label="Paired" value={formatDate(connection.pairedAt)} />
+				<Button title="Forget this Mac" kind="danger" onPress={confirmForget} testID="forget" />
+			</Section>
 			{showDeveloper ? <DeveloperSection /> : null}
 			<Pressable onPress={tapVersion} testID="version" accessibilityRole="text">
-				<Body muted>Version {Constants.expoConfig?.version ?? "unknown"}</Body>
+				<Text style={[styles.hint, { color: c.muted }]}>
+					Version {Constants.expoConfig?.version ?? "unknown"}
+				</Text>
 			</Pressable>
 		</Screen>
 	);
 }
+
+/** The desktop settings controls (fork components/settings/controls.tsx). */
+const styles = StyleSheet.create({
+	hint: { ...TYPE.xs, fontFamily: FONT.ui },
+	row: { gap: SPACE.xs },
+	rowLabel: { ...TYPE.prose, fontFamily: FONT.prose },
+	rowValue: { ...TYPE.xs, fontFamily: FONT.ui },
+	switchRow: { flexDirection: "row", alignItems: "center", gap: SPACE.lg },
+	switchText: { flex: 1, gap: SPACE.xs },
+});

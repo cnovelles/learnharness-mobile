@@ -21,7 +21,7 @@ appId: dev.local.learnharnessmobile
 - tapOn:
     id: "pair"
 - extendedWaitUntil:
-    visible: "Connected to Test Mac."
+    visible: "Connected · Test Mac"
     timeout: 30000
 - tapOn:
     id: "new-session"

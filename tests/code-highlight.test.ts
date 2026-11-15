@@ -38,7 +38,7 @@ describe("highlightCode", () => {
 		expect(colorOf(light.lines, "const")).toBe("#D73A49");
 		expect(colorOf(dark.lines, "const")).toBe("#F97583");
 		expect(colorOf(light.lines, "// note")).toBe("#6A737D");
-		expect(CODE_COLORS.dark.bg).toBe("#24292e");
+		expect(CODE_COLORS.dark.fg).toBe("#e1e4e8");
 	});
 
 	it("reads the fence names and aliases of the bundled languages", () => {

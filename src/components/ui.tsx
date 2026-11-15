@@ -1,6 +1,7 @@
 /** Small shared UI pieces. Colors follow the system light or dark mode. */
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import {
+	AccessibilityInfo,
 	ActivityIndicator,
 	Pressable,
 	ScrollView,
@@ -9,10 +10,13 @@ import {
 	TextInput,
 	useColorScheme,
 	View,
+	type RefreshControlProps,
 	type TextStyle,
 	type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { SymbolView, type SymbolViewProps } from "expo-symbols";
+import Svg, { Circle } from "react-native-svg";
 import type { UserMessage } from "@/lib/user-error";
 import { SPACE } from "./spacing";
 
@@ -44,7 +48,8 @@ export interface Palette {
 	strong: string;
 	italic: string;
 	code: string;
-	/** Code block background: the page mixed with black. */
+	/** Code block and inline code background: the page mixed with black in
+	 *  oklab, 86% (dark) or 96% (light), as the desktop `color-mix`. */
 	codeBg: string;
 	danger: string;
 	ok: string;
@@ -66,7 +71,7 @@ const DARK: Palette = {
 	strong: "#e6e6e6",
 	italic: "#e6e6e6",
 	code: "#e6e6e6",
-	codeBg: "#111111",
+	codeBg: "#0e0e0e",
 	danger: "#ef4444",
 	ok: "#22c55e",
 	warning: "#f59e0b",
@@ -86,7 +91,7 @@ const LIGHT: Palette = {
 	strong: "#3266c9",
 	italic: "#3f8f6b",
 	code: "#c4613f",
-	codeBg: "#f0efeb",
+	codeBg: "#edece8",
 	danger: "#c43d3d",
 	ok: "#3f8f6b",
 	warning: "#b8822a",
@@ -141,7 +146,16 @@ export function usePalette(): Palette {
 	return useColorScheme() === "dark" ? DARK : LIGHT;
 }
 
-export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
+export function Screen({
+	children,
+	scroll = true,
+	refreshControl,
+}: {
+	children: ReactNode;
+	scroll?: boolean;
+	/** Pull to refresh (a `RefreshControl`). */
+	refreshControl?: ReactElement<RefreshControlProps>;
+}) {
 	const c = usePalette();
 	const body = <View style={styles.inner}>{children}</View>;
 	return (
@@ -150,7 +164,11 @@ export function Screen({ children, scroll = true }: { children: ReactNode; scrol
 			edges={["bottom", "left", "right"]}
 		>
 			{scroll ? (
-				<ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+				<ScrollView
+					contentContainerStyle={styles.scroll}
+					keyboardShouldPersistTaps="handled"
+					refreshControl={refreshControl}
+				>
 					{body}
 				</ScrollView>
 			) : (
@@ -216,6 +234,7 @@ export function Button({
 	title,
 	onPress,
 	kind = "primary",
+	size = "md",
 	disabled,
 	busy,
 	testID,
@@ -223,12 +242,15 @@ export function Button({
 	title: string;
 	onPress: () => void;
 	kind?: "primary" | "plain" | "danger";
+	/** `sm`: the desktop's small outline button (banners, rows). */
+	size?: "md" | "sm";
 	disabled?: boolean;
 	busy?: boolean;
 	testID?: string;
 }) {
 	const c = usePalette();
 	const primary = kind === "primary";
+	const small = size === "sm";
 	return (
 		<Pressable
 			testID={testID}
@@ -236,11 +258,19 @@ export function Button({
 			accessibilityState={{ disabled: !!disabled || !!busy, busy: !!busy }}
 			disabled={disabled || busy}
 			onPress={onPress}
+			hitSlop={small ? SPACE.sm : undefined}
 			style={({ pressed }) => [
 				styles.button,
+				small ? styles.buttonSm : null,
 				{
-					backgroundColor: primary ? c.primary : "transparent",
-					borderColor: primary ? c.primary : c.line,
+					// danger: the desktop's quiet destructive button, the error color
+					// at 50% for the line and 10% for the fill.
+					backgroundColor: primary
+						? c.primary
+						: kind === "danger"
+							? alpha(c.danger, 0.1)
+							: "transparent",
+					borderColor: primary ? c.primary : kind === "danger" ? alpha(c.danger, 0.5) : c.line,
 					opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
 				},
 			]}
@@ -250,7 +280,7 @@ export function Button({
 			) : (
 				<Text
 					style={[
-						styles.buttonText,
+						small ? styles.buttonTextSm : styles.buttonText,
 						{ color: primary ? c.onPrimary : kind === "danger" ? c.danger : c.text },
 					]}
 				>
@@ -300,11 +330,185 @@ export function Field({
 	);
 }
 
+/** A screen that waits: the desktop's braille spinner in the middle. */
 export function Loading() {
 	const c = usePalette();
 	return (
 		<View style={[styles.center, { backgroundColor: c.bg }]}>
-			<ActivityIndicator color={c.muted} />
+			<Spinner size={18} />
+		</View>
+	);
+}
+
+/** An SF Symbol in a palette color. The size is in points. */
+export function Icon({
+	name,
+	size = 16,
+	color,
+}: {
+	name: SymbolViewProps["name"];
+	size?: number;
+	color: string;
+}) {
+	return <SymbolView name={name} size={size} tintColor={color} weight="medium" />;
+}
+
+/**
+ * The desktop's BrailleSpinner (fork components/braille-spinner.tsx): the
+ * frames of ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ drawn as dots on a 2 x 3 grid (viewBox 4 x 8, as the desktop), 80 ms each. With
+ * Reduce Motion on, the first frame stays.
+ */
+export const SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+const DOTS: [number, number][] = [
+	[1, 1],
+	[1, 3],
+	[1, 5],
+	[3, 1],
+	[3, 3],
+	[3, 5],
+];
+
+/** The dots (1–6 in braille order) of a braille character. */
+export function brailleDots(char: string): number[] {
+	const bits = (char.codePointAt(0) ?? 0x2800) - 0x2800;
+	return DOTS.map((_, i) => i).filter((i) => (bits >> i) & 1);
+}
+
+export function Spinner({ size = 12, color }: { size?: number; color?: string }) {
+	const c = usePalette();
+	const [frame, setFrame] = useState(0);
+	const [still, setStill] = useState(false);
+	useEffect(() => {
+		let live = true;
+		AccessibilityInfo.isReduceMotionEnabled()
+			.then((on) => live && setStill(on))
+			.catch(() => {});
+		const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setStill);
+		return () => {
+			live = false;
+			sub.remove();
+		};
+	}, []);
+	useEffect(() => {
+		if (still) return;
+		const id = setInterval(() => setFrame((f) => (f + 1) % SPINNER_FRAMES.length), 80);
+		return () => clearInterval(id);
+	}, [still]);
+	const dots = brailleDots(SPINNER_FRAMES[still ? 0 : frame]!);
+	return (
+		<Svg
+			width={size / 2}
+			height={size}
+			viewBox="0 0 4 8"
+			accessibilityRole="progressbar"
+			accessibilityLabel="Working"
+		>
+			{dots.map((i) => (
+				<Circle key={i} cx={DOTS[i]![0]} cy={DOTS[i]![1]} r={0.8} fill={color ?? c.text} />
+			))}
+		</Svg>
+	);
+}
+
+/** The desktop's pending line: the spinner and a small-caps label ("THINKING…"). */
+export function StatusLine({ children, testID }: { children: string; testID?: string }) {
+	const c = usePalette();
+	return (
+		<View style={styles.statusLine} testID={testID} accessibilityLiveRegion="polite">
+			<Spinner />
+			<Text style={[LABEL, { color: c.muted }]}>{children}</Text>
+		</View>
+	);
+}
+
+/** A small-caps section label ("SESSIONS"): the desktop's `tracking-widest`. */
+export function SectionLabel({
+	children,
+	strong,
+	testID,
+}: {
+	children: string;
+	strong?: boolean;
+	testID?: string;
+}) {
+	const c = usePalette();
+	return (
+		<Text
+			accessibilityRole="header"
+			testID={testID}
+			style={[
+				LABEL,
+				styles.sectionLabel,
+				strong ? styles.sectionStrong : null,
+				{ color: strong ? c.text : alpha(c.muted, 0.7) },
+			]}
+		>
+			{children}
+		</Text>
+	);
+}
+
+/** A desktop SettingsSection: the strong small-caps heading, a hint, the rows. */
+export function Section({
+	title,
+	hint,
+	children,
+	first,
+	testID,
+}: {
+	title: string;
+	hint?: string;
+	children: ReactNode;
+	first?: boolean;
+	/** The test ID of the heading. */
+	testID?: string;
+}) {
+	const c = usePalette();
+	return (
+		<View
+			style={[
+				styles.section,
+				first ? styles.first : { borderTopWidth: 1, borderColor: alpha(c.line, 0.6) },
+			]}
+		>
+			<SectionLabel strong testID={testID}>
+				{title}
+			</SectionLabel>
+			{hint ? <Text style={[styles.hint, { color: c.muted }]}>{hint}</Text> : null}
+			<View style={styles.sectionBody}>{children}</View>
+		</View>
+	);
+}
+
+/**
+ * The desktop's turn error banner: the error color at 50% for the line and
+ * 10% for the fill, rounded-lg. It takes only a UserMessage.
+ */
+export function ErrorBanner({
+	text,
+	actions,
+	testID,
+}: {
+	text: UserMessage;
+	actions?: ReactNode;
+	testID?: string;
+}) {
+	const c = usePalette();
+	return (
+		<View
+			style={[
+				styles.banner,
+				{ borderColor: alpha(c.danger, 0.5), backgroundColor: alpha(c.danger, 0.1) },
+			]}
+		>
+			<Text
+				testID={testID}
+				accessibilityRole="alert"
+				style={[styles.bannerText, { color: c.text }]}
+			>
+				{text}
+			</Text>
+			{actions ? <View style={styles.bannerActions}>{actions}</View> : null}
 		</View>
 	);
 }
@@ -313,9 +517,10 @@ const styles = StyleSheet.create({
 	screen: { flex: 1 },
 	scroll: { flexGrow: 1 },
 	inner: { padding: SPACE.lg, gap: SPACE.lg },
+	/** The desktop card: `rounded-xl` is 16 in the fork's radius ladder. */
 	panel: {
 		borderWidth: 1,
-		borderRadius: 12,
+		borderRadius: 16,
 		padding: SPACE.lg,
 		gap: SPACE.md,
 	},
@@ -343,5 +548,24 @@ const styles = StyleSheet.create({
 		minHeight: 46,
 	},
 	buttonText: { ...TYPE.base, fontFamily: FONT.ui, fontWeight: "500" },
+	/** The desktop's `xs` outline button: 11 pt mono, rounded-md. */
+	buttonSm: { minHeight: 32, paddingVertical: SPACE.xs, paddingHorizontal: SPACE.md },
+	buttonTextSm: { ...LABEL },
 	center: { flex: 1, alignItems: "center", justifyContent: "center" },
+	statusLine: { flexDirection: "row", alignItems: "center", gap: SPACE.sm },
+	sectionLabel: { letterSpacing: 1.1 },
+	section: { paddingTop: SPACE.lg, gap: SPACE.xs },
+	first: { paddingTop: 0 },
+	sectionBody: { marginTop: SPACE.md, gap: SPACE.md },
+	hint: { ...TYPE.xs, fontFamily: FONT.ui },
+	sectionStrong: { ...TYPE.sm, letterSpacing: 1.25 },
+	banner: {
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingHorizontal: SPACE.md,
+		paddingVertical: SPACE.sm,
+		gap: SPACE.sm,
+	},
+	bannerText: { ...TYPE.base, fontFamily: FONT.prose },
+	bannerActions: { flexDirection: "row", gap: SPACE.sm, flexWrap: "wrap" },
 });

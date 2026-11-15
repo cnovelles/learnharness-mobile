@@ -171,7 +171,7 @@ describe("the probe card", () => {
 
 	it("starts folded with the strand count, as on the desktop", async () => {
 		await show(ready());
-		expect(screen.getByTestId("probe-head-pd")).toHaveTextContent("PROBE ASSESSMENT3 strands ▸");
+		expect(screen.getByTestId("probe-head-pd")).toHaveTextContent("Probe assessment3 strands");
 		expect(screen.getByTestId("probe-head-pd").props.accessibilityLabel).toBe(
 			"Probe assessment, 3 strands",
 		);
@@ -184,7 +184,7 @@ describe("the probe card", () => {
 	it("a tap opens one block for each strand as Markdown and the summary last; a second tap folds it", async () => {
 		await show(ready());
 		await tapHead();
-		expect(screen.getByTestId("probe-head-pd")).toHaveTextContent("3 strands ▾", { exact: false });
+		expect(screen.getByTestId("probe-head-pd")).toHaveTextContent("3 strands", { exact: false });
 		expect(screen.getByTestId("probe-head-pd").props.accessibilityState).toMatchObject({
 			expanded: true,
 		});
@@ -204,7 +204,7 @@ describe("the probe card", () => {
 
 	it("says 1 strand for one strand, and has no summary block without a summary", async () => {
 		await show({ kind: "probe", id: "pd", state: "ready", strands: [ASSESSMENT.strands[1]!] });
-		expect(screen.getByTestId("probe-head-pd")).toHaveTextContent("1 strand ▸", { exact: false });
+		expect(screen.getByTestId("probe-head-pd")).toHaveTextContent("1 strand", { exact: false });
 		await tapHead();
 		expect(screen.queryByTestId("probe-summary-pd")).toBeNull();
 	});

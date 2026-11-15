@@ -243,7 +243,7 @@ describe("code blocks (slice B)", () => {
 		expect(screen.getByTestId("md-code-colored")).toBeTruthy();
 		expect(tokenColor("const")).toBe("#D73A49");
 		expect(tokenColor("// done")).toBe("#6A737D");
-		expect(blockColor("md-code-colored")).toBe("#fff");
+		expect(blockColor("md-code-colored")).toBe("#edece8");
 		expect(screen.getByTestId("md-code-lines")).toHaveTextContent("1\n2");
 		expect(screen.getByTestId("md-code-text")).toHaveTextContent("const total = 1;\n// done");
 	});
@@ -255,7 +255,7 @@ describe("code blocks (slice B)", () => {
 		scheme.mockReturnValue("dark");
 		await view.rerender(<Markdown text={"```js\nconst a = 1;\n```"} style={BASE} testID="md" />);
 		expect(tokenColor("const")).toBe("#F97583");
-		expect(blockColor("md-code-colored")).toBe("#24292e");
+		expect(blockColor("md-code-colored")).toBe("#0e0e0e");
 	});
 
 	it("1. keeps an open fence plain while it streams, and colors it when it closes", async () => {

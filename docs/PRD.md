@@ -47,7 +47,7 @@ Last update: 2026-11-15, seventh clear (issue 18 slices A, B, C done, D part don
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 18 slice D (the rest): the session header, the probe card, the Plan sheet list, home, pairing, Settings, the composer, the loading, empty and error states, the code block background. Then slice E (inline code: Simulator screenshots of both, the user decides), the icon and splash check, and the side-by-side acceptance. Issue 05 waits only for the user to check one real lesson (Claude has no model key). Jest: 443 pass. See `docs/ISSUES.md`, issue 18 "Slices and state".
+**Next step:** Issue 18 slice D is done (see `docs/ISSUES.md`, issue 18). Next: slice E (inline code: Simulator screenshots of both, the user decides), the icon and splash check, and the side-by-side acceptance. Issue 05 waits only for the user to check one real lesson (Claude has no model key). Jest: 453 pass. See `docs/ISSUES.md`, issue 18 "Slices and state".
 
 **Facts found during the work**
 

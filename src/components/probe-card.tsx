@@ -12,7 +12,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { PROBE_NOTE, probeMarkdown, type ProbeCardData } from "@/lib/probe-card";
 import { CopyLabel, copyActions, useCopy } from "./copy";
 import { Markdown } from "./markdown";
-import { usePalette } from "./ui";
+import { alpha, FONT, Icon, LABEL, TYPE, usePalette } from "./ui";
 import { SPACE } from "./spacing";
 
 const strandCount = (n: number) => `${n} strand${n === 1 ? "" : "s"}`;
@@ -21,13 +21,17 @@ export function ProbeCard({ id, data }: { id: string; data: ProbeCardData }) {
 	const c = usePalette();
 	const [open, setOpen] = useState(false);
 	const { copy, state: copyState } = useCopy(() => probeMarkdown(data));
-	const card = [styles.card, { borderColor: c.line, backgroundColor: c.panel }];
+	// The desktop card: rounded-xl border bg-card/60.
+	const card = [styles.card, { borderColor: c.line, backgroundColor: alpha(c.panel, 0.6) }];
 
 	if (data.state !== "ready")
 		return (
 			<View style={[card, styles.noteCard]} testID={`probe-${id}`}>
-				<Text style={[styles.label, { color: c.muted }]}>PROBE ASSESSMENT</Text>
-				<Text style={[styles.small, { color: c.muted }]} testID={`probe-note-${id}`}>
+				<View style={styles.eyebrow}>
+					<Icon name="checklist" size={14} color={c.text} />
+					<Text style={[LABEL, { color: c.muted }]}>Probe assessment</Text>
+				</View>
+				<Text style={[styles.note, { color: c.muted }]} testID={`probe-note-${id}`}>
 					{PROBE_NOTE[data.state]}
 				</Text>
 			</View>
@@ -43,31 +47,44 @@ export function ProbeCard({ id, data }: { id: string; data: ProbeCardData }) {
 				accessibilityLabel={`Probe assessment, ${count}`}
 				accessibilityState={{ expanded: open }}
 				{...copyActions(copy, "assessment")}
-				style={styles.head}
+				style={({ pressed }) => [
+					styles.head,
+					open ? { borderBottomWidth: 1, borderColor: c.line } : null,
+					pressed ? { backgroundColor: alpha(c.hover, 0.4) } : null,
+				]}
 				testID={`probe-head-${id}`}
 			>
-				<Text style={[styles.label, styles.title, { color: c.muted }]}>PROBE ASSESSMENT</Text>
-				<Text style={[styles.small, { color: c.muted }]}>{`${count} ${open ? "▾" : "▸"}`}</Text>
+				<Icon name="checklist" size={14} color={c.text} />
+				<Text style={[LABEL, styles.title, { color: c.muted }]} numberOfLines={1}>
+					Probe assessment
+				</Text>
+				<Text style={[styles.count, { color: alpha(c.muted, 0.7) }]}>{count}</Text>
+				<View style={[styles.chevron, open ? styles.chevronOpen : null]}>
+					<Icon name="chevron.right" size={12} color={c.muted} />
+				</View>
 			</Pressable>
 			{open ? (
 				<View testID={`probe-body-${id}`}>
 					{data.strands.map((s, i) => (
 						<View
 							key={i}
-							style={[styles.block, { borderColor: c.line }]}
+							style={[styles.block, i > 0 ? { borderTopWidth: 1, borderColor: c.line } : null]}
 							testID={`probe-strand-${id}-${i}`}
 						>
 							<Markdown
 								text={s.strand}
 								compact
-								style={[styles.small, { color: c.text, fontWeight: "600" }]}
+								style={[styles.prose, { color: c.text, fontWeight: "500" }]}
 							/>
-							<Markdown text={s.assessment} compact style={[styles.small, { color: c.muted }]} />
+							<Markdown text={s.assessment} compact style={[styles.prose, { color: c.muted }]} />
 						</View>
 					))}
 					{data.summary ? (
-						<View style={[styles.block, { borderColor: c.line }]} testID={`probe-summary-${id}`}>
-							<Markdown text={data.summary} compact style={[styles.small, { color: c.muted }]} />
+						<View
+							style={[styles.block, { borderTopWidth: 1, borderColor: c.line }]}
+							testID={`probe-summary-${id}`}
+						>
+							<Markdown text={data.summary} compact style={[styles.prose, { color: c.muted }]} />
 						</View>
 					) : null}
 				</View>
@@ -77,17 +94,17 @@ export function ProbeCard({ id, data }: { id: string; data: ProbeCardData }) {
 	);
 }
 
+/** The desktop's probe-done card (fork components/artifacts/probe-done-card.tsx). */
 const styles = StyleSheet.create({
-	card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, overflow: "hidden" },
+	card: { borderWidth: 1, borderRadius: 16, overflow: "hidden" },
 	noteCard: { padding: SPACE.md, gap: SPACE.sm },
+	eyebrow: { flexDirection: "row", alignItems: "center", gap: SPACE.sm },
 	head: { flexDirection: "row", alignItems: "center", gap: SPACE.sm, padding: SPACE.md },
 	title: { flex: 1 },
-	label: { fontSize: 12, fontWeight: "600", letterSpacing: 0.6 },
-	small: { fontSize: 14, lineHeight: 20 },
-	block: {
-		borderTopWidth: StyleSheet.hairlineWidth,
-		paddingHorizontal: SPACE.md,
-		paddingVertical: SPACE.sm,
-		gap: SPACE.xs,
-	},
+	count: { ...TYPE.xs, fontFamily: FONT.ui },
+	chevron: { opacity: 0.5 },
+	chevronOpen: { transform: [{ rotate: "90deg" }] },
+	note: { ...TYPE.sm, fontFamily: FONT.ui },
+	prose: { ...TYPE.prose, fontFamily: FONT.prose },
+	block: { paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm, gap: SPACE.xs },
 });

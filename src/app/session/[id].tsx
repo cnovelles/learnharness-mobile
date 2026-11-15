@@ -3,9 +3,10 @@
  * question waits, and a text field when the teacher waits for text. The
  * shared SessionModel streams the turn (src/lib/use-session.ts).
  *
- * The header shows the phase, "Plan" when a lesson map exists, and Stop
- * while a turn runs (user decision 2026-11-14). While a turn runs, the
- * composer sends steers. One banner shows the session's errors.
+ * The header shows the title, the phase and the Plan chip when a lesson map
+ * exists (header A, user decision 2026-11-15). While a turn runs, the
+ * composer sends steers, and with an empty field its button is Stop, as on
+ * the desktop (user decision 2026-11-15). One banner shows the session's errors.
  */
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
@@ -18,6 +19,7 @@ import {
 	ScrollView,
 	StyleSheet,
 	Text,
+	TextInput,
 	View,
 	type NativeScrollEvent,
 	type NativeSyntheticEvent,
@@ -34,13 +36,18 @@ import { PlanSheet } from "@/components/plan-sheet";
 import { QuestionDock } from "@/components/question-dock";
 import { Transcript } from "@/components/transcript";
 import {
+	alpha,
 	Body,
 	Button,
-	ErrorText,
-	Field,
+	ErrorBanner,
+	FONT,
+	Icon,
+	LABEL,
 	Loading,
 	Panel,
 	Screen,
+	Spinner,
+	StatusLine,
 	usePalette,
 } from "@/components/ui";
 import { useMacFetch } from "@/lib/connection-context";
@@ -54,11 +61,14 @@ import { SPACE } from "@/components/spacing";
 
 function Composer({
 	onSend,
+	onStop,
 	initialText,
 	steer,
 	waiting,
 }: {
 	onSend: (text: string) => Promise<boolean>;
+	/** A turn runs: an empty field turns the send button into Stop (as the desktop). */
+	onStop?: () => void;
 	/** A text that the Mac did not accept, shown again so the user can send it. */
 	initialText: string;
 	/** A turn runs: the text goes to that turn (a steer). */
@@ -66,6 +76,7 @@ function Composer({
 	/** The Mac compacts: sends wait. */
 	waiting: boolean;
 }) {
+	const c = usePalette();
 	const [text, setText] = useState(initialText);
 	const [sending, setSending] = useState(false);
 	async function send() {
@@ -79,24 +90,57 @@ function Composer({
 			setSending(false);
 		}
 	}
+	const stop = steer && onStop && !text.trim() && !sending;
+	const canSend = !!text.trim() && !waiting && !sending;
 	return (
-		<Panel>
-			<Field
+		<View style={[styles.composer, { backgroundColor: c.panel, borderColor: c.line }]}>
+			<TextInput
+				testID="composer"
+				accessibilityLabel="Message"
 				value={text}
 				onChangeText={setText}
-				label="Message"
-				placeholder={steer ? "Add to the teacher's turn" : "Write to the teacher"}
+				placeholder="Ask, answer, or steer the lesson…"
+				placeholderTextColor={c.muted}
 				multiline
-				testID="composer"
+				style={[styles.composerInput, { color: c.text }]}
 			/>
-			<Button
-				title="Send"
-				onPress={() => void send()}
-				disabled={!text.trim() || waiting}
-				busy={sending}
-				testID="send"
-			/>
-		</Panel>
+			{stop ? (
+				<Pressable
+					testID="stop-turn"
+					accessibilityRole="button"
+					accessibilityLabel="Stop this turn"
+					onPress={() => confirmStop(onStop)}
+					style={({ pressed }) => [
+						styles.composerButton,
+						{ backgroundColor: pressed ? c.hover : c.panel },
+					]}
+				>
+					<Icon name="square.fill" size={14} color={c.text} />
+				</Pressable>
+			) : (
+				<Pressable
+					testID="send"
+					accessibilityRole="button"
+					accessibilityLabel="Send"
+					accessibilityState={{ disabled: !canSend, busy: sending }}
+					disabled={!canSend}
+					onPress={() => void send()}
+					style={({ pressed }) => [
+						styles.composerButton,
+						{
+							backgroundColor: c.primary,
+							opacity: !canSend && !sending ? 0.4 : pressed ? 0.9 : 1,
+						},
+					]}
+				>
+					{sending ? (
+						<Spinner color={c.onPrimary} />
+					) : (
+						<Icon name="arrow.turn.down.left" size={18} color={c.onPrimary} />
+					)}
+				</Pressable>
+			)}
+		</View>
 	);
 }
 
@@ -108,36 +152,30 @@ function HeaderTitle({ title, phase }: { title: string; phase: Phase3 }) {
 			<Text style={[styles.headerName, { color: c.text }]} numberOfLines={1}>
 				{title}
 			</Text>
-			<Text style={[styles.headerPhase, { color: c.muted }]} testID="session-phase">
+			<Text style={[LABEL, { color: c.muted }]} testID="session-phase">
 				{PHASE_LABEL[phase].toUpperCase()}
 			</Text>
 		</View>
 	);
 }
 
-function HeaderButton({
-	title,
-	label,
-	onPress,
-	danger,
-	testID,
-}: {
-	title: string;
-	label: string;
-	onPress: () => void;
-	danger?: boolean;
-	testID: string;
-}) {
+/** The desktop's Plan chip: a pill with the waypoints mark and PLAN. */
+function PlanChip({ onPress }: { onPress: () => void }) {
 	const c = usePalette();
 	return (
 		<Pressable
 			onPress={onPress}
 			accessibilityRole="button"
-			accessibilityLabel={label}
-			hitSlop={8}
-			testID={testID}
+			accessibilityLabel="Open the lesson plan"
+			hitSlop={SPACE.sm}
+			testID="open-plan"
+			style={({ pressed }) => [
+				styles.planChip,
+				{ borderColor: alpha(c.line, 0.8), backgroundColor: pressed ? c.hover : "transparent" },
+			]}
 		>
-			<Text style={{ color: danger ? c.danger : c.accent, fontSize: 17 }}>{title}</Text>
+			<Icon name="point.topleft.down.to.point.bottomright.curvepath" size={13} color={c.text} />
+			<Text style={[LABEL, { color: c.muted }]}>Plan</Text>
 		</Pressable>
 	);
 }
@@ -178,32 +216,9 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		() => ({
 			title: record.title,
 			headerTitle: () => <HeaderTitle title={record.title} phase={phase} />,
-			headerRight:
-				hasPlan || running
-					? () => (
-							<View style={styles.headerButtons}>
-								{running ? (
-									<HeaderButton
-										title="Stop"
-										label="Stop this turn"
-										danger
-										onPress={() => confirmStop(() => void stopTurn())}
-										testID="stop-turn"
-									/>
-								) : null}
-								{hasPlan ? (
-									<HeaderButton
-										title="Plan"
-										label="Open the lesson plan"
-										onPress={openPlan}
-										testID="open-plan"
-									/>
-								) : null}
-							</View>
-						)
-					: undefined,
+			headerRight: hasPlan ? () => <PlanChip onPress={openPlan} /> : undefined,
 		}),
-		[record.title, phase, hasPlan, running, stopTurn, openPlan],
+		[record.title, phase, hasPlan, openPlan],
 	);
 	const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 	// Math and Mermaid islands start their WebView only near the screen.
@@ -276,35 +291,37 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						<Transcript rows={rows} onOpenPlan={openPlan} />
 					</IslandViewportContext.Provider>
 					{running ? (
-						<Body muted testID="turn-running">
-							{state.status === "submitted" ? "Sending…" : "The teacher is writing…"}
-						</Body>
+						<StatusLine testID="turn-running">
+							{state.status === "submitted" ? "Sending…" : "Thinking…"}
+						</StatusLine>
 					) : null}
-					{compacting ? (
-						<Body muted testID="compacting">
-							{COMPACTING}
-						</Body>
-					) : null}
+					{compacting ? <StatusLine testID="compacting">{COMPACTING}</StatusLine> : null}
 					{banner ? (
-						<Panel>
-							<ErrorText testID="session-error">{banner.text}</ErrorText>
-							<View style={styles.row}>
-								{banner.retry ? (
+						<ErrorBanner
+							text={banner.text}
+							testID="session-error"
+							actions={
+								<>
+									{banner.retry ? (
+										<Button
+											title="Try again"
+											kind="plain"
+											size="sm"
+											onPress={() => void session.retryBanner()}
+											disabled={compacting && banner.retry !== "sync"}
+											testID="retry-turn"
+										/>
+									) : null}
 									<Button
-										title="Try again"
-										onPress={() => void session.retryBanner()}
-										disabled={compacting && banner.retry !== "sync"}
-										testID="retry-turn"
+										title="Close"
+										kind="plain"
+										size="sm"
+										onPress={session.closeBanner}
+										testID="clear-error"
 									/>
-								) : null}
-								<Button
-									title="Close"
-									kind="plain"
-									onPress={session.closeBanner}
-									testID="clear-error"
-								/>
-							</View>
-						</Panel>
+								</>
+							}
+						/>
 					) : null}
 					{!running && pending ? (
 						<QuestionDock
@@ -347,6 +364,7 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						<Composer
 							key={session.unsentText ?? ""}
 							onSend={session.sendText}
+							onStop={() => void stopTurn()}
 							initialText={session.unsentText ?? ""}
 							steer={running}
 							waiting={compacting}
@@ -369,10 +387,19 @@ export default function SessionScreen() {
 				<Loading />
 			) : load.status === "error" ? (
 				<Screen>
-					<Panel>
-						<ErrorText testID="session-load-error">{load.userText}</ErrorText>
-						<Button title="Try again" onPress={reload} testID="reload-session" />
-					</Panel>
+					<ErrorBanner
+						text={load.userText}
+						testID="session-load-error"
+						actions={
+							<Button
+								title="Try again"
+								kind="plain"
+								size="sm"
+								onPress={reload}
+								testID="reload-session"
+							/>
+						}
+					/>
 				</Screen>
 			) : (
 				<SessionBody key={load.record.id} record={load.record} />
@@ -387,7 +414,47 @@ const styles = StyleSheet.create({
 	row: { flexDirection: "row", gap: SPACE.md },
 	bottom: { paddingHorizontal: SPACE.lg, paddingBottom: SPACE.sm, gap: SPACE.sm },
 	headerTitle: { alignItems: "center", maxWidth: 200 },
-	headerButtons: { flexDirection: "row", gap: SPACE.lg },
-	headerName: { fontSize: 17, fontWeight: "600" },
-	headerPhase: { fontSize: 11, fontWeight: "600", letterSpacing: 0.6 },
+	/** Header A (user decision 2026-11-15): the title font at 17 pt in the bar. */
+	headerName: { fontSize: 17, lineHeight: 22, fontFamily: FONT.title, fontWeight: "700" },
+	planChip: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: SPACE.xs,
+		borderWidth: 1,
+		borderRadius: 999,
+		paddingHorizontal: SPACE.sm,
+		minHeight: 24,
+	},
+	/** The desktop composer: rounded-2xl, the card fill, and the app's only shadow. */
+	composer: {
+		flexDirection: "row",
+		alignItems: "flex-end",
+		gap: SPACE.sm,
+		padding: SPACE.sm,
+		borderWidth: 1,
+		borderRadius: 16,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 10 },
+		shadowOpacity: 0.1,
+		shadowRadius: 8,
+	},
+	composerInput: {
+		flex: 1,
+		minHeight: 40,
+		maxHeight: 192,
+		paddingHorizontal: SPACE.sm,
+		paddingTop: SPACE.sm,
+		paddingBottom: SPACE.sm,
+		fontFamily: FONT.prose,
+		fontSize: 16,
+		lineHeight: 20,
+	},
+	/** 40 x 40; the radius is the shell's 16 minus its 8 padding. */
+	composerButton: {
+		width: 40,
+		height: 40,
+		borderRadius: 8,
+		alignItems: "center",
+		justifyContent: "center",
+	},
 });

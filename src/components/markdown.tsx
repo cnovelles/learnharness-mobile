@@ -414,7 +414,7 @@ function CodeBlock({
 	const code = { fontFamily: MONO, fontSize: 13, lineHeight: 20 };
 	return (
 		<View
-			style={[styles.code, { backgroundColor: colors.bg, borderColor: c.line }]}
+			style={[styles.code, { backgroundColor: c.codeBg, borderColor: c.line }]}
 			testID={colored ? "md-code-colored" : "md-code"}
 		>
 			{numbered ? (
@@ -658,11 +658,12 @@ const styles = StyleSheet.create({
 	item: { flexDirection: "row", gap: SPACE.sm },
 	marker: { minWidth: 16 },
 	itemBody: { flex: 1 },
+	/** The desktop code block: one quiet tint with a 1 pt line, rounded-xl. */
 	code: {
 		flexDirection: "row",
-		borderRadius: 8,
-		borderWidth: StyleSheet.hairlineWidth,
-		paddingVertical: SPACE.md,
+		borderRadius: 12,
+		borderWidth: 1,
+		paddingVertical: SPACE.lg,
 		paddingHorizontal: SPACE.md,
 	},
 	lineNumbers: { textAlign: "right", marginRight: SPACE.md, minWidth: 18 },

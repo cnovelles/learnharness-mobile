@@ -5,7 +5,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
 
-import { Loading, usePalette } from "@/components/ui";
+import { FONT, Loading, usePalette } from "@/components/ui";
 import { ConnectionProvider, useConnection } from "@/lib/connection-context";
 import { FlagsProvider } from "@/lib/flags-context";
 import { ServerEventsProvider } from "@/lib/server-events-context";
@@ -28,6 +28,12 @@ function RootStack() {
 			screenOptions={{
 				headerStyle: { backgroundColor: c.bg },
 				headerTintColor: c.text,
+				// Screen titles in the desktop's title font (CMU Serif Bold).
+				headerTitleStyle: { fontFamily: FONT.title, fontWeight: "700", fontSize: 20 },
+				headerShadowVisible: true,
+				// The back button is only the arrow: the screen title is too long
+				// next to it (user request 2026-11-15).
+				headerBackButtonDisplayMode: "minimal",
 				contentStyle: { backgroundColor: c.bg },
 			}}
 		>

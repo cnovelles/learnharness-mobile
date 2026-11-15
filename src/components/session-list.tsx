@@ -1,9 +1,11 @@
 /**
- * The Mac's sessions on the home screen: title, phase and marks (a turn
- * runs, a question waits). It reads the list when the screen comes into
- * view and on pull to refresh.
+ * The Mac's sessions on the home screen, as the desktop sidebar list (user
+ * decision 2026-11-15): a row with the title in the prose font and a small
+ * mono line under it (the state or the phase, and how long ago). It reads
+ * the list when the screen comes into view, on server events and on pull to
+ * refresh (`useSessionList`).
  */
-import { Link, useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -11,30 +13,47 @@ import { useMacFetch } from "@/lib/connection-context";
 import { useServerEvent } from "@/lib/server-events-context";
 import { listSessions } from "@/lib/sessions";
 import type { ChatListItem } from "@/lib/shared";
-import { Body, Button, ErrorText, Panel, Title, usePalette } from "./ui";
+import { timeAgo } from "@/lib/time-ago";
 import { describeError, type UserMessage } from "@/lib/user-error";
+import { ErrorBanner, FONT, Icon, LABEL, SectionLabel, Spinner, TYPE, usePalette } from "./ui";
 import { SPACE } from "./spacing";
 
-export function sessionMarks(c: ChatListItem): string {
-	const phase =
-		c.kind === "practice"
-			? "Practice"
-			: c.phase === "probe"
-				? "Finding out what you know"
-				: c.phase === "plan"
-					? "Planning"
-					: "Teaching";
-	const marks = [phase];
-	if (c.busy) marks.push("Working now");
-	else if (c.pendingQuestion) marks.push("A question waits");
-	else if (c.pendingProblem) marks.push("A problem waits");
-	if (c.compacting) marks.push("Making the history shorter");
-	return marks.join(" · ");
+/** The phase as a word, for a session with no waiting state. */
+function phaseWord(c: ChatListItem): string {
+	if (c.kind === "practice") return "Practice";
+	return c.phase === "probe"
+		? "Finding out what you know"
+		: c.phase === "plan"
+			? "Planning"
+			: "Teaching";
 }
 
-export function SessionList({ enabled }: { enabled: boolean }) {
+/**
+ * The second line of a row: "Working…" while a turn runs; otherwise the
+ * waiting state (or the phase when nothing waits) and how long ago.
+ */
+export function sessionMarks(c: ChatListItem, now = new Date()): string {
+	if (c.busy) return "Working…";
+	const state = c.compacting
+		? "Making the history shorter"
+		: c.pendingQuestion
+			? "A question waits"
+			: c.pendingProblem
+				? "A problem waits"
+				: phaseWord(c);
+	const ago = timeAgo(c.updatedAt, now);
+	return ago ? `${state} · ${ago}` : state;
+}
+
+export interface SessionListState {
+	chats: ChatListItem[] | null;
+	error: UserMessage | null;
+	busy: boolean;
+	refresh: () => void;
+}
+
+export function useSessionList(enabled: boolean): SessionListState {
 	const macFetch = useMacFetch();
-	const c = usePalette();
 	const [chats, setChats] = useState<ChatListItem[] | null>(null);
 	const [error, setError] = useState<UserMessage | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -52,66 +71,101 @@ export function SessionList({ enabled }: { enabled: boolean }) {
 	}, [enabled, macFetch]);
 
 	useFocusEffect(refresh);
-	// The list shows phases and marks: read it again when a session changes on the Mac.
+	// The list shows states and times: read it again when a session changes on the Mac.
 	useServerEvent("chats-changed", refresh);
 	useServerEvent("turn-started", refresh);
 	useServerEvent("turn-settled", refresh);
+	return { chats, error, busy, refresh };
+}
 
+function Row({ chat }: { chat: ChatListItem }) {
+	const c = usePalette();
 	return (
-		<Panel>
-			<View style={styles.head}>
-				<Title>Sessions</Title>
-				<Link href="/new-session" asChild>
-					<Button title="New session" onPress={() => {}} disabled={!enabled} testID="new-session" />
-				</Link>
+		// Not `Link asChild`: it drops a style function, and the pressed fill needs one.
+		<Pressable
+			testID={`session-${chat.id}`}
+			accessibilityRole="button"
+			onPress={() => router.push({ pathname: "/session/[id]", params: { id: chat.id } })}
+			style={({ pressed }) => [styles.row, pressed ? { backgroundColor: c.hover } : null]}
+		>
+			<Text style={[styles.title, { color: c.text }]} numberOfLines={2}>
+				{chat.title}
+			</Text>
+			<View style={styles.meta}>
+				{chat.busy ? <Spinner /> : null}
+				<Text style={[styles.marks, { color: c.muted }]}>{sessionMarks(chat)}</Text>
 			</View>
-			{error ? <ErrorText testID="sessions-error">{error}</ErrorText> : null}
+		</Pressable>
+	);
+}
+
+export function SessionList({ enabled, list }: { enabled: boolean; list: SessionListState }) {
+	const c = usePalette();
+	const { chats, error } = list;
+	return (
+		<View style={styles.list}>
+			<Pressable
+				testID="new-session"
+				onPress={() => router.push("/new-session")}
+				accessibilityRole="button"
+				accessibilityState={{ disabled: !enabled }}
+				disabled={!enabled}
+				style={({ pressed }) => [
+					styles.newSession,
+					{
+						borderColor: c.line,
+						backgroundColor: pressed ? c.hover : "transparent",
+						opacity: enabled ? 1 : 0.4,
+					},
+				]}
+			>
+				<Icon name="plus" size={12} color={c.text} />
+				<Text style={[LABEL, styles.wide, { color: c.text }]}>New session</Text>
+			</Pressable>
+			<SectionLabel>Sessions</SectionLabel>
+			{error ? <ErrorBanner testID="sessions-error" text={error} /> : null}
 			{chats === null ? (
-				<Body muted>
-					{enabled ? "Loading the sessions…" : "Connect to the Mac to see your sessions."}
-				</Body>
+				<Text style={[styles.note, { color: c.muted }]} testID="sessions-note">
+					{enabled ? "Loading…" : "Connect to the Mac to see your sessions."}
+				</Text>
 			) : chats.length === 0 ? (
-				<Body muted>No sessions yet. Start a new session.</Body>
+				<Text style={[styles.note, { color: c.muted }]} testID="sessions-note">
+					No sessions yet. Start a new session.
+				</Text>
 			) : (
-				chats.map((chat) => (
-					<Link key={chat.id} href={{ pathname: "/session/[id]", params: { id: chat.id } }} asChild>
-						<Pressable
-							testID={`session-${chat.id}`}
-							accessibilityRole="button"
-							style={({ pressed }) => [
-								styles.row,
-								{ borderColor: c.line, opacity: pressed ? 0.6 : 1 },
-							]}
-						>
-							<Text style={[styles.title, { color: c.text }]} numberOfLines={2}>
-								{chat.title}
-							</Text>
-							<Text style={[styles.marks, { color: c.muted }]}>{sessionMarks(chat)}</Text>
-						</Pressable>
-					</Link>
-				))
+				<View>
+					{chats.map((chat) => (
+						<Row key={chat.id} chat={chat} />
+					))}
+				</View>
 			)}
-			{chats !== null ? (
-				<Button
-					title="Refresh"
-					kind="plain"
-					onPress={refresh}
-					busy={busy}
-					testID="sessions-refresh"
-				/>
-			) : null}
-		</Panel>
+		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	head: {
+	list: { gap: SPACE.md },
+	newSession: {
 		flexDirection: "row",
+		alignSelf: "flex-start",
 		alignItems: "center",
-		justifyContent: "space-between",
-		gap: SPACE.md,
+		gap: SPACE.xs,
+		borderWidth: 1,
+		borderRadius: 8,
+		paddingHorizontal: SPACE.md,
+		minHeight: 36,
 	},
-	row: { borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: SPACE.md, gap: SPACE.xs },
-	title: { fontSize: 16, fontWeight: "500" },
-	marks: { fontSize: 13 },
+	/** The desktop's `tracking-wider` on the new-session buttons. */
+	wide: { letterSpacing: 0.55 },
+	/** The desktop SessionRow: rounded-lg, 12 x 8 padding, a pressed fill. */
+	row: {
+		borderRadius: 12,
+		paddingHorizontal: SPACE.md,
+		paddingVertical: SPACE.sm,
+		gap: SPACE.xs,
+	},
+	title: { ...TYPE.prose, fontFamily: FONT.prose },
+	meta: { flexDirection: "row", alignItems: "center", gap: SPACE.sm },
+	marks: { ...TYPE.xs, fontFamily: FONT.ui, flexShrink: 1 },
+	note: { ...TYPE.xs, fontFamily: FONT.ui, paddingHorizontal: SPACE.sm },
 });

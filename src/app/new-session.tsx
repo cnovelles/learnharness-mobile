@@ -2,7 +2,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
 
-import { Body, Button, ErrorText, Field, Panel, Screen } from "@/components/ui";
+import { Button, ErrorBanner, Field, Screen, Section } from "@/components/ui";
 import { useMacFetch } from "@/lib/connection-context";
 import { startSession } from "@/lib/sessions";
 import { describeError, type UserMessage } from "@/lib/user-error";
@@ -28,8 +28,7 @@ export default function NewSessionScreen() {
 
 	return (
 		<Screen>
-			<Panel>
-				<Body testID="new-session-prompt">What do you want to learn?</Body>
+			<Section title="What do you want to learn?" first testID="new-session-prompt">
 				<Field
 					value={text}
 					onChangeText={setText}
@@ -38,7 +37,7 @@ export default function NewSessionScreen() {
 					multiline
 					testID="opening-text"
 				/>
-				{error ? <ErrorText testID="new-session-error">{error}</ErrorText> : null}
+				{error ? <ErrorBanner testID="new-session-error" text={error} /> : null}
 				<Button
 					title="Start"
 					onPress={() => void start()}
@@ -46,7 +45,7 @@ export default function NewSessionScreen() {
 					busy={busy}
 					testID="start-session"
 				/>
-			</Panel>
+			</Section>
 		</Screen>
 	);
 }

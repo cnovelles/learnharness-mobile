@@ -92,7 +92,7 @@ it("an unpaired phone opens on the pair screen; pasting the text pairs and shows
 	await fireEvent.changeText(screen.getByTestId("pairing-text"), PAYLOAD);
 	await fireEvent.press(screen.getByTestId("pair"));
 
-	expect(await screen.findByText("Connected to Studio Mac.")).toBeTruthy();
+	expect(await screen.findByText("Connected · Studio Mac")).toBeTruthy();
 	expect(screen).toHavePathname("/");
 	expect(pairedDevices).toEqual(["Test iPhone"]);
 	expect(JSON.parse(mockKeychain.get("lh.connection.v1")!)).toMatchObject({
@@ -138,7 +138,7 @@ describe("a paired phone", () => {
 
 	it("opens connected, and settings show the Mac and the address in use", async () => {
 		await renderRouter(APP, { initialUrl: "/" });
-		expect(await screen.findByText("Connected to Studio Mac.")).toBeTruthy();
+		expect(await screen.findByText("Connected · Studio Mac")).toBeTruthy();
 		await fireEvent.press(screen.getByTestId("open-settings"));
 		expect(await screen.findByTestId("mac-name")).toHaveTextContent("Studio Mac");
 		expect(screen.getByTestId("mac-address")).toHaveTextContent("https://192.168.1.20:47821");

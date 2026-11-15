@@ -52,7 +52,7 @@ it("home lists the Mac's sessions with their phase", async () => {
 	mac.add("How the tides work");
 	await renderRouter(APP, { initialUrl: "/" });
 	expect(await screen.findByText("How the tides work")).toBeTruthy();
-	expect(screen.getByText("Finding out what you know")).toBeTruthy();
+	expect(screen.getByText(/^Finding out what you know · /)).toBeTruthy();
 });
 
 it("a new session sends the first text, shows the probe, sends the answer and shows the next turn", async () => {
