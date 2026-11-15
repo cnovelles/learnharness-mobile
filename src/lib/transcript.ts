@@ -5,6 +5,11 @@
  * other tools. Rich rendering
  * (Markdown, math, the plan diagram, visuals) comes in issue 05.
  *
+ * Practice rows (issue 06, src/lib/practice.ts): the problem card, the
+ * learner's thinking, the conclusion and the "Next problem" line. The
+ * problem card stays in the transcript while the dock shows the same
+ * problem, as on the desktop: it is the record.
+ *
  * Phase dividers (the desktop rules, fork components/chat.tsx):
  * - Planning: at the probe-to-teach handoff marker. It shows the step
  *   count of the first plan that follows ("Plan · 4 steps").
@@ -14,6 +19,16 @@
  */
 import { presentAnswer, type AnsweredCard } from "./answer-card";
 import { planPartTree } from "./plan";
+import {
+	CONCLUDE_TOOL,
+	PROBLEM_TOOL,
+	concludeCardData,
+	practiceThinkingData,
+	problemCardData,
+	type ConcludeCardData,
+	type PracticeThinkingData,
+	type ProblemCardData,
+} from "./practice";
 import { probeCardData, type ProbeCardData } from "./probe-card";
 import { teacherText } from "./teacher-text";
 import { toolRow, type ToolRowData } from "./tool-row";
@@ -55,6 +70,11 @@ export type TranscriptRow =
 	/** The probe_done assessment (issue 05 slice D). */
 	| ({ kind: "probe"; id: string } & ProbeCardData)
 	| { kind: "divider"; id: string; phase: Exclude<Phase3, "probe">; steps?: number }
+	/** Practice (issue 06). */
+	| ({ kind: "problem"; id: string } & ProblemCardData)
+	| ({ kind: "practice-thinking"; id: string } & PracticeThinkingData)
+	| { kind: "conclude"; id: string; data: ConcludeCardData }
+	| { kind: "practice-next"; id: string }
 	/** Compaction: "moment" where it ran, "cut" where the kept history starts. */
 	| { kind: "compaction"; id: string; at: "moment" | "cut"; tokensBefore?: number }
 	| ToolRowData;
@@ -152,6 +172,10 @@ export function transcriptRows(
 					at: part.type === "data-compaction" ? "moment" : "cut",
 					...(typeof before === "number" && before > 0 ? { tokensBefore: before } : {}),
 				});
+			} else if (part.type === "data-practice-thinking") {
+				rows.push({ kind: "practice-thinking", id, ...practiceThinkingData(part) });
+			} else if (part.type === "data-practice-next") {
+				rows.push({ kind: "practice-next", id });
 			} else if (part.type === "reasoning") {
 				if (text.trim() || streaming)
 					rows.push({ kind: "reasoning", id, text: teacherText(text), streaming });
@@ -165,6 +189,17 @@ export function transcriptRows(
 					)
 						return;
 					rows.push(questionRow(part, id, name, malformedCallIds));
+				} else if (
+					(name === PROBLEM_TOOL || name === CONCLUDE_TOOL) &&
+					part.state !== "output-error"
+				) {
+					// A call with an error goes back to the agent, which tries
+					// again: it stays the quiet failed tool line below.
+					rows.push(
+						name === PROBLEM_TOOL
+							? { kind: "problem", id, ...problemCardData(part) }
+							: { kind: "conclude", id, data: concludeCardData(part) },
+					);
 				} else if (name === "probe_done") {
 					rows.push({ kind: "probe", id, ...probeCardData(part) });
 				} else if (name.startsWith("plan_")) {

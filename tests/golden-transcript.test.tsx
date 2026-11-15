@@ -84,6 +84,49 @@ describe("golden sessions", () => {
 	});
 });
 
+describe("the recorded practice session (issue 06)", () => {
+	const chat = chats.find((c) => rowsOf(c).some((r) => r.kind === "problem"));
+
+	it("draws its problems, thinking, conclusions and the Next problem line", async () => {
+		expect(chat).toBeDefined();
+		const rows = rowsOf(chat!);
+		const kinds = rows.map((r) => r.kind);
+		expect(kinds.filter((k) => k === "problem")).toHaveLength(2);
+		expect(kinds.filter((k) => k === "practice-thinking")).toHaveLength(2);
+		expect(kinds.filter((k) => k === "conclude")).toHaveLength(2);
+		expect(kinds.filter((k) => k === "practice-next")).toHaveLength(1);
+		await render(<Transcript rows={rows} onOpenPlan={() => {}} />);
+		expect(screen.getByText("SOLVED")).toBeTruthy();
+		expect(screen.getByText("Problem dismissed.")).toBeTruthy();
+		expect(screen.getAllByText("MODEL SOLUTION")).toHaveLength(1);
+	});
+
+	it("never shows a problem's model solution in its problem card", async () => {
+		const rows = rowsOf(chat!).filter((r) => r.kind === "problem");
+		await render(<Transcript rows={rows} onOpenPlan={() => {}} />);
+		expect(screen.queryByText("MODEL SOLUTION")).toBeNull();
+		// The first words of each committed solution are not on the screen.
+		const solutions = chat!.messages.flatMap((m) =>
+			m.role === "assistant"
+				? m.content.flatMap((b) =>
+						b.type === "toolCall" && b.name === "problem"
+							? [String((b.arguments as { modelSolution?: unknown }).modelSolution ?? "")]
+							: [],
+					)
+				: [],
+		);
+		expect(solutions).toHaveLength(2);
+		for (const solution of solutions) {
+			const start = solution.trim().split(/\s+/).slice(0, 4).join(" ");
+			expect(start.length).toBeGreaterThan(0);
+			expect(
+				screen.queryByText(new RegExp(start.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))),
+			).toBeNull();
+		}
+		expect(screen.queryByTestId(/^tool-/)).toBeNull();
+	});
+});
+
 describe("tool-rendering regressions", () => {
 	// The fork's frozen model text that broke the desktop display before.
 	const texts: string[] = [];

@@ -2,7 +2,8 @@
  * The session transcript: learner text, teacher text, reasoning (closed by
  * default, tap to open), the answered question cards, the probe assessment
  * (src/components/probe-card.tsx), the lesson plan, the phase dividers,
- * and a short line for other tools. The teacher's text is
+ * the practice rows (src/components/practice-cards.tsx) and a short line
+ * for other tools. The teacher's text is
  * Markdown (issue 05, src/components/markdown.tsx); the learner's own text
  * stays plain, as on the desktop.
  */
@@ -16,6 +17,7 @@ import type { TranscriptRow } from "@/lib/transcript";
 import type { ToolRowData } from "@/lib/tool-row";
 import { Markdown } from "./markdown";
 import { ProbeCard } from "./probe-card";
+import { ConcludeCard, NextProblemLine, PracticeThinking, ProblemCard } from "./practice-cards";
 import { ConfidenceRail } from "./confidence-rail";
 import { FONT, LABEL, TYPE, alpha, usePalette } from "./ui";
 import { SPACE } from "./spacing";
@@ -366,6 +368,14 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 			);
 		case "tool":
 			return <ToolRow row={row} />;
+		case "problem":
+			return <ProblemCard id={row.id} data={row} />;
+		case "practice-thinking":
+			return <PracticeThinking id={row.id} data={row} />;
+		case "conclude":
+			return <ConcludeCard id={row.id} data={row.data} />;
+		case "practice-next":
+			return <NextProblemLine id={row.id} />;
 	}
 }
 

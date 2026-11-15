@@ -23,7 +23,7 @@ import { nativePinnedFetch } from "./native-pinned-fetch";
 import type { PinnedFetch } from "./pairing";
 
 const MonitorContext = createContext<ConnectionMonitor | null>(null);
-const MacFetchContext = createContext<typeof globalThis.fetch | null>(null);
+export const MacFetchContext = createContext<typeof globalThis.fetch | null>(null);
 
 export function ConnectionProvider({
 	children,
@@ -64,6 +64,11 @@ export function useMacFetch(): typeof globalThis.fetch {
 	const macFetch = use(MacFetchContext);
 	if (!macFetch) throw new Error("useMacFetch must be used inside ConnectionProvider");
 	return macFetch;
+}
+
+/** The Mac fetch, or null outside ConnectionProvider (for parts that also draw without a Mac). */
+export function useOptionalMacFetch(): typeof globalThis.fetch | null {
+	return use(MacFetchContext) ?? null;
 }
 
 export function useConnection(): { state: ConnectionState; monitor: ConnectionMonitor } {
