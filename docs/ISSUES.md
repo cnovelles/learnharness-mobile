@@ -407,7 +407,7 @@ Asked by the user on 2026-11-14: turn each mode on or off without a new design.
 - When a mode is built (03–04 for Mac remote, 12 for On phone, 14 for Cloud host), the mode reads its flag, and the base default turns on only after its E2E tests pass.
   Acceptance (met): unit tests for parsing, overrides, the last-mode rule, resolveMode, save failures and damaged records; app tests for the hidden unlock and the switches.
 
-## 18 Visual design that matches the desktop `todo`
+## 18 Visual design that matches the desktop `doing`
 
 Blocked by: 04, 05. Requested by the user on 2026-11-14, after the real lesson check: the phone looks too plain next to the desktop.
 
@@ -418,6 +418,25 @@ Blocked by: 04, 05. Requested by the user on 2026-11-14, after the real lesson c
 - App icon and splash screen: the app still uses the Expo starter images (`assets/images/icon.png`, `assets/expo.icon`, `assets/images/splash-icon.png` on blue `#208AEF`). Replace them with LearnHarness images (ask the user which ones).
   Acceptance: screenshots of the same session on the desktop and the phone side by side, approved by the user; screen tests still pass.
 - Inline code: decide between the native band (color and background only) and a `View` inside the text (rounded and padded, but it cannot break across lines). See issue 05, "Accepted limit". Show the user Simulator screenshots of both.
+
+**Desktop values (read 2026-11-15, fork files).**
+
+- Fonts (`app/layout.tsx`, `app/globals.css`): JetBrains Mono for the UI, the small-caps labels and code (`--font-ui`, `--font-mono`; `body` is mono); Source Sans 3 (variable, 200–900) for prose and inputs (`.lh-prose`, `.lh-input`); CMU Serif Bold for titles (`public/fonts/cmunbx.ttf`, OFL, `--font-title`, weight 900 class). All three are OFL.
+- Default theme (dark, `globals.css:38-83`): bg #141414, panel #1c1c1c, line #434343, text and line-strong #e6e6e6, muted #8d8d8d, hover #2a2a2a, success #22c55e, error #ef4444, warning #f59e0b. Buttons (`--primary`) are the text color with the bg color on top. Ivory (`src/core/themes.ts:191-195`): bg #faf9f5, surface #f0eee6, border #e0ddd2, text #3d3d3a, muted #83827d, accent #d97757, code #c4613f, error #c43d3d, success #3f8f6b. Code block bg: bg mixed with black, 86% (dark) or 96% (light).
+- Type scale (`globals.css:120-133`): 11, 12.5, 14, 16, 20, 25, 32 px. Prose 16 px, line height 1.5. Labels: 11 px mono, weight 500, uppercase, 0.025em, muted. Headings weight 900; bold 700.
+- Radii: 4, 8, 12, 16. Borders 1 px. Answered card `rounded-xl border bg-card p-4`; option rows `rounded-lg border px-3 py-1.5`; composer `rounded-2xl border bg-card shadow-lg` (the only shadow); probe card `rounded-xl border bg-card/60 p-3`; agent prose has no card.
+- User message: a full-width band, left rail `calc(3ch - 14px)` in muted at 30%, bg-card, label YOU (`components/chat.tsx:1863-1869`).
+- Question card: kind tag eyebrow; `StatusBadge` (status color text on a 15% tint, `rounded px-1.5 py-0.5`); option tints (correct chosen: success 60% border, 10% bg; wrong chosen: error; correct not chosen: success 40% border); ✓/✗ glyphs 14 px; confidence rail `h-1.5 rounded-full border`, stops 0/30/50/70/90/100 with colors #ef4444 #f97316 #eab308 #84cc16 #22c55e #10b981, ticks at 30/50/70/90, the % readout; "Your thinking" folded with a chevron, open text italic at 50%; "Why" in a muted box.
+- Tool rows (`components/artifacts/tool-call-card.tsx`): folded; 11 px muted summary with the tool name in small caps (error color on failure), the main argument, a chevron; open panel `rounded-xl border bg-card p-3` with Input, Output or Error and 11 px mono blocks.
+- Icon: `build/icon-flat.svg` (1024 viewBox), `build/icon.png` (512), `build/icon.icon/` (Icon Composer, bg #141414). Mark: `components/lh-mark.tsx`.
+
+**Decisions (user, 2026-11-15, from mockups).**
+
+1. Fonts A: the desktop fonts (JetBrains Mono, Source Sans 3, CMU Serif), bundled in the app.
+2. Light mode A: the desktop Ivory theme. Dark mode is the desktop default theme.
+3. The learner's message A: the desktop band with the rail and YOU.
+4. Icon A: the desktop icon (`build/icon-flat.svg`) and the mark on the splash (#141414 dark).
+5. Open: inline code (band or `View`), decided from Simulator screenshots of both.
 
 ## 19 Visual and demo artifacts `todo`
 
