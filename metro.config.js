@@ -21,6 +21,15 @@ config.resolver.nodeModulesPaths = [
 	path.resolve(forkRoot, "node_modules/@streamdown/code/node_modules"),
 ];
 
+// The fork's shared core has two require cycles (native-messages and
+// compaction, plugin-questions and plugin-submissions). The phone cannot
+// change them. Without this pattern, each dev launch warns, and the warning
+// shows a toast that covers the bottom buttons on a small iPhone.
+config.resolver.requireCycleIgnorePatterns = [
+	...(config.resolver.requireCycleIgnorePatterns ?? []),
+	/(^|[/\\])learnharness[/\\]src[/\\]core[/\\]/,
+];
+
 // The math and Mermaid island pages (issue 05 slice C), built from the
 // fork's KaTeX and Mermaid files into .cache/ (not in git).
 const { buildIslandPages } = require("./scripts/island-pages/build.cjs");

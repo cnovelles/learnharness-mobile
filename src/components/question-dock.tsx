@@ -117,7 +117,13 @@ function Confidence({ index, onChange }: { index: number; onChange: (index: numb
 							},
 						]}
 					>
-						<Text style={{ color: i === index ? c.onAccent : c.text, fontSize: 14 }}>{stop}%</Text>
+						<Text
+							numberOfLines={1}
+							adjustsFontSizeToFit
+							style={{ color: i === index ? c.onAccent : c.text, fontSize: 14 }}
+						>
+							{stop}%
+						</Text>
 					</Pressable>
 				))}
 			</View>
@@ -352,6 +358,15 @@ const styles = StyleSheet.create({
 	body: { fontSize: 15, lineHeight: 21 },
 	choiceText: { fontSize: 15, lineHeight: 21 },
 	small: { fontSize: 13, lineHeight: 18 },
-	stops: { flexDirection: "row", flexWrap: "wrap", gap: SPACE.sm },
-	stop: { borderWidth: 1, borderRadius: 8, paddingVertical: SPACE.sm, paddingHorizontal: SPACE.md },
+	// One row of equal stops on every iPhone width (375 pt and up): no wrap.
+	stops: { flexDirection: "row", gap: SPACE.sm },
+	stop: {
+		flex: 1,
+		minWidth: 0,
+		alignItems: "center",
+		borderWidth: 1,
+		borderRadius: 8,
+		paddingVertical: SPACE.sm,
+		paddingHorizontal: SPACE.xs,
+	},
 });
