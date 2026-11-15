@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15, sixth clear (issue 05 slices D and E done and checked, spacing scale checked, CI passed; next: slice F, the acceptance).
+Last update: 2026-11-15 (issue 05 slice F: Jest and Maestro screenshots done; next: the user checks one real lesson).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-15, sixth clear (issue 05 slices D and E done and checked, 
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 05 slice F (the acceptance): Jest for each slice and each error state (check the list in `docs/ISSUES.md`, issue 05), Maestro screenshots of a scripted lesson with Markdown, code, math, Mermaid, the probe card and the plan graph, then the user checks one real lesson on the Simulator. Slices 0, A, B, C, D and E and the spacing scale passed the Simulator check. Jest: 422 pass. Optional, user decision open: a check on an older iOS runtime (the app targets iOS 16.4; only the 26.3 and 26.5 runtimes are installed).
+**Next step:** Issue 05 slice F: the user checks one real lesson on the Simulator (the last acceptance step). The Jest part (each error state, the golden sessions as full transcripts) and the Maestro screenshots (`npm run e2e:rich`, on the SE and the Pro Max) are done. Then issue 05 is done; next is issue 18 (visual design). Jest: 429 pass. Optional, user decision open: a check on an older iOS runtime (the app targets iOS 16.4; only the 26.3 and 26.5 runtimes are installed).
 
 **Facts found during the work**
 

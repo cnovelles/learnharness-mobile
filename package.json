@@ -63,6 +63,7 @@
     "e2e:mac": "../learnharness/node_modules/.bin/tsx scripts/e2e-mac.ts",
     "e2e:test": "sh scripts/e2e-test.sh e2e/first-turn.yaml",
     "e2e:teach": "sh scripts/e2e-test.sh e2e/teach-cycle.yaml",
+    "e2e:rich": "sh scripts/e2e-test.sh e2e/rich-lesson.yaml",
     "islands": "node scripts/island-pages/build.cjs",
     "hermes:run": "sh scripts/hermes-run/run.sh"
   },
