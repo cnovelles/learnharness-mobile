@@ -92,20 +92,18 @@ function Inline({ node, ctx }: { node: PhrasingContent; ctx: Ctx }): ReactNode {
 			return <Text style={styles.del}>{inlines(node.children, ctx)}</Text>;
 		case "break":
 			return "\n";
-		case "inlineCode":
+		case "inlineCode": {
+			// The desktop inline code (user decision 2026-11-15, issue 18 slice E):
+			// a View, so it gets the rounded line. It cannot break across lines.
+			const size = fontSizeOf(ctx.base) * (12.5 / 16);
 			return (
-				<Text
-					style={{
-						fontFamily: MONO,
-						fontSize: fontSizeOf(ctx.base) * 0.88,
-						color: c.code,
-						backgroundColor: c.codeBg,
-					}}
-					testID="md-inline-code"
-				>
-					{` ${node.value} `}
-				</Text>
+				<View style={[styles.inlineCodeBox, { borderColor: c.line, backgroundColor: c.codeBg }]}>
+					<Text style={{ fontFamily: MONO, fontSize: size, color: c.code }} testID="md-inline-code">
+						{node.value}
+					</Text>
+				</View>
 			);
+		}
 		case "inlineMath":
 			return (
 				<Text
@@ -665,6 +663,14 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		paddingVertical: SPACE.lg,
 		paddingHorizontal: SPACE.md,
+	},
+	/** The desktop inline code: rounded (8), 1 pt line, 6 x 2 padding. It
+	 *  sits on the baseline, so it moves down to center on the line. */
+	inlineCodeBox: {
+		borderWidth: 1,
+		borderRadius: 8,
+		paddingHorizontal: SPACE.xs,
+		transform: [{ translateY: 3 }],
 	},
 	lineNumbers: { textAlign: "right", marginRight: SPACE.md, minWidth: 18 },
 	codeScroll: { flex: 1 },

@@ -44,12 +44,16 @@ describe("Markdown blocks and inline text", () => {
 		expect(screen.queryByText(/\*\*|##/)).toBeNull();
 	});
 
-	it("draws inline code in a mono band, also inside a list", async () => {
+	it("draws inline code in a rounded mono box, also inside a list (slice E)", async () => {
 		await show("Set `done` to `true`.\n\n- use `count`");
 		const codes = screen.getAllByTestId("md-inline-code");
 		expect(codes).toHaveLength(3);
-		expect(codes[0]).toHaveTextContent("done", { exact: false });
+		expect(codes[0]).toHaveTextContent("done");
 		expect(screen.queryByText(/`/)).toBeNull();
+		// The desktop: the code tint, a 1 pt line, rounded (8), 12.5 in 16.
+		const box = StyleSheet.flatten(codes[0]!.parent?.props.style);
+		expect(box).toMatchObject({ borderWidth: 1, borderRadius: 8, backgroundColor: "#edece8" });
+		expect(StyleSheet.flatten(codes[0]!.props.style).fontSize).toBe(12.5);
 	});
 
 	it("keeps a single line break as a line break (remark-breaks on the desktop)", async () => {
