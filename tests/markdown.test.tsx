@@ -274,6 +274,17 @@ describe("long press to copy (slice B)", () => {
 		expect(setString).toHaveBeenLastCalledWith("\\sum_k k");
 	});
 
+	it("keeps each copy target inside its sideways scroll (a target around it stops the scroll on iOS)", async () => {
+		await show("```js\nlet a = 1;\n```\n\n| A |\n| - |\n| 1 |\n\n$$\nx\n$$");
+		const targets = screen.getAllByTestId("md-copy");
+		expect(targets).toHaveLength(3);
+		for (const target of targets) {
+			let node = target.parent;
+			while (node && node.type !== "RCTScrollView") node = node.parent;
+			expect(node?.props.horizontal).toBe(true);
+		}
+	});
+
 	it("gives VoiceOver the same Copy action", async () => {
 		await show("```\nx\n```");
 		await act(async () => {

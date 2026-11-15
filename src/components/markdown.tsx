@@ -179,20 +179,56 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 /**
- * A block that a long press copies. `source` gives the text at the time of
- * the press. VoiceOver gets the same action as "Copy".
+ * The long press target of a block. It goes inside the block's sideways
+ * scroll: a press target around a scroll view stops the scroll on iOS
+ * (found on the Simulator, 2026-11-15). VoiceOver gets the same action as
+ * "Copy".
  */
-function CopyBlock({
-	source,
-	label,
-	ctx,
+function CopyTarget({
+	onCopy,
+	what,
 	children,
 }: {
-	source: () => string;
-	label: string;
-	ctx: Ctx;
+	onCopy: () => void;
+	what: string;
 	children: ReactNode;
 }) {
+	return (
+		<Pressable
+			onLongPress={onCopy}
+			accessibilityHint={`Long press to copy the ${what}.`}
+			accessibilityActions={[{ name: "longpress", label: "Copy" }]}
+			onAccessibilityAction={(e) => {
+				if (e.nativeEvent.actionName === "longpress") onCopy();
+			}}
+			testID="md-copy"
+		>
+			{children}
+		</Pressable>
+	);
+}
+
+/** The "Copied" or "Could not copy." label, on top of the block. */
+function CopyLabel({ state, ctx }: { state: CopyState; ctx: Ctx }) {
+	if (state === "idle") return null;
+	return (
+		<View
+			pointerEvents="none"
+			style={[styles.copyLabel, { backgroundColor: ctx.c.panel, borderColor: ctx.c.line }]}
+		>
+			<Text
+				style={{ fontSize: 12, color: state === "copied" ? ctx.c.text : ctx.c.danger }}
+				accessibilityLiveRegion="polite"
+				testID="md-copy-label"
+			>
+				{state === "copied" ? "Copied" : "Could not copy."}
+			</Text>
+		</View>
+	);
+}
+
+/** Copy for one block: `source` gives the text at the time of the press. */
+function useCopy(source: () => string): { copy: () => void; state: CopyState } {
 	const [state, setState] = useState<CopyState>("idle");
 	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const mounted = useRef(true);
@@ -213,32 +249,23 @@ function CopyBlock({
 			}, COPY_LABEL_MS);
 		});
 	};
+	return { copy, state };
+}
+
+function MathBlock({ value, ctx }: { value: string; ctx: Ctx }) {
+	const { base } = ctx;
+	const { copy, state } = useCopy(() => value);
 	return (
-		<Pressable
-			onLongPress={copy}
-			accessibilityHint={`Long press to copy the ${label}.`}
-			accessibilityActions={[{ name: "longpress", label: "Copy" }]}
-			onAccessibilityAction={(e) => {
-				if (e.nativeEvent.actionName === "longpress") copy();
-			}}
-			testID="md-copy"
-		>
-			{children}
-			{state !== "idle" ? (
-				<View
-					pointerEvents="none"
-					style={[styles.copyLabel, { backgroundColor: ctx.c.panel, borderColor: ctx.c.line }]}
-				>
-					<Text
-						style={{ fontSize: 12, color: state === "copied" ? ctx.c.text : ctx.c.danger }}
-						accessibilityLiveRegion="polite"
-						testID="md-copy-label"
-					>
-						{state === "copied" ? "Copied" : "Could not copy."}
+		<View>
+			<ScrollView horizontal showsHorizontalScrollIndicator={false} testID="md-math">
+				<CopyTarget onCopy={copy} what="formula">
+					<Text style={{ fontFamily: MONO, fontSize: fontSizeOf(base) * 0.88, color: base.color }}>
+						{value}
 					</Text>
-				</View>
-			) : null}
-		</Pressable>
+				</CopyTarget>
+			</ScrollView>
+			<CopyLabel state={state} ctx={ctx} />
+		</View>
 	);
 }
 
@@ -320,34 +347,18 @@ function Block({ node, ctx }: { node: RootContent; ctx: Ctx }): ReactNode {
 			);
 		case "code":
 			return (
-				<CopyBlock source={() => node.value} label="code" ctx={ctx}>
-					<CodeBlock
-						value={node.value}
-						lang={node.lang}
-						meta={node.meta ?? ""}
-						open={node.data?.open === true}
-						ctx={ctx}
-					/>
-				</CopyBlock>
+				<CodeBlock
+					value={node.value}
+					lang={node.lang}
+					meta={node.meta ?? ""}
+					open={node.data?.open === true}
+					ctx={ctx}
+				/>
 			);
 		case "math":
-			return (
-				<CopyBlock source={() => node.value} label="formula" ctx={ctx}>
-					<ScrollView horizontal showsHorizontalScrollIndicator={false} testID="md-math">
-						<Text
-							style={{ fontFamily: MONO, fontSize: fontSizeOf(base) * 0.88, color: base.color }}
-						>
-							{node.value}
-						</Text>
-					</ScrollView>
-				</CopyBlock>
-			);
+			return <MathBlock value={node.value} ctx={ctx} />;
 		case "table":
-			return (
-				<CopyBlock source={() => tableMarkdown(node)} label="table" ctx={ctx}>
-					<TableBlock node={node} ctx={ctx} />
-				</CopyBlock>
-			);
+			return <TableBlock node={node} ctx={ctx} />;
 		case "html":
 			return <Text style={base}>{node.value}</Text>;
 		case "footnoteDefinition":
@@ -427,6 +438,7 @@ function CodeBlock({
 		[open, value, lang, scheme],
 	);
 	const colors = CODE_COLORS[scheme];
+	const { copy, state } = useCopy(() => value);
 	const code = { fontFamily: MONO, fontSize: 13, lineHeight: 20 };
 	return (
 		<View
@@ -434,15 +446,22 @@ function CodeBlock({
 			testID={colored ? "md-code-colored" : "md-code"}
 		>
 			{numbered ? (
-				<Text style={[code, styles.lineNumbers, { color: c.muted }]} testID="md-code-lines">
+				<Text
+					style={[code, styles.lineNumbers, { color: c.muted }]}
+					onLongPress={copy}
+					testID="md-code-lines"
+				>
 					{lines.map((_, i) => String(start + i)).join("\n")}
 				</Text>
 			) : null}
 			<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.codeScroll}>
-				<Text style={[code, { color: colors.fg }]} testID="md-code-text">
-					{colored ? <ColoredCode lines={colored.lines} /> : value}
-				</Text>
+				<CopyTarget onCopy={copy} what="code">
+					<Text style={[code, { color: colors.fg }]} testID="md-code-text">
+						{colored ? <ColoredCode lines={colored.lines} /> : value}
+					</Text>
+				</CopyTarget>
 			</ScrollView>
+			<CopyLabel state={state} ctx={ctx} />
 		</View>
 	);
 }
@@ -465,32 +484,39 @@ function columnWidths(node: Table, fontSize: number): number[] {
 function TableBlock({ node, ctx }: { node: Table; ctx: Ctx }) {
 	const { c, base } = ctx;
 	const widths = columnWidths(node, fontSizeOf(base));
+	const { copy, state } = useCopy(() => tableMarkdown(node));
 	const align = (i: number): TextStyle["textAlign"] => {
 		const a = node.align?.[i];
 		return a === "center" ? "center" : a === "right" ? "right" : "left";
 	};
 	return (
-		<ScrollView horizontal showsHorizontalScrollIndicator={false} testID="md-table">
-			<View>
-				{node.children.map((row, r) => (
-					<View
-						key={r}
-						style={[
-							styles.tableRow,
-							{ borderColor: c.line, borderBottomWidth: r === 0 ? 1.5 : StyleSheet.hairlineWidth },
-						]}
-					>
-						{row.children.map((cell, i) => (
-							<View key={i} style={[styles.cell, { width: widths[i] }]}>
-								<Text style={[base, { textAlign: align(i) }, r === 0 ? styles.strong : null]}>
-									{inlines(cell.children, ctx)}
-								</Text>
-							</View>
-						))}
-					</View>
-				))}
-			</View>
-		</ScrollView>
+		<View>
+			<ScrollView horizontal showsHorizontalScrollIndicator={false} testID="md-table">
+				<CopyTarget onCopy={copy} what="table">
+					{node.children.map((row, r) => (
+						<View
+							key={r}
+							style={[
+								styles.tableRow,
+								{
+									borderColor: c.line,
+									borderBottomWidth: r === 0 ? 1.5 : StyleSheet.hairlineWidth,
+								},
+							]}
+						>
+							{row.children.map((cell, i) => (
+								<View key={i} style={[styles.cell, { width: widths[i] }]}>
+									<Text style={[base, { textAlign: align(i) }, r === 0 ? styles.strong : null]}>
+										{inlines(cell.children, ctx)}
+									</Text>
+								</View>
+							))}
+						</View>
+					))}
+				</CopyTarget>
+			</ScrollView>
+			<CopyLabel state={state} ctx={ctx} />
+		</View>
 	);
 }
 

@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15 (issue 05 slice B done: code colors and copy).
+Last update: 2026-11-15 (issue 05 slice B done and checked on the Simulator).
 
 **Done**
 
@@ -47,14 +47,14 @@ Last update: 2026-11-15 (issue 05 slice B done: code colors and copy).
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** check slices A and B on the Simulator (the running Metro does not see file changes: restart it with `--clear`, after you ask the user). Then issue 05 slice C (math and Mermaid islands in `react-native-webview`). The dev build of 2026-11-15 has all 3 new native modules (`expo-clipboard`, `react-native-svg`, `react-native-webview`), so slices C to E need no new build. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 318 pass.
+**Next step:** issue 05 slice C (math and Mermaid islands in `react-native-webview`). Slices A and B passed the Simulator check (2026-11-15). The dev build of 2026-11-15 has all 3 new native modules (`expo-clipboard`, `react-native-svg`, `react-native-webview`), so slices C to E need no new build. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 319 pass.
 
 **Facts found during the work**
 
 - Jest screen tests: `renderRouter` (expo-router testing library) turns on Jest's fake timers. `package.json` keeps `nextTick` and `queueMicrotask` real (`jest.fakeTimers.doNotFake`), or the web streams of later tests stop. Advance timers inside `act` (`jest.advanceTimersByTimeAsync`); a real `setTimeout` in a test never fires.
 - The fake Mac for screen tests is `tests/helpers/fake-mac.ts`. A held turn must end with a `turn-settled` SSE event; a bare `[DONE]` after a held stream makes SessionModel read it as a dropped stream.
 - E2E: each Maestro flow needs a new `npm run e2e:mac` (one-use pairing code, one scripted lesson). Start Metro with `npx expo start --clear` after code changes. Stop both after the run.
-- State at the clear (2026-11-14, second clear): issue 05 slices 0 and A done. Phone `13d1811` (slice A), `f7fef65` (slice 0); fork `c6e79ca` (`components/plan-layout.ts`), pushed to `fork`. CI passed for `f7fef65`; the run for `13d1811` was still running at the clear (check it with `gh run list -L 2`). Still running from the issue 04 manual check: the fork dev server (`npm run dev`, port 3000), Electron (Phone Access on 47821) and Metro (8081, it does not show slice A until a restart with `--clear`). Ask the user before you stop or restart them. Slice A is not checked on the Simulator yet; the user was asked and has not answered.
+- State on 2026-11-15: the fork dev server, Electron and Metro from the issue 04 manual check were not running any more. For the slice B check, this session started Metro (`npx expo start --clear`) and the scripted test Mac (`LH_E2E_RICH=1 npm run e2e:mac`); the Simulator app is paired with that test Mac.
 - For a new manual check: make a new temporary folder for `LH_DATA_DIR` and `LH_AUTH_FILE` (the old scratchpad can be gone), start `npm run dev` with both set, load `http://localhost:3000` once, then start Electron with the same two variables and `LH_DEV_URL=http://localhost:3000`.
 - Claude Code CLI on a temporary data folder: turn it on in the desktop Settings → Providers → External CLI → Claude Code. The first click can fail to save; check `GET /api/settings` (`claudeCode.enabled: true`). Turning it on also sets the Strong model to `claude-code` `sonnet`. `/api/claude-code` answers only same-origin requests, so check it in the desktop window, not with curl.
 - The Claude Code CLI can send tool arguments with literal `\n` (backslash, n). Display text goes through `teacherText` (`src/lib/teacher-text.ts`), which calls the shared `repairMathForDisplay`, as the desktop does. It repairs only fences and paragraph breaks.
@@ -65,6 +65,9 @@ Last update: 2026-11-15 (issue 05 slice B done: code colors and copy).
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.
 - Hermes (260318099.0.5): `String.prototype.matchAll` gives matches with no `groups` (`exec` is correct), and there is no `v` RegExp flag. `src/shims/match-all.ts` fixes `matchAll`. To run code on the real Hermes VM without the Simulator: compile a small JSI host against `ios/Pods/hermes-engine/destroot` (`include/` and `Library/Frameworks/macosx/hermesvm.framework`), bundle the code with the fork's esbuild, and run the bundle. The host of 2026-11-14 was in the session scratchpad; it is about 30 lines of C++ (`makeHermesRuntime` with the microtask queue, a `print` function, `evaluateJavaScript`, `drainMicrotasks`).
 - Expo's Metro and esbuild read the `paths` in `tsconfig.json`. A path to a `.d.mts` type file breaks the bundle. Load such packages with `require` (the Shiki themes and grammars in `src/lib/code-highlight.ts`).
+- iOS: a `Pressable` around a horizontal `ScrollView` stops the sideways scroll. Put the press target inside the scroll view. Jest cannot see this; check gestures on the Simulator.
+- Simulator checks of rich text: `LH_E2E_RICH=1 npm run e2e:mac` adds Markdown, 3 code fences, a table and math to the teaching text, then `npm run e2e:teach` drives the lesson. The Simulator clipboard: `xcrun simctl pbpaste <device>`. The "Copied" label shows for 1.5 s, which is shorter than one screenshot round trip of the simulator tool.
+- After `npx expo run:ios`, the app can show "No script URL provided". Open it with `xcrun simctl terminate <device> dev.local.learnharnessmobile`, then `xcrun simctl openurl <device> "dev.local.learnharnessmobile://?__expo_url=http%3A%2F%2F127.0.0.1%3A8081"`. The first Maestro run after a fresh bundle can lose the pairing (the app reloads once); run the flow again with a new `npm run e2e:mac`.
 - Jest's Babel rewrites RegExp literals with named groups or the `u` flag. Tests of RegExp behavior make each RegExp from a string. Metro's Hermes preset keeps the literals.
 - Shiki (code colors) comes from `../learnharness/node_modules/@streamdown/code/node_modules` (the desktop's copy): a Metro `nodeModulesPaths` entry, `tsconfig.json` paths for `@shikijs/core` and `@shikijs/engine-javascript`, and a separate Jest bundle (`tests/setup/esm-to-cjs.cjs`, `buildShiki`; the grammar list comes from the `require` calls).
 - `components/session-core.ts` (`SessionModel`) is pure TypeScript with an injectable fetch. The phone uses it unchanged with `remoteFetch`.

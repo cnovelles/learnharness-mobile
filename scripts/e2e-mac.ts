@@ -19,6 +19,9 @@
  * 5. After the answer: a short reply.
  * e2e/first-turn.yaml uses steps 1 to 3; e2e/teach-cycle.yaml uses all.
  *
+ * LH_E2E_RICH=1 adds `RICH` to the teaching text of step 4: Markdown, code
+ * fences in 3 languages, a table and math (issue 05, manual checks).
+ *
  * Control server (for Maestro, on 127.0.0.1, port in e2e/.control.txt):
  * POST /models/clear removes the model settings (the Mac then refuses a
  * turn with models_not_configured), POST /models/set sets them again.
@@ -68,6 +71,36 @@ export const LESSON = {
 	afterCheck: "Right. Next we look at the two bulges.",
 };
 
+/** Rich Markdown for the manual checks of issue 05 (LH_E2E_RICH=1). */
+export const RICH = [
+	"## Step 1: the pull",
+	"The pull is **stronger** on the *near* side. In code, `force` falls with distance:",
+	"```ts",
+	"// Newton: the force falls with the square of the distance",
+	"const force = (m1: number, m2: number, r: number): number => (G * m1 * m2) / r ** 2;",
+	"export const near = force(earth, moon, 384_400 - 6_371); // a long line that scrolls sideways in the block",
+	"```",
+	"```python startLine=10",
+	"def bulges(n: int) -> list[str]:",
+	'    return ["near", "far"][:n]  # two bulges',
+	"```",
+	"```klingon",
+	"qapla' batlh",
+	"```",
+	"| Side | Distance | Pull |",
+	"| :--- | ---: | :---: |",
+	"| Near | 378,029 km | **strong** |",
+	"| Far | 390,771 km | weak ![moon](https://example.test/moon.png) |",
+	"",
+	"$$",
+	"F = G \\frac{m_1 m_2}{r^2}",
+	"$$",
+	"",
+	"- one",
+	"- two, see [the source](https://example.test)",
+].join("\n");
+const RICH_ON = process.env.LH_E2E_RICH === "1";
+
 const SECRET = "e".repeat(64);
 const DESKTOP = { "x-learnharness-desktop": SECRET };
 
@@ -114,7 +147,12 @@ async function main() {
 					toolCalls: [{ name: "plan_init", arguments: { mermaid: LESSON.plan } }],
 				},
 				{ text: LESSON.planQuestion },
-				{ text: LESSON.lesson, toolCalls: [{ name: "quiz", arguments: LESSON.check }] },
+				{
+					text: RICH_ON ? `${LESSON.lesson}\n\n${RICH}` : LESSON.lesson,
+					chunkSize: RICH_ON ? 12 : undefined,
+					chunkDelayMs: RICH_ON ? 40 : undefined,
+					toolCalls: [{ name: "quiz", arguments: LESSON.check }],
+				},
 				{ text: LESSON.afterCheck },
 			],
 		},
