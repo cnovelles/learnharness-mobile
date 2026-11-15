@@ -316,6 +316,13 @@ Blocked by: 04.
 - D. Next problem button in the practice pause.
 - E. Fake Mac practice script, Maestro flow `e2e/practice.yaml` (pose, thinking, conclude, Next problem, second problem, dismiss), screenshots on the SE and the Pro Max.
 
+### State (2026-11-15, ninth clear)
+
+- Done: slice A (`aefab87`), slice B (`2def412`), slice C (`b6a7516`). Jest 494 pass; format, lint and typecheck are clean. No Simulator check yet for A, B or C (no native change, so no new dev build is needed: Metro with `--clear` is enough).
+- Code: `src/lib/practice.ts` (row data, `nodeNames` for the metadata targets), `src/components/practice-cards.tsx`, `src/components/practice-dock.tsx`, `use-session.ts` (`problem`, `submitThinking`, `unsentThinking`, `dismissProblem`), `user-error.ts` (practice refusals), `new-session.tsx` (`?kind=practice`), `session-list.tsx` (two buttons). Tests: `tests/app-practice.test.tsx`, `tests/practice.test.tsx`, `tests/helpers/practice-record.ts`; the fake Mac knows `kind`, `thinking`, `next`, `dismiss-problem`, `createAnswer` and `networkFailNextChat`.
+- The problem card stays in the transcript while the dock shows the problem (desktop parity: the card is the record).
+- Next: slice D (Next problem button: `{ type: "next" }` in the practice pause; the rule is the desktop's `nextReady` in fork `components/chat.tsx`, needs `record.kind`), then slice E (practitioner script in `scripts/e2e-mac.ts`, `e2e/practice.yaml`, Simulator check and screenshots on the SE and the Pro Max). The fake provider already has the `practitioner` role.
+
 ### Error states
 
 | State                                                                        | What the learner sees                                                                                                                               | Test                             |

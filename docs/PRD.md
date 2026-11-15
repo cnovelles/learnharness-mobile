@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15, eighth clear (issue 18 done and approved; app name LearnHarness; issue 05 waits for the user's real lesson).
+Last update: 2026-11-15, ninth clear (issue 06 practice: slices A, B and C done; D and E next).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-15, eighth clear (issue 18 done and approved; app name Lear
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 18 is done (slices A–F; the user approved the side-by-side screenshots on 2026-11-15, with the three differences in issue 18 "Acceptance" accepted as they are). The app name is "LearnHarness" (new dev build on the Pro Max and the SE; `e2e:rich` passes). Issue 05 waits only for the user to check one real lesson (Claude has no model key). Jest: 453 pass. See `docs/ISSUES.md`, issue 18 "Slices and state".
+**Next step:** Issue 06 (practice) slice D (Next problem button), then slice E (Maestro flow, Simulator check, screenshots). Slices A–C are done; see `docs/ISSUES.md`, issue 06 "State". The user's design choices for issue 06 are recorded in its slice list. Issue 05 still waits only for the user's real-lesson check.
 
 **Facts found during the work**
 
@@ -59,6 +59,8 @@ Last update: 2026-11-15, eighth clear (issue 18 done and approved; app name Lear
 - State at the clear (2026-11-15, sixth clear): the spacing check is done (`e84320c`) and issue 05 slice E is done (`49fd120`); CI passed for both, and for `ed6e0f4`. Jest 422 pass. The fork has no new commits. Nothing runs now: Metro and the test Mac are stopped. The SE simulator (`3960A9E9…`) is booted; the Pro Max is shut down and in light mode. Both are paired with a stopped test Mac, so a new check needs a new `LH_E2E_RICH=1 npm run e2e:mac`, `npx expo start --clear`, then `npm run e2e:teach`. Next: slice F, after the user says go. Open user decision: a check on an older iOS runtime (a download of several GB).
 - State at the clear (2026-11-15, seventh clear): last commit is the issue 18 docs commit after `2c0c7bb`. The Pro Max has the new dev build (fonts, icon, splash): no new build is needed for slice D, only Metro with `--clear`. Nothing runs (Metro and the test Mac are stopped). The Pro Max is booted and in light mode; the SE is shut down and has the OLD build (install the new `.app` with `xcrun simctl install` before an SE check). CI passed for `24381fb`; not checked for later commits.
 - State at the clear (2026-11-15, eighth clear): issue 18 is done (slice D `c8e4704`, slice E `a1307f9`, docs `b2d98aa` and `b1dc9b5`, app name `b47b5be`). CI passed up to `b1dc9b5`; `b47b5be` (only `app.json` and docs) was still running at the clear. The fork has no new commits since `c6e79ca`. Nothing runs now: Metro, the test Mac and the desktop dev server are stopped. Both Simulators have the new dev build (`LearnHarness.app`); the Pro Max is booted in dark mode, the SE is booted in dark mode. Both are paired with a stopped test Mac. The next task is the user's choice: issue 05 needs the user's real-lesson check; otherwise pick the next issue from `docs/ISSUES.md` with the user.
+- State at the clear (2026-11-15, ninth clear): issue 06 slices A (`aefab87`), B (`2def412`) and C (`b6a7516`) are done; Jest 494 pass. CI passed for `3c240c7` (`b47b5be` was cancelled by the newer push, not failed). The issue 06 commits were pushed at the clear; their CI is not checked yet. The fork has no new commits since `c6e79ca`. Nothing runs now (no Metro, no test Mac). Both Simulators have the dev build `LearnHarness.app` (no native change since). No Simulator check of issue 06 yet. Decisions 2026-11-15: a second "New practice" button on home (no switch); the dock caps the statement at 35% of the height and collapses to a bar; Dismiss in the dock with an iOS alert; metadata opens inside the conclude card.
+- Jest under the full suite's load: a session-screen test file needs `jest.setTimeout(20_000)`. With the 5 s default, the first screen (the rich renderer loads) times out, and its held stream breaks the next tests in that file.
 - Side-by-side screenshots of the desktop: the test Mac's server needs the desktop secret header, so open a copy of its data folder with the fork's `npm run dev` (`LH_DATA_DIR`, `LH_AUTH_FILE`) in the built-in browser. Stop the test Mac first: both use the `.next/dev` lock.
 - Deep links into the dev build (`learnharnessmobile:///settings`) show an "Open in" system alert on each `openurl`, and the alerts queue up. Tap through the app instead.
 - Small screens (2026-11-15): the smallest iPhone screen in the app's range (iOS 16.4 and later) is 375 x 667 pt (iPhone SE 2nd and 3rd generation, iPhone 8; from memory). The simulator `iPhone SE (3rd generation)` on iOS 26.5 is `3960A9E9-57A3-4642-96C3-A4E29358A00D`. The dev build installs with `xcrun simctl install <udid> <DerivedData>/Build/Products/Debug-iphonesimulator/LearnHarness.app` (no new build). Since 2026-11-15 the native project is `ios/LearnHarness.xcodeproj` (prebuild named it after the app name); the bundle identifier is still `dev.local.learnharnessmobile`.
