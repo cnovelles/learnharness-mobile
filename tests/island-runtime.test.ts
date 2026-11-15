@@ -26,8 +26,8 @@ function load(html: string, script: string, data: unknown): Sent[] {
 	const page = window as unknown as Record<string, unknown>;
 	page.ReactNativeWebView = {
 		postMessage: (message: string) => sent.push(JSON.parse(message)),
-		injectedObjectJson: () => (typeof data === "string" ? data : JSON.stringify(data)),
 	};
+	page.__lhIslandData = data;
 	if (pendingMermaid) page.mermaid = pendingMermaid;
 	window.eval(script);
 	return sent;
@@ -73,27 +73,40 @@ describe("math page script", () => {
 		expect(document.getElementById("root")!.innerHTML).toBe("<p>new</p>");
 	});
 
-	it("reports a long press after 500 ms, and not after a move", () => {
-		jest.useFakeTimers();
-		try {
-			const sent = load(MATH_HTML, pageScript("math-runtime.js"), data);
-			const touch = (type: string, x: number) => {
-				const event = new window.Event(type) as Event & {
-					touches: { clientX: number; clientY: number }[];
-				};
-				event.touches = [{ clientX: x, clientY: 0 }];
-				document.dispatchEvent(event);
+	it("reports a long press when a still touch ends after 500 ms, never on a timer", () => {
+		const sent = load(MATH_HTML, pageScript("math-runtime.js"), data);
+		const now = jest.spyOn(window.Date, "now");
+		const touch = (type: string, x: number, at: number) => {
+			now.mockReturnValue(at);
+			const event = new window.Event(type) as Event & {
+				touches: { clientX: number; clientY: number }[];
 			};
-			touch("touchstart", 0);
-			touch("touchmove", 20);
-			jest.advanceTimersByTime(600);
-			expect(sent).not.toContainEqual({ type: "longpress" });
-			touch("touchstart", 0);
-			jest.advanceTimersByTime(600);
-			expect(sent).toContainEqual({ type: "longpress" });
-		} finally {
-			jest.useRealTimers();
-		}
+			event.touches =
+				type === "touchend" || type === "touchcancel" ? [] : [{ clientX: x, clientY: 0 }];
+			document.dispatchEvent(event);
+		};
+		const pressed = () => sent.filter((m) => m.type === "longpress").length;
+		// A hold with no end (the transcript took the drag): nothing.
+		touch("touchstart", 0, 1000);
+		expect(pressed()).toBe(0);
+		// A short tap: nothing.
+		touch("touchstart", 0, 5000);
+		touch("touchend", 0, 5200);
+		expect(pressed()).toBe(0);
+		// A hold that moves: nothing.
+		touch("touchstart", 0, 6000);
+		touch("touchmove", 30, 6100);
+		touch("touchend", 30, 6800);
+		expect(pressed()).toBe(0);
+		// A cancelled hold: nothing.
+		touch("touchstart", 0, 7000);
+		touch("touchcancel", 0, 7600);
+		touch("touchend", 0, 7700);
+		expect(pressed()).toBe(0);
+		// A still hold of 600 ms: one long press.
+		touch("touchstart", 0, 8000);
+		touch("touchend", 0, 8600);
+		expect(pressed()).toBe(1);
 	});
 
 	it("10. reports bad data as an error", () => {

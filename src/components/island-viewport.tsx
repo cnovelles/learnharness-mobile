@@ -53,6 +53,14 @@ export function isNearScreen(
 	return top < screen + margin && top + height > -margin;
 }
 
+/** How close to the end of the transcript still counts as "at the end". */
+export const AT_END_MARGIN = 80;
+
+/** True when the reader sees the end of the transcript (within AT_END_MARGIN). */
+export function isAtEnd(offset: number, visible: number, content: number): boolean {
+	return offset + visible >= content - AT_END_MARGIN;
+}
+
 /** True when the view is near the visible part of the transcript. */
 export function useNearScreen(ref: RefObject<ComponentRef<typeof View> | null>): boolean {
 	const viewport = useContext(IslandViewportContext);

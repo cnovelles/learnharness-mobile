@@ -10,14 +10,13 @@ function send(message) {
 	if (bridge) bridge.postMessage(JSON.stringify(message));
 }
 
-/** The JSON data of the island (`injectedJavaScriptObject`), or null. */
+/**
+ * The data of the island, or null. The app sets it before the page loads
+ * (`islandDataScript` in src/components/web-island.tsx).
+ */
 function readData() {
-	try {
-		var data = JSON.parse(bridge.injectedObjectJson());
-		return data && typeof data === "object" ? data : null;
-	} catch (e) {
-		return null;
-	}
+	var data = window.__lhIslandData;
+	return data && typeof data === "object" ? data : null;
 }
 
 /** Sends {type:"height"} now and each time the content height changes. */
@@ -35,27 +34,26 @@ function watchHeight(root) {
 	report();
 }
 
-/** Sends {type:"longpress"} after a 500 ms touch that does not move. */
+/**
+ * Sends {type:"longpress"} when a touch that did not move ends after 500 ms
+ * or more. It fires on touchend, not on a timer: when the transcript takes
+ * over a drag, WebKit sends the page no touchmove, touchcancel or touchend
+ * (found on the Simulator, 2026-11-15), so a timer would copy during a
+ * scroll. React Native cannot see touches over the WebView, so the app
+ * cannot detect the long press itself.
+ */
 function watchLongPress() {
-	var timer = null;
+	var start = 0;
 	var startX = 0;
 	var startY = 0;
-	function cancel() {
-		if (timer) clearTimeout(timer);
-		timer = null;
-	}
 	var passive = { passive: true };
 	document.addEventListener(
 		"touchstart",
 		function (event) {
 			var touch = event.touches[0];
+			start = event.touches.length === 1 ? Date.now() : 0;
 			startX = touch.clientX;
 			startY = touch.clientY;
-			cancel();
-			timer = setTimeout(function () {
-				timer = null;
-				send({ type: "longpress" });
-			}, 500);
 		},
 		passive,
 	);
@@ -63,10 +61,23 @@ function watchLongPress() {
 		"touchmove",
 		function (event) {
 			var touch = event.touches[0];
-			if (Math.abs(touch.clientX - startX) > 8 || Math.abs(touch.clientY - startY) > 8) cancel();
+			if (Math.abs(touch.clientX - startX) > 8 || Math.abs(touch.clientY - startY) > 8) start = 0;
 		},
 		passive,
 	);
-	document.addEventListener("touchend", cancel, passive);
-	document.addEventListener("touchcancel", cancel, passive);
+	document.addEventListener(
+		"touchend",
+		function () {
+			if (start && Date.now() - start >= 500) send({ type: "longpress" });
+			start = 0;
+		},
+		passive,
+	);
+	document.addEventListener(
+		"touchcancel",
+		function () {
+			start = 0;
+		},
+		passive,
+	);
 }

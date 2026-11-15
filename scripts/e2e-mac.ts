@@ -20,7 +20,8 @@
  * e2e/first-turn.yaml uses steps 1 to 3; e2e/teach-cycle.yaml uses all.
  *
  * LH_E2E_RICH=1 adds `RICH` to the teaching text of step 4: Markdown, code
- * fences in 3 languages, a table and math (issue 05, manual checks).
+ * fences in 3 languages, a table, math (also a formula that KaTeX cannot
+ * draw) and 2 Mermaid charts (one with a parse error). Issue 05, manual checks.
  *
  * Control server (for Maestro, on 127.0.0.1, port in e2e/.control.txt):
  * POST /models/clear removes the model settings (the Mac then refuses a
@@ -95,6 +96,19 @@ export const RICH = [
 	"$$",
 	"F = G \\frac{m_1 m_2}{r^2}",
 	"$$",
+	"",
+	"The force is $F = ma$ and it falls as $\\frac{1}{r^2}$, see [Newton](https://example.test/newton).",
+	"",
+	"A broken formula: $\\frac{1}{$ stays as text.",
+	"",
+	"```mermaid",
+	"graph LR",
+	"  moon[Moon] -->|strong pull| near[Near side]",
+	"  moon -->|weak pull| far[Far side]",
+	"```",
+	"```mermaid",
+	"graph ???",
+	"```",
 	"",
 	"- one",
 	"- two, see [the source](https://example.test)",

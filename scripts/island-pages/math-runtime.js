@@ -4,7 +4,7 @@
  * text (src/lib/math-html.ts), so this script only puts it in the page,
  * reports the height, and sends link taps and long presses to the app.
  *
- * Data: the first data comes from `injectedJavaScriptObject`. While a reply
+ * Data: the first data comes from `window.__lhIslandData`. While a reply
  * streams, the app sends new data with the WebView's `postMessage`, so the
  * page does not load again for each new word.
  *

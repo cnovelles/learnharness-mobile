@@ -4,6 +4,8 @@
  * so the react-native-webview mock (__mocks__/) keeps each WebView's props,
  * and the tests play the page with `sendFromPage`.
  */
+import { runInNewContext } from "node:vm";
+
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import * as Clipboard from "expo-clipboard";
 import * as ReactNative from "react-native";
@@ -11,13 +13,20 @@ import { Linking, StyleSheet } from "react-native";
 
 import {
 	createIslandViewport,
+	isAtEnd,
 	isNearScreen,
 	IslandViewportContext,
 } from "@/components/island-viewport";
 import { DIAGRAM_ERROR, FORMULA_ERROR, MERMAID_TIMEOUT_MS } from "@/components/islands";
 import { Markdown } from "@/components/markdown";
-import { allowIslandLoad, HEIGHT_WAIT_MS } from "@/components/web-island";
-import { resetWebviews, sendFromPage, webviews, type FakeWebView } from "./helpers/fake-webview";
+import { allowIslandLoad, HEIGHT_WAIT_MS, islandDataScript } from "@/components/web-island";
+import {
+	islandData,
+	resetWebviews,
+	sendFromPage,
+	webviews,
+	type FakeWebView,
+} from "./helpers/fake-webview";
 
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 const setString = Clipboard.setStringAsync as jest.MockedFunction<typeof Clipboard.setStringAsync>;
@@ -31,7 +40,7 @@ const only = (): FakeWebView => {
 	expect(list).toHaveLength(1);
 	return list[0]!;
 };
-const data = (w: FakeWebView) => w.props.injectedJavaScriptObject as Record<string, unknown>;
+const data = islandData;
 const call = async (w: FakeWebView, prop: string, arg?: unknown) => {
 	await act(async () => {
 		(w.props[prop] as (arg?: unknown) => void)(arg);
@@ -180,6 +189,24 @@ describe("island height", () => {
 });
 
 describe("island lockdown", () => {
+	it("12. gives the page its data as a safe JSON literal, also with backticks and ${}", () => {
+		const nasty = {
+			source: "a`b ${globalThis.hacked = 1} \\frac{1}{2}\n</script><!-- & \u2028 \u2029 '\"",
+		};
+		const script = islandDataScript(nasty);
+		expect(script).not.toMatch(/[<>&\u2028\u2029]/);
+		const page: { __lhIslandData?: unknown } = {};
+		const sandbox = { window: page, globalThis: {} as Record<string, unknown> };
+		runInNewContext(script, sandbox);
+		expect(page.__lhIslandData).toEqual(nasty);
+		expect(sandbox.globalThis.hacked).toBeUndefined();
+	});
+
+	it("12. never uses injectedJavaScriptObject (iOS puts it in a template literal unescaped)", async () => {
+		await show("$x$");
+		expect(only().props.injectedJavaScriptObject).toBeUndefined();
+	});
+
 	it("12. loads only the page's own HTML", () => {
 		expect(allowIslandLoad("about:blank")).toBe(true);
 		for (const url of [
@@ -297,6 +324,12 @@ describe("Mermaid islands", () => {
 });
 
 describe("islands near the screen (decision 3)", () => {
+	it("keep a reader who scrolled up where they are (only the end follows new content)", () => {
+		expect(isAtEnd(900, 800, 1750)).toBe(true);
+		expect(isAtEnd(0, 800, 800)).toBe(true);
+		expect(isAtEnd(500, 800, 1750)).toBe(false);
+	});
+
 	it("come near within one screen, and go far only at three screens", () => {
 		expect(isNearScreen(1500, 100, 1000, false)).toBe(true);
 		expect(isNearScreen(2100, 100, 1000, false)).toBe(false);

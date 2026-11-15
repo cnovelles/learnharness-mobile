@@ -19,10 +19,12 @@ import {
 	StyleSheet,
 	Text,
 	View,
+	type NativeScrollEvent,
+	type NativeSyntheticEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { createIslandViewport, IslandViewportContext } from "@/components/island-viewport";
+import { createIslandViewport, IslandViewportContext, isAtEnd } from "@/components/island-viewport";
 import { PlanSheet } from "@/components/plan-sheet";
 import { QuestionDock } from "@/components/question-dock";
 import { Transcript } from "@/components/transcript";
@@ -200,6 +202,15 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 	// Math and Mermaid islands start their WebView only near the screen.
 	const [viewport] = useState(createIslandViewport);
+	// New content scrolls the transcript to the end only when the reader is
+	// at the end. An island that starts near the screen changes its height:
+	// that must not pull a reader who scrolled up back to the end.
+	const atEnd = useRef(true);
+	const onTranscriptScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+		const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+		atEnd.current = isAtEnd(contentOffset.y, layoutMeasurement.height, contentSize.height);
+		viewport.notify();
+	};
 	// The keyboard covers the screen on iOS: pad the view by its height
 	// (Expo keyboard guide). The offset is the header height.
 	const headerHeight = useHeaderHeight();
@@ -231,10 +242,10 @@ function SessionBody({ record }: { record: SessionRecord }) {
 					contentContainerStyle={styles.content}
 					keyboardShouldPersistTaps="handled"
 					onContentSizeChange={() => {
-						scroll.current?.scrollToEnd({ animated: true });
+						if (atEnd.current) scroll.current?.scrollToEnd({ animated: true });
 						viewport.notify();
 					}}
-					onScroll={viewport.notify}
+					onScroll={onTranscriptScroll}
 					onLayout={viewport.notify}
 					scrollEventThrottle={100}
 				>

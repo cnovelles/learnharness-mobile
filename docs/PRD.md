@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15 (issue 05 slice B done and checked on the Simulator).
+Last update: 2026-11-15 (issue 05 slice C done and checked on the Simulator).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-15 (issue 05 slice B done and checked on the Simulator).
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 05 slice C (math and Mermaid islands in `react-native-webview`). Slices A and B passed the Simulator check (2026-11-15). The dev build of 2026-11-15 has all 3 new native modules (`expo-clipboard`, `react-native-svg`, `react-native-webview`), so slices C to E need no new build. Slice C starts with a plan: how to ship one local HTML page with KaTeX 0.18 and Mermaid (the fork's versions) and no network (CSP), how the text goes in as escaped data, and how the island reports its height (error states 8 to 12). Read the `react-native-webview` docs for SDK 58 first, and ask the user about design choices. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 319 pass.
+**Next step:** issue 05 slice D (the `probe_done` card: native, with `parseProbeDoneInput`, each strand with the slice A renderer; error state 13). Slices 0, A, B and C passed the Simulator check (2026-11-15). The dev build of 2026-11-15 has `expo-clipboard`, `react-native-svg` and `react-native-webview`, so slices D and E need no new build. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 372 pass.
 
 **Facts found during the work**
 
@@ -55,12 +55,14 @@ Last update: 2026-11-15 (issue 05 slice B done and checked on the Simulator).
 - The fake Mac for screen tests is `tests/helpers/fake-mac.ts`. A held turn must end with a `turn-settled` SSE event; a bare `[DONE]` after a held stream makes SessionModel read it as a dropped stream.
 - E2E: each Maestro flow needs a new `npm run e2e:mac` (one-use pairing code, one scripted lesson). Start Metro with `npx expo start --clear` after code changes. Stop both after the run.
 - State at the clear (2026-11-15, third clear): issue 05 slices 0, A and B are done and passed the Simulator check. Phone `bc2d529` (Shiki colors, `matchAll` shim), `f113e9a` (copy, dev build with `expo-clipboard`, `react-native-svg`, `react-native-webview`), `9d62aa5` (scroll fix, Simulator check); CI passed for all three. The fork has no new commits since `c6e79ca`. Started by the main session for the check and maybe still running: Metro (`npx expo start --clear`, port 8081) and the scripted test Mac (`LH_E2E_RICH=1 npm run e2e:mac`, a temporary data folder; it holds the fork's `.next/dev` lock, so `npm run dev` in the fork fails while it runs). Check with `curl -s localhost:8081/status` and `ps -axo pid,command | grep -E "expo start|e2e-mac"`, and ask the user before you stop them. The Simulator app is paired with that test Mac. The issue 04 setup (fork `npm run dev`, Electron) is not running.
+- State after slice C (2026-11-15): Metro and the scripted test Mac are stopped. The Simulator app is still paired with that test Mac, which is gone: a new check needs a new `npm run e2e:mac` and the Maestro flow (it pairs again).
 - For a new manual check: make a new temporary folder for `LH_DATA_DIR` and `LH_AUTH_FILE` (the old scratchpad can be gone), start `npm run dev` with both set, load `http://localhost:3000` once, then start Electron with the same two variables and `LH_DEV_URL=http://localhost:3000`.
 - Claude Code CLI on a temporary data folder: turn it on in the desktop Settings → Providers → External CLI → Claude Code. The first click can fail to save; check `GET /api/settings` (`claudeCode.enabled: true`). Turning it on also sets the Strong model to `claude-code` `sonnet`. `/api/claude-code` answers only same-origin requests, so check it in the desktop window, not with curl.
 - The Claude Code CLI can send tool arguments with literal `\n` (backslash, n). Display text goes through `teacherText` (`src/lib/teacher-text.ts`), which calls the shared `repairMathForDisplay`, as the desktop does. It repairs only fences and paragraph breaks.
 - The phone has no Skip (user decision 2026-11-14). "I don't know" is the honest answer. The desktop dismisses a question only through the stop action.
 - In the Simulator, typing a long text with the simulator tool can drop a word and finish late. Check the field before you press Start.
 
+- Issue 05 slice C (math and Mermaid islands): see `docs/ISSUES.md`, slice C. Facts for later work: never use `injectedJavaScriptObject` of react-native-webview 14.0.1 for model text (iOS puts it in a template literal unescaped); React Native sees no touches over a WebView; KaTeX gives the same HTML on Hermes as on Node; `scripts/hermes-run/run.sh <entry>` runs a bundle on the app's own Hermes VM; the island pages build into `.cache/island-pages/` (not in git) when Metro or Jest starts.
 - Shared packages for the phone's own code (issue 05): the Markdown parser packages are not phone dependencies. `tsconfig.json` `paths` point to the fork's `node_modules`, Metro finds them through `nodeModulesPaths`, and Jest bundles them in `tests/setup/esm-to-cjs.cjs` (the shim sets `__esModule`, so a default import such as `remend` works). React retries a render one time after an error, so a test that makes a render throw must throw on every call, not once.
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.
 - Hermes (260318099.0.5): `String.prototype.matchAll` gives matches with no `groups` (`exec` is correct), and there is no `v` RegExp flag. `src/shims/match-all.ts` fixes `matchAll`. To run code on the real Hermes VM without the Simulator: compile a small JSI host against `ios/Pods/hermes-engine/destroot` (`include/` and `Library/Frameworks/macosx/hermesvm.framework`), bundle the code with the fork's esbuild, and run the bundle. The host of 2026-11-14 was in the session scratchpad; it is about 30 lines of C++ (`makeHermesRuntime` with the microtask queue, a `print` function, `evaluateJavaScript`, `drainMicrotasks`).

@@ -14,7 +14,7 @@ import { Transcript } from "@/components/transcript";
 import * as highlight from "@/lib/code-highlight";
 import { tableMarkdown } from "@/lib/copy-source";
 import * as md from "@/lib/markdown";
-import { resetWebviews, sendFromPage, webviews } from "./helpers/fake-webview";
+import { islandData, resetWebviews, sendFromPage, webviews } from "./helpers/fake-webview";
 
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 const setString = Clipboard.setStringAsync as jest.MockedFunction<typeof Clipboard.setStringAsync>;
@@ -81,9 +81,7 @@ describe("Markdown blocks and inline text", () => {
 
 	it("draws math with KaTeX in islands (slice C), with no dollar signs", async () => {
 		await show("Area $A = \\pi r^2$ here.\n\n$$\n\\sum_k k\n$$");
-		const [paragraph, block] = webviews().map(
-			(w) => w.props.injectedJavaScriptObject as { html: string },
-		);
+		const [paragraph, block] = webviews().map((w) => islandData(w) as { html: string });
 		expect(paragraph!.html).toMatch(/^<p>Area <span class="katex">/);
 		expect(paragraph!.html).not.toContain("$");
 		expect(block!.html).toContain('class="katex-display"');
@@ -92,7 +90,7 @@ describe("Markdown blocks and inline text", () => {
 
 	it("reads the old \\( \\) math delimiters, as the desktop does", async () => {
 		await show("Area \\(x^2\\) here.");
-		const data = webviews()[0]!.props.injectedJavaScriptObject as { html: string };
+		const data = islandData(webviews()[0]!) as { html: string };
 		expect(data.html).toContain('<annotation encoding="application/x-tex">x^2</annotation>');
 	});
 

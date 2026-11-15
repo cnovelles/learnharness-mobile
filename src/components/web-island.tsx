@@ -25,6 +25,25 @@ export const HEIGHT_WAIT_MS = 3000;
 /** How many times a stopped WebView process loads again. */
 export const MAX_RELOADS = 1;
 
+/**
+ * The script that gives the page its data, for
+ * `injectedJavaScriptBeforeContentLoaded` (iOS adds it as the raw script
+ * source). The data is a JSON literal, with the characters that could end a
+ * script or a line written as `\uXXXX`.
+ *
+ * Not `injectedJavaScriptObject`: react-native-webview 14.0.1 on iOS puts its
+ * JSON inside a JavaScript template literal with no escaping, so a backslash
+ * or a newline breaks the JSON, and a backtick or `${` in model text runs as
+ * code in the page (found on the Simulator, 2026-11-15).
+ */
+export function islandDataScript(data: object): string {
+	const json = JSON.stringify(data).replace(
+		/[<>&\u2028\u2029]/g,
+		(ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`,
+	);
+	return `window.__lhIslandData = ${json};\ntrue;`;
+}
+
 /** The page's own HTML loads as `about:blank`. Every other load is refused. */
 export function allowIslandLoad(url: string): boolean {
 	return url === "about:blank";
@@ -69,8 +88,8 @@ export function WebIsland({
 	const loaded = useRef(false);
 	const sent = useRef<object | null>(null);
 	const gotHeight = useRef(false);
-	// One load of the page: the WebView gets `load.data` as its
-	// `injectedJavaScriptObject`. A stopped process, or new data when the
+	// One load of the page: the WebView gets `load.data` through
+	// `islandDataScript`. A stopped process, or new data when the
 	// island is not live, makes a new load.
 	const [load, setLoad] = useState({ n: 0, data, reloads });
 	if (load.reloads !== reloads || (!live && load.data !== data)) {
@@ -130,7 +149,7 @@ export function WebIsland({
 				source={{ html }}
 				originWhitelist={["*"]}
 				injectedJavaScript={script}
-				injectedJavaScriptObject={load.data}
+				injectedJavaScriptBeforeContentLoaded={islandDataScript(load.data)}
 				onMessage={handleMessage}
 				onLoadEnd={() => {
 					loaded.current = true;
