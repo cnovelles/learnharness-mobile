@@ -438,6 +438,17 @@ Blocked by: 04, 05. Requested by the user on 2026-11-14, after the real lesson c
 4. Icon A: the desktop icon (`build/icon-flat.svg`) and the mark on the splash (#141414 dark).
 5. Open: inline code (band or `View`), decided from Simulator screenshots of both.
 
+**Slices and state (2026-11-15).**
+
+- **A. Colors, type and fonts. Done** (`db685a3`). `src/components/ui.tsx`: `Palette` with the desktop tokens (dark default theme, Ivory light, emphasis colors `strong`, `italic`, `code`; `primary` ink buttons; `hover`), `alpha()`, `FONT` (ui JetBrains Mono, prose Source Sans 3, title CMU Serif), `TYPE` (the desktop scale), `LABEL` (11 pt mono, 500, uppercase). Fonts are embedded with the `expo-font` plugin in `app.json` (`@expo-google-fonts/*` and `assets/fonts/cmunbx.ttf` with its OFL): iOS picks the weight and the italic inside a family, so Markdown bold and italic work with no extra code (checked on the Simulator). The Markdown base is the prose font; code is JetBrains Mono; headings weight 900.
+- **F. Icon and splash. In code, not checked** (`db685a3`). iOS icon: `assets/learnharness.icon` (the desktop's Icon Composer document); `assets/images/icon.png` is the 1024 px desktop icon. Splash: the LearnHarness mark on #faf9f5 (light) and #141414 (dark), rendered from `components/lh-mark.tsx` (a small Swift script with `NSImage`). Android images are still the Expo ones (Android is not a target now). The new dev build has the fonts and the icon: check the home screen icon and the splash.
+- **B. Transcript. Done, first Simulator look passed** (`db685a3`): the YOU band with the rail, the small-caps labels, the status badge, the option tints, `src/components/confidence-rail.tsx`, folded "Your thinking", "AGENT'S THINKING" folded with the rail.
+- **C. Tool rows. Done** (`db685a3`): `src/lib/tool-row.ts` (the desktop `headlineArg` and `outputText`, cut at 2,000 and 8,000 characters, never throws, a failed call shows "The tool failed." and never the raw error). Tests: `tests/design.test.tsx` (14). Note: the desktop shows the card only for read, ls, find, grep, list_sessions and list_propositions, and nothing for other unregistered tools; the phone shows a folded row for every other tool (it cannot draw their own cards yet).
+- **D. Other screens. Part done** (`2c0c7bb`): ink buttons with mono text, CMU Serif screen titles, prose inputs, dock options (selected: ink border, hover fill) and confidence stops in their stop color. Still to do: the session header (the Plan button is the accent color now), the probe card, the Plan sheet list, the home list, pairing and Settings, the composer (`rounded-2xl`, the only shadow), the loading, empty and error states; the code block background (Shiki's own white now; the desktop mixes the page with black).
+- **E. Inline code.** Open: Simulator screenshots of the band and of a `View`, then the user decides.
+- Acceptance: screenshots of the same session on the desktop and the phone, side by side.
+- Seen on the Pro Max (2026-11-15): light (Ivory) and dark (default) both look like the desktop; `npm run e2e:rich` still passes.
+
 ## 19 Visual and demo artifacts `todo`
 
 Blocked by: 05. Split from issue 05 (user decision 2026-11-14).
