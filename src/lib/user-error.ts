@@ -70,6 +70,29 @@ const GATEWAY_BODIES: Record<string, UserMessage> = {
 	"The LearnHarness server is not reachable.": MAC_NOT_READY,
 };
 
+/** Practice refusals (issue 06). The session screen offers a sync for them. */
+export const PROBLEM_NOT_ACTIVE = userMessage(
+	"This problem is not active anymore. Read the session again to see where it stands.",
+);
+export const PROBLEM_STILL_ACTIVE = userMessage(
+	"A problem is still active. Read the session again to see it.",
+);
+export const PLUGIN_PROBLEM = userMessage(
+	"This problem uses a plugin. Work on it in LearnHarness on the Mac.",
+);
+export const DISMISS_FAILED = userMessage("The phone could not dismiss the problem. Try again.");
+
+/**
+ * The Mac's input refusals (fork src/core/input-events.ts). The Mac answers
+ * 400 with `{ error }`, and SessionModel keeps the body text.
+ */
+const MAC_INPUT_ERRORS: Record<string, UserMessage> = {
+	"thinking input targets no active problem": PROBLEM_NOT_ACTIVE,
+	"dismiss-problem input targets no active problem": PROBLEM_NOT_ACTIVE,
+	"next input requires no active problem": PROBLEM_STILL_ACTIVE,
+	"This problem requires its registered submission editor": PLUGIN_PROBLEM,
+};
+
 export const SYNC_FAILED = userMessage(
 	"The phone could not read this session from the Mac. Try again.",
 );
@@ -86,6 +109,7 @@ const SESSION_MODEL_PATTERNS: [RegExp, UserMessage][] = [
 		/^The steer failed \((\d+)\)\.$/,
 		userMessage("The teacher did not get your message. Try again."),
 	],
+	[/^The dismissal failed \((\d+)\)\.$/, DISMISS_FAILED],
 ];
 
 function fromPattern(message: string): UserMessage | null {
@@ -133,6 +157,7 @@ function fromEnvelope(body: unknown): UserMessage | null {
 		);
 	}
 	if (typeof b.error === "string" && GATEWAY_BODIES[b.error]) return GATEWAY_BODIES[b.error];
+	if (typeof b.error === "string" && MAC_INPUT_ERRORS[b.error]) return MAC_INPUT_ERRORS[b.error];
 	return null;
 }
 

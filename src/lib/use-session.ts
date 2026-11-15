@@ -32,6 +32,18 @@
  *   does not lock the screen.
  * - One banner for every error of the session, with Try again when an
  *   action applies.
+ *
+ * Issue 06 (practice):
+ * - `problem`: the active practice problem (the shared activeProblemOf,
+ *   the gate that the Mac's tools read), when no turn runs.
+ * - A thinking submission starts a turn. A refused one keeps its text
+ *   (Try again sends it again), as a refused text does.
+ * - Dismiss (only when no turn runs: during a turn the composer shows
+ *   Stop, and the dock comes back after it): SessionModel adds the
+ *   dismissal marker and calls the dismiss route. A failed dismissal reads
+ *   the record again, so the dock comes back.
+ * - A refusal that says the problem is not active (or still active) offers
+ *   a sync, not a resend.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
@@ -41,6 +53,7 @@ import { attachSessionEvents, syncSession, type SessionEventHooks } from "./sess
 import { openingPrompts, readSession, type OpeningPrompts, type SessionRecord } from "./sessions";
 import {
 	SessionModel,
+	activeProblemOf,
 	endsInFailedTurn,
 	malformedQuestionsOf,
 	pendingQuestionOf,
@@ -51,7 +64,14 @@ import {
 	type SessionState,
 } from "./shared";
 
-import { SYNC_FAILED, describeError, userMessage, type UserMessage } from "./user-error";
+import {
+	PROBLEM_NOT_ACTIVE,
+	PROBLEM_STILL_ACTIVE,
+	SYNC_FAILED,
+	describeError,
+	userMessage,
+	type UserMessage,
+} from "./user-error";
 
 export const ABORT_FAILED = userMessage(
 	"The phone could not stop the turn. It still runs on the Mac. Try again in a moment.",
@@ -71,6 +91,7 @@ export interface SessionBanner {
 /** An input that the Mac did not accept. Try again sends it again. */
 type Unsent =
 	| { kind: "text"; text: string }
+	| { kind: "thinking"; problemCallId: string; text: string }
 	| { kind: "answer"; toolCallId: string; answer: QuestionAnswerData; key: string };
 
 export type SessionLoad =
@@ -101,8 +122,19 @@ export function useSessionRecord(
 	return { load, reload };
 }
 
+/** The active practice problem (shared activeProblemOf). */
+export type ActiveProblem = NonNullable<ReturnType<typeof activeProblemOf>>;
+
 export interface SessionControls {
 	state: SessionState;
+	/** The active practice problem, when no turn runs. */
+	problem: ActiveProblem | null;
+	/** Send the learner's thinking for the active problem. Resolves when the Mac accepts it. */
+	submitThinking(problemCallId: string, text: string): Promise<boolean>;
+	/** The last thinking that the Mac did not accept. The dock shows it again. */
+	unsentThinking: string | null;
+	/** Dismiss the active problem (no turn runs while the dock shows). */
+	dismissProblem(): Promise<void>;
 	/** The question that waits for the learner, when no turn runs. */
 	pending: ReturnType<typeof pendingQuestionOf>;
 	/** A question call with bad input, when no turn runs and no question waits. */
@@ -234,6 +266,24 @@ export function useSessionModel(
 		[model],
 	);
 
+	const submitThinking = useCallback(
+		(problemCallId: string, text: string) =>
+			new Promise<boolean>((resolve) => {
+				let accepted = false;
+				const onAccepted = () => {
+					accepted = true;
+					setUnsent(null);
+					resolve(true);
+				};
+				void model.send({ type: "thinking", problemCallId, text }, onAccepted).then((ok) => {
+					if (accepted) return;
+					setUnsent(ok ? null : { kind: "thinking", problemCallId, text });
+					resolve(ok);
+				});
+			}),
+		[model],
+	);
+
 	// Turns that the Mac starts by itself, and records that change without a turn.
 	useEffect(() => attachSessionEvents(model, hub, hooks), [model, hub, hooks]);
 
@@ -306,6 +356,13 @@ export function useSessionModel(
 	);
 
 	const running = state.status === "submitted" || state.status === "streaming";
+	const problem = useMemo(
+		() =>
+			state.status === "ready" || state.status === "error"
+				? activeProblemOf(state.nativeMessages)
+				: null,
+		[state],
+	);
 	const queuedSteers = useMemo(
 		() => visibleQueuedSteers(state.steerQueue, state.nativeMessages),
 		[state.steerQueue, state.nativeMessages],
@@ -340,25 +397,44 @@ export function useSessionModel(
 		() =>
 			unsent?.kind === "text"
 				? sendText(unsent.text)
-				: unsent?.kind === "answer"
-					? answer(unsent.toolCallId, unsent.answer, unsent.key)
-					: model.send({ type: "retry" }),
-		[unsent, sendText, answer, model],
+				: unsent?.kind === "thinking"
+					? submitThinking(unsent.problemCallId, unsent.text)
+					: unsent?.kind === "answer"
+						? answer(unsent.toolCallId, unsent.answer, unsent.key)
+						: model.send({ type: "retry" }),
+		[unsent, sendText, submitThinking, answer, model],
 	);
 
 	const banner = useMemo<SessionBanner | null>(() => {
-		if (state.error)
+		if (state.error) {
+			const text = describeError(state.error);
+			// The Mac's view of the problem is not the phone's: read it again.
+			if (text === PROBLEM_NOT_ACTIVE || text === PROBLEM_STILL_ACTIVE)
+				return { text, retry: "sync" };
 			return {
-				text: describeError(state.error),
+				text,
 				// No Try again for a failure that cannot be retried (as on the
 				// desktop): the learner closes it and sends something new.
 				retry: unsent ? "resend" : endsInFailedTurn(state.nativeMessages) ? "retry-turn" : null,
 			};
+		}
 		return notice;
 	}, [state.error, state.nativeMessages, unsent, notice]);
 
+	const dismissProblem = useCallback(async () => {
+		const active = activeProblemOf(model.getState().nativeMessages);
+		if (!active) return;
+		await model.dismissProblem(active.toolCallId);
+		// A failed dismissal leaves its marker on the phone only: read the record again.
+		if (model.getState().error) await syncSession(model, { onSnapshot: hooks.onSnapshot });
+	}, [model, hooks]);
+
 	return {
 		state,
+		problem: running ? null : problem,
+		submitThinking,
+		unsentThinking: unsent?.kind === "thinking" ? unsent.text : null,
+		dismissProblem,
 		pending,
 		malformed,
 		sendText,

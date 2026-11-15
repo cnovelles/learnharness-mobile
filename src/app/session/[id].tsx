@@ -34,6 +34,7 @@ import {
 } from "@/components/island-viewport";
 import { PlanSheet } from "@/components/plan-sheet";
 import { QuestionDock } from "@/components/question-dock";
+import { PracticeDock } from "@/components/practice-dock";
 import { Transcript } from "@/components/transcript";
 import {
 	alpha,
@@ -360,7 +361,18 @@ function SessionBody({ record }: { record: SessionRecord }) {
 							))}
 						</View>
 					) : null}
-					{running || (!pending && (state.status === "ready" || session.unsentText !== null)) ? (
+					{session.problem ? (
+						<PracticeDock
+							key={`${session.problem.toolCallId}-${session.unsentThinking ?? ""}`}
+							problemCallId={session.problem.toolCallId}
+							input={session.problem.input}
+							plugin={!!session.problem.pluginProblem}
+							initialText={session.unsentThinking ?? ""}
+							waiting={compacting}
+							onSubmit={(text) => session.submitThinking(session.problem!.toolCallId, text)}
+							onDismiss={() => void session.dismissProblem()}
+						/>
+					) : running || (!pending && (state.status === "ready" || session.unsentText !== null)) ? (
 						<Composer
 							key={session.unsentText ?? ""}
 							onSend={session.sendText}

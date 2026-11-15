@@ -31,6 +31,11 @@ jest.mock("expo-camera", () => ({
 }));
 
 const APP = path.resolve(__dirname, "../src/app");
+// The first session screen in this file loads the whole rich renderer
+// (Markdown, Shiki, the islands, the plan graph). Under the full suite's
+// load that takes more than 5 s (the Jest default), and a test that times
+// out leaves its held stream open for the next tests.
+jest.setTimeout(20_000);
 
 let mac: FakeMac;
 

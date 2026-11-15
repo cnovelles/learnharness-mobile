@@ -18,6 +18,7 @@ export {
 	PROVIDER_KEY_MISSING_CODE,
 	CONFIDENCE_STOPS,
 	QUESTION_TOOLS,
+	activeProblemOf,
 	DEFAULT_CONFIDENCE_INDEX,
 	answerForPresentation,
 	buildAnswer,

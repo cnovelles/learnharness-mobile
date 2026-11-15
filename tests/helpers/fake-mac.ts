@@ -58,6 +58,8 @@ export class FakeMac {
 	steerAnswer: { status: number; body: Rec } | null = null;
 	abortAnswer: { status: number; body: Rec } | null = null;
 	dismissAnswer: { status: number; body: Rec } | null = null;
+	/** The next POST /api/chat fails like a lost network (fetch rejects); the Mac gets nothing. */
+	networkFailNextChat = false;
 	/** The answer for the next POST /api/chats (a refused new session). */
 	createAnswer: { status: number; body: Rec } | null = null;
 	/** The next N record reads fail with 500. */
@@ -205,6 +207,19 @@ export class FakeMac {
 				this.dismissAnswer = null;
 				return this.json(body, status);
 			}
+			if (input.type === "dismiss-problem") {
+				// The Mac's silent route: the marker only, no turn (fork input-events.ts).
+				this.chats.get(dismiss[1]!)!.messages.push({
+					id: `pd_${++this.seq}`,
+					role: "custom",
+					customType: "problem-dismissed",
+					content: "",
+					display: true,
+					details: { problemCallId: input.problemCallId },
+					timestamp: Date.now(),
+				});
+				return this.json({ ok: true });
+			}
 			const answer = input.answer as Rec;
 			this.chats.get(dismiss[1]!)!.messages.push({
 				role: "toolResult",
@@ -239,6 +254,10 @@ export class FakeMac {
 		if (/^\/api\/chats\/[^/]+\/stream$/.test(p)) return this.done();
 		if (p === "/api/jobs") return this.json({ turnInFlight: false, jobs: [] });
 		if (p === "/api/chat" && method === "POST") {
+			if (this.networkFailNextChat) {
+				this.networkFailNextChat = false;
+				throw new TypeError("Network request failed");
+			}
 			const body = JSON.parse(String(init?.body)) as { chatId: string; input: Rec };
 			this.inputs.push(body.input);
 			if (this.refuseNext) {
@@ -253,6 +272,26 @@ export class FakeMac {
 					role: "user",
 					id: `u_${++this.seq}`,
 					content: body.input.text,
+					timestamp: now,
+				});
+			if (body.input.type === "thinking")
+				chat.messages.push({
+					id: `pt_${++this.seq}`,
+					role: "custom",
+					customType: "practice-thinking",
+					content: `Your thinking:\n${String(body.input.text)}`,
+					display: true,
+					details: { problemCallId: body.input.problemCallId, text: body.input.text },
+					timestamp: now,
+				});
+			if (body.input.type === "next")
+				chat.messages.push({
+					id: `pn_${++this.seq}`,
+					role: "custom",
+					customType: "practice-next",
+					content: "[NEXT PROBLEM]",
+					display: true,
+					details: {},
 					timestamp: now,
 				});
 			if (body.input.type === "answer") {

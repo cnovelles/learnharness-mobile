@@ -161,10 +161,33 @@ describe("describeError", () => {
 			expect(log).not.toHaveBeenCalled();
 		});
 
-		it("no longer maps the old skip failure: the phone has no Skip", () => {
+		it("maps a failed problem dismissal (issue 06; the phone has no question Skip)", () => {
 			expect(describeError({ message: "The dismissal failed (500)." }, log)).toBe(
-				"Something went wrong. Try again.",
+				"The phone could not dismiss the problem. Try again.",
 			);
+			expect(log).not.toHaveBeenCalled();
+		});
+
+		it.each([
+			[
+				"thinking input targets no active problem",
+				"This problem is not active anymore. Read the session again to see where it stands.",
+			],
+			[
+				"dismiss-problem input targets no active problem",
+				"This problem is not active anymore. Read the session again to see where it stands.",
+			],
+			[
+				"next input requires no active problem",
+				"A problem is still active. Read the session again to see it.",
+			],
+			[
+				"This problem requires its registered submission editor",
+				"This problem uses a plugin. Work on it in LearnHarness on the Mac.",
+			],
+		])("maps the Mac's practice refusal %j (issue 06)", (raw, text) => {
+			expect(describeError({ message: JSON.stringify({ error: raw }) }, log)).toBe(text);
+			expect(log).not.toHaveBeenCalled();
 		});
 
 		it("does not take a text that only looks like the pattern", () => {
