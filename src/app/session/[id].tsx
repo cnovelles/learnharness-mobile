@@ -50,6 +50,7 @@ import { phaseAt3Lh, type Phase3 } from "@/lib/shared";
 import { revealPlan } from "@/lib/reveal";
 import { transcriptRows } from "@/lib/transcript";
 import { COMPACTING, useSessionModel, useSessionRecord } from "@/lib/use-session";
+import { SPACE } from "@/components/spacing";
 
 function Composer({
 	onSend,
@@ -334,7 +335,7 @@ function SessionBody({ record }: { record: SessionRecord }) {
 				{/* The composer stays under the transcript, above the keyboard. */}
 				<View style={styles.bottom}>
 					{session.queuedSteers.length > 0 ? (
-						<View testID="queued-steers" style={{ gap: 4 }}>
+						<View testID="queued-steers" style={{ gap: SPACE.xs }}>
 							{session.queuedSteers.map((q) => (
 								<Body key={q.id} muted>
 									Waiting for the teacher: {q.text}
@@ -382,11 +383,11 @@ export default function SessionScreen() {
 
 const styles = StyleSheet.create({
 	screen: { flex: 1 },
-	content: { padding: 16, gap: 16, flexGrow: 1 },
-	row: { flexDirection: "row", gap: 12 },
-	bottom: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
+	content: { padding: SPACE.lg, gap: SPACE.lg, flexGrow: 1 },
+	row: { flexDirection: "row", gap: SPACE.md },
+	bottom: { paddingHorizontal: SPACE.lg, paddingBottom: SPACE.sm, gap: SPACE.sm },
 	headerTitle: { alignItems: "center", maxWidth: 200 },
-	headerButtons: { flexDirection: "row", gap: 16 },
+	headerButtons: { flexDirection: "row", gap: SPACE.lg },
 	headerName: { fontSize: 17, fontWeight: "600" },
 	headerPhase: { fontSize: 11, fontWeight: "600", letterSpacing: 0.6 },
 });

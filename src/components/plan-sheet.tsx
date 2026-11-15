@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { PlanStep, StepStatus } from "@/lib/plan";
 import { Body, Button, Title, usePalette } from "./ui";
+import { SPACE } from "./spacing";
 
 const STATUS_TEXT: Record<StepStatus, string> = {
 	current: "Now",
@@ -90,18 +91,18 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
-		padding: 16,
+		padding: SPACE.lg,
 	},
-	list: { paddingHorizontal: 16, paddingBottom: 32, gap: 8 },
+	list: { paddingHorizontal: SPACE.lg, paddingBottom: SPACE.xxl, gap: SPACE.sm },
 	step: {
 		flexDirection: "row",
 		alignItems: "flex-start",
-		gap: 10,
+		gap: SPACE.md,
 		borderBottomWidth: StyleSheet.hairlineWidth,
-		paddingVertical: 10,
+		paddingVertical: SPACE.md,
 	},
 	mark: { fontSize: 16, width: 18, textAlign: "center", lineHeight: 22 },
-	stepText: { flex: 1, gap: 2 },
+	stepText: { flex: 1, gap: SPACE.xs },
 	title: { fontSize: 16, lineHeight: 22 },
 	summary: { fontSize: 14, lineHeight: 19 },
 	status: { fontSize: 13, fontWeight: "600", lineHeight: 22 },

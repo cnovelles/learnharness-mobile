@@ -24,6 +24,7 @@ import { copyActions, CopyLabel, useCopy } from "./copy";
 import { useNearScreen } from "./island-viewport";
 import { Button, ErrorText, type Palette } from "./ui";
 import { WebIsland } from "./web-island";
+import { SPACE } from "./spacing";
 
 export const FORMULA_ERROR = userMessage("The phone cannot show this formula.");
 export const DIAGRAM_ERROR = userMessage("The phone cannot draw this diagram.");
@@ -233,15 +234,15 @@ const styles = StyleSheet.create({
 	mermaidWait: {
 		flexDirection: "row",
 		alignItems: "center",
-		gap: 8,
+		gap: SPACE.sm,
 		minHeight: MERMAID_MIN_HEIGHT,
 		justifyContent: "center",
 		borderWidth: StyleSheet.hairlineWidth,
 		borderRadius: 8,
 	},
 	mermaidFailed: {
-		gap: 8,
-		padding: 10,
+		gap: SPACE.sm,
+		padding: SPACE.md,
 		borderWidth: StyleSheet.hairlineWidth,
 		borderRadius: 8,
 	},
@@ -250,6 +251,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	row: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+	row: { flexDirection: "row", gap: SPACE.sm, flexWrap: "wrap" },
 	source: { fontFamily: MONO, fontSize: 13, lineHeight: 20 },
 });

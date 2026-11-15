@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15 (issue 05 slice D done and checked on the Simulator).
+Last update: 2026-11-15 (issue 05 slice D done and checked; spacing scale in code, Simulator check open).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-15 (issue 05 slice D done and checked on the Simulator).
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 05 slice E (the plan graph: `react-native-svg` with the shared layout from slice 0; the transcript gets the one-color block, the Plan sheet gets the graph with statuses; error state 14). Slices 0, A, B, C and D passed the Simulator check (2026-11-15). The dev build of 2026-11-15 has `react-native-svg`, so slice E needs no new build. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 395 pass.
+**Next step:** (1) Check the spacing scale (`src/components/spacing.ts`, commit after `2369719`) on the Simulator: the iPhone 17 Pro Max (`26DE96FB-EDAA-41B9-A3D4-132D0819A505`) and a new iPhone SE (3rd generation) simulator (the device type is installed; check that it runs the iOS 26.5 runtime with `xcrun simctl create`). The dev build must be installed on the new simulator (`npx expo run:ios --device <udid> --no-bundler`, with `LANG=en_US.UTF-8`). Then fix what the check finds. (2) Issue 05 slice E (the plan graph: `react-native-svg` with the shared layout from slice 0; the transcript gets the one-color block, the Plan sheet gets the graph with statuses; error state 14). Ask the user about design choices with mockups first. Slices 0, A, B, C and D passed the Simulator check. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 395 pass.
 
 **Facts found during the work**
 
@@ -55,6 +55,8 @@ Last update: 2026-11-15 (issue 05 slice D done and checked on the Simulator).
 - The fake Mac for screen tests is `tests/helpers/fake-mac.ts`. A held turn must end with a `turn-settled` SSE event; a bare `[DONE]` after a held stream makes SessionModel read it as a dropped stream.
 - E2E: each Maestro flow needs a new `npm run e2e:mac` (one-use pairing code, one scripted lesson). Start Metro with `npx expo start --clear` after code changes. Stop both after the run.
 - State at the clear (2026-11-15, fourth clear): issue 05 slices 0, A, B and C are done and passed the Simulator check. Slice C is phone `fc31c93` (islands) and `d482f50` (Simulator check and 3 fixes: island data no longer through `injectedJavaScriptObject`, the transcript follows new content only at the end, the long press fires on `touchend`); CI passed for both. The fork has no new commits since `c6e79ca`. Nothing runs now: Metro and the scripted test Mac are stopped. The Simulator app is still paired with that stopped test Mac, so a new check needs a new `LH_E2E_RICH=1 npm run e2e:mac`, `npx expo start --clear`, then `npm run e2e:teach` (the flow pairs again). Next: slice D (probe card).
+- State at the clear (2026-11-15, fifth clear): issue 05 slice D is done (phone `881732e`, Simulator check passed, `e2e:teach` passes). User check fixes in `2369719`: measured table columns, centered tables and Mermaid charts, the transcript follow rule (`createEndFollow`: only a drag and its momentum count; iOS sends `onMomentumScrollEnd` for the app's own animated scroll). Then the spacing scale (option A, spacing only) in the last commit; format, lint, typecheck and Jest pass, the Simulator check is open. Nothing runs now (Metro and the test Mac are stopped). The Simulator is in light mode, still paired with a stopped test Mac. CI for the last 3 commits is not checked yet.
+- A Maestro run needs a new `LH_E2E_RICH=1 npm run e2e:mac` each time, and Metro with `--clear` after each code change. With RICH, the prober now sends a refused `probe_done` first, then a rich assessment.
 - For a new manual check: make a new temporary folder for `LH_DATA_DIR` and `LH_AUTH_FILE` (the old scratchpad can be gone), start `npm run dev` with both set, load `http://localhost:3000` once, then start Electron with the same two variables and `LH_DEV_URL=http://localhost:3000`.
 - Claude Code CLI on a temporary data folder: turn it on in the desktop Settings → Providers → External CLI → Claude Code. The first click can fail to save; check `GET /api/settings` (`claudeCode.enabled: true`). Turning it on also sets the Strong model to `claude-code` `sonnet`. `/api/claude-code` answers only same-origin requests, so check it in the desktop window, not with curl.
 - The Claude Code CLI can send tool arguments with literal `\n` (backslash, n). Display text goes through `teacherText` (`src/lib/teacher-text.ts`), which calls the shared `repairMathForDisplay`, as the desktop does. It repairs only fences and paragraph breaks.

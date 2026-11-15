@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { UserMessage } from "@/lib/user-error";
+import { SPACE } from "./spacing";
 
 const LIGHT = {
 	bg: "#f6f6f4",
@@ -219,23 +220,28 @@ export function Loading() {
 const styles = StyleSheet.create({
 	screen: { flex: 1 },
 	scroll: { flexGrow: 1 },
-	inner: { padding: 16, gap: 16 },
-	panel: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 16, gap: 10 },
+	inner: { padding: SPACE.lg, gap: SPACE.lg },
+	panel: {
+		borderWidth: StyleSheet.hairlineWidth,
+		borderRadius: 12,
+		padding: SPACE.lg,
+		gap: SPACE.md,
+	},
 	title: { fontSize: 20, fontWeight: "600" },
 	body: { fontSize: 15, lineHeight: 21 },
 	field: {
 		borderWidth: StyleSheet.hairlineWidth,
 		borderRadius: 10,
-		paddingHorizontal: 12,
-		paddingVertical: 10,
+		paddingHorizontal: SPACE.md,
+		paddingVertical: SPACE.md,
 		fontSize: 15,
 	},
 	fieldMulti: { minHeight: 72, textAlignVertical: "top" },
 	button: {
 		borderWidth: 1,
 		borderRadius: 10,
-		paddingVertical: 12,
-		paddingHorizontal: 16,
+		paddingVertical: SPACE.md,
+		paddingHorizontal: SPACE.lg,
 		alignItems: "center",
 		justifyContent: "center",
 		minHeight: 46,

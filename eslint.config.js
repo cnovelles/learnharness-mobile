@@ -32,6 +32,23 @@ const USER_TEXT_RULES = [
 	},
 ];
 
+/**
+ * The spacing scale (src/components/spacing.ts, user decision 2026-11-15):
+ * a padding, margin or gap takes a SPACE name, never a number. 0 is allowed.
+ */
+const SPACING_KEYS =
+	"/^(padding|margin)(Top|Bottom|Left|Right|Horizontal|Vertical|Start|End)?$|^(gap|rowGap|columnGap)$/";
+const SPACING_RULES = [
+	{
+		selector: `Property[key.name=${SPACING_KEYS}] > Literal.value[value!=0]`,
+		message: "Use a SPACE name from src/components/spacing.ts for padding, margin and gap.",
+	},
+	{
+		selector: `Property[key.name=${SPACING_KEYS}] > UnaryExpression.value`,
+		message: "Use a SPACE name from src/components/spacing.ts for padding, margin and gap.",
+	},
+];
+
 module.exports = defineConfig([
 	expoConfig,
 	{
@@ -45,7 +62,7 @@ module.exports = defineConfig([
 	{
 		files: ["src/**/*.{ts,tsx}"],
 		ignores: ["src/lib/user-error.ts"],
-		rules: { "no-restricted-syntax": ["error", ...USER_TEXT_RULES] },
+		rules: { "no-restricted-syntax": ["error", ...USER_TEXT_RULES, ...SPACING_RULES] },
 	},
 	prettierConfig,
 ]);

@@ -43,6 +43,7 @@ import { markdownPreview } from "@/lib/markdown";
 import { teacherText } from "@/lib/teacher-text";
 import { Markdown } from "./markdown";
 import { Body, Button, Field, Panel, usePalette } from "./ui";
+import { SPACE } from "./spacing";
 
 export interface PendingQuestionCall {
 	tool: string;
@@ -97,7 +98,7 @@ function Choice({
 function Confidence({ index, onChange }: { index: number; onChange: (index: number) => void }) {
 	const c = usePalette();
 	return (
-		<View style={{ gap: 6 }}>
+		<View style={{ gap: SPACE.sm }}>
 			<Body muted>How sure are you?</Body>
 			<View style={styles.stops} accessibilityRole="radiogroup">
 				{CONFIDENCE_STOPS.map((stop, i) => (
@@ -279,7 +280,7 @@ function RevealBar({
 				testID="reading-thinking"
 			/>
 			<Panel>
-				<View testID="reveal-check" style={{ gap: 6 }}>
+				<View testID="reveal-check" style={{ gap: SPACE.sm }}>
 					<Body style={{ fontWeight: "600" }}>Check your understanding</Body>
 					<Body muted>{preview}</Body>
 				</View>
@@ -347,10 +348,10 @@ export function QuestionDock({
 
 const styles = StyleSheet.create({
 	kind: { fontSize: 12, fontWeight: "600", letterSpacing: 0.8 },
-	choice: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 2 },
+	choice: { borderWidth: 1, borderRadius: 10, padding: SPACE.md, gap: SPACE.xs },
 	body: { fontSize: 15, lineHeight: 21 },
 	choiceText: { fontSize: 15, lineHeight: 21 },
 	small: { fontSize: 13, lineHeight: 18 },
-	stops: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-	stop: { borderWidth: 1, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10 },
+	stops: { flexDirection: "row", flexWrap: "wrap", gap: SPACE.sm },
+	stop: { borderWidth: 1, borderRadius: 8, paddingVertical: SPACE.sm, paddingHorizontal: SPACE.md },
 });

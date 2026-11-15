@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { Palette } from "./ui";
+import { SPACE } from "./spacing";
 
 /** How long the "Copied" or "Could not copy." label stays. */
 export const COPY_LABEL_MS = 1500;
@@ -103,11 +104,11 @@ export function useCopy(source: () => string): { copy: () => void; state: CopySt
 const styles = StyleSheet.create({
 	label: {
 		position: "absolute",
-		top: 6,
-		right: 6,
+		top: SPACE.sm,
+		right: SPACE.sm,
 		borderWidth: StyleSheet.hairlineWidth,
 		borderRadius: 6,
-		paddingHorizontal: 8,
-		paddingVertical: 3,
+		paddingHorizontal: SPACE.sm,
+		paddingVertical: SPACE.xs,
 	},
 });

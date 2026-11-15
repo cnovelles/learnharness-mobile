@@ -55,6 +55,7 @@ import { openLink } from "@/lib/open-link";
 import { CopyLabel, CopyTarget, useCopy } from "./copy";
 import { FORMULA_ERROR, MathIsland, MermaidIsland, type IslandStyle } from "./islands";
 import { ErrorText, usePalette, type Palette } from "./ui";
+import { SPACE } from "./spacing";
 
 export { COPY_LABEL_MS } from "./copy";
 
@@ -446,7 +447,7 @@ function CodeBlock({
 export const TABLE_MAX_COL = 240;
 const TABLE_MIN_COL = 32;
 /** The right padding of a cell (styles.cell). */
-const CELL_PAD = 12;
+const CELL_PAD = SPACE.md;
 
 const clampColumn = (textWidth: number) =>
 	Math.min(TABLE_MAX_COL, Math.max(TABLE_MIN_COL, Math.ceil(textWidth) + CELL_PAD));
@@ -649,30 +650,30 @@ const styles = StyleSheet.create({
 	strong: { fontWeight: "700" },
 	em: { fontStyle: "italic" },
 	del: { textDecorationLine: "line-through" },
-	rule: { borderTopWidth: StyleSheet.hairlineWidth, marginVertical: 4 },
+	rule: { borderTopWidth: StyleSheet.hairlineWidth, marginVertical: SPACE.xs },
 	callout: {
 		alignSelf: "flex-start",
 		maxWidth: "100%",
 		borderWidth: 1,
-		paddingHorizontal: 14,
-		paddingVertical: 10,
+		paddingHorizontal: SPACE.md,
+		paddingVertical: SPACE.md,
 	},
-	quote: { borderLeftWidth: 4, paddingLeft: 12 },
-	item: { flexDirection: "row", gap: 6 },
+	quote: { borderLeftWidth: 4, paddingLeft: SPACE.md },
+	item: { flexDirection: "row", gap: SPACE.sm },
 	marker: { minWidth: 16 },
 	itemBody: { flex: 1 },
 	code: {
 		flexDirection: "row",
 		borderRadius: 8,
 		borderWidth: StyleSheet.hairlineWidth,
-		paddingVertical: 10,
-		paddingHorizontal: 10,
+		paddingVertical: SPACE.md,
+		paddingHorizontal: SPACE.md,
 	},
-	lineNumbers: { textAlign: "right", marginRight: 12, minWidth: 18 },
+	lineNumbers: { textAlign: "right", marginRight: SPACE.md, minWidth: 18 },
 	codeScroll: { flex: 1 },
 	tableRow: { flexDirection: "row" },
 	tableCenter: { flexGrow: 1, justifyContent: "center" },
-	cell: { paddingVertical: 6, paddingRight: CELL_PAD },
+	cell: { paddingVertical: SPACE.sm, paddingRight: CELL_PAD },
 	// Wide enough that no cell wraps; absolute, so it takes no space.
 	measure: { position: "absolute", top: 0, left: 0, width: 10000, opacity: 0 },
 	measureRow: { flexDirection: "row" },

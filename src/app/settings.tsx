@@ -12,6 +12,7 @@ import { useConnection } from "@/lib/connection-context";
 import { MODES } from "@/lib/feature-flags";
 import { useFlags } from "@/lib/flags-context";
 import { describeError, type UserMessage } from "@/lib/user-error";
+import { SPACE } from "@/components/spacing";
 
 const UNLOCK_TAPS = 7;
 
@@ -43,7 +44,12 @@ function DeveloperSection() {
 			{MODES.map((mode) => (
 				<View
 					key={mode.id}
-					style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6 }}
+					style={{
+						flexDirection: "row",
+						alignItems: "center",
+						gap: SPACE.md,
+						paddingVertical: SPACE.sm,
+					}}
 				>
 					<View style={{ flex: 1 }}>
 						<Body>{mode.title}</Body>

@@ -13,6 +13,7 @@ import { PROBE_NOTE, probeMarkdown, type ProbeCardData } from "@/lib/probe-card"
 import { CopyLabel, copyActions, useCopy } from "./copy";
 import { Markdown } from "./markdown";
 import { usePalette } from "./ui";
+import { SPACE } from "./spacing";
 
 const strandCount = (n: number) => `${n} strand${n === 1 ? "" : "s"}`;
 
@@ -78,15 +79,15 @@ export function ProbeCard({ id, data }: { id: string; data: ProbeCardData }) {
 
 const styles = StyleSheet.create({
 	card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, overflow: "hidden" },
-	noteCard: { padding: 12, gap: 8 },
-	head: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12 },
+	noteCard: { padding: SPACE.md, gap: SPACE.sm },
+	head: { flexDirection: "row", alignItems: "center", gap: SPACE.sm, padding: SPACE.md },
 	title: { flex: 1 },
 	label: { fontSize: 12, fontWeight: "600", letterSpacing: 0.6 },
 	small: { fontSize: 14, lineHeight: 20 },
 	block: {
 		borderTopWidth: StyleSheet.hairlineWidth,
-		paddingHorizontal: 12,
-		paddingVertical: 8,
-		gap: 2,
+		paddingHorizontal: SPACE.md,
+		paddingVertical: SPACE.sm,
+		gap: SPACE.xs,
 	},
 });

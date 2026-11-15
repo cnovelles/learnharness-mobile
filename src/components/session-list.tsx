@@ -13,6 +13,7 @@ import { listSessions } from "@/lib/sessions";
 import type { ChatListItem } from "@/lib/shared";
 import { Body, Button, ErrorText, Panel, Title, usePalette } from "./ui";
 import { describeError, type UserMessage } from "@/lib/user-error";
+import { SPACE } from "./spacing";
 
 export function sessionMarks(c: ChatListItem): string {
 	const phase =
@@ -104,8 +105,13 @@ export function SessionList({ enabled }: { enabled: boolean }) {
 }
 
 const styles = StyleSheet.create({
-	head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-	row: { borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: 10, gap: 2 },
+	head: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		gap: SPACE.md,
+	},
+	row: { borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: SPACE.md, gap: SPACE.xs },
 	title: { fontSize: 16, fontWeight: "500" },
 	marks: { fontSize: 13 },
 });

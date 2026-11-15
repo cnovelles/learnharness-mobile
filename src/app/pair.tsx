@@ -11,6 +11,7 @@ import { StyleSheet, TextInput, View } from "react-native";
 import { Body, Button, ErrorText, Panel, Screen, Title, usePalette } from "@/components/ui";
 import { useConnection } from "@/lib/connection-context";
 import { describeError, userMessage, type UserMessage } from "@/lib/user-error";
+import { SPACE } from "@/components/spacing";
 
 export default function PairScreen() {
 	const { state, monitor } = useConnection();
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
 		minHeight: 90,
 		borderWidth: 1,
 		borderRadius: 10,
-		padding: 10,
+		padding: SPACE.md,
 		fontSize: 13,
 		fontFamily: "Menlo",
 		textAlignVertical: "top",

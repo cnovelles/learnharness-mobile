@@ -15,6 +15,7 @@ import type { TranscriptRow } from "@/lib/transcript";
 import { Markdown } from "./markdown";
 import { ProbeCard } from "./probe-card";
 import { usePalette } from "./ui";
+import { SPACE } from "./spacing";
 
 const stepCount = (n: number) => `${n} step${n === 1 ? "" : "s"}`;
 
@@ -311,27 +312,32 @@ export function Transcript({
 }
 
 const styles = StyleSheet.create({
-	list: { gap: 12 },
+	list: { gap: SPACE.md },
 	body: { fontSize: 16, lineHeight: 23 },
 	small: { fontSize: 14, lineHeight: 20 },
-	user: { alignSelf: "flex-end", maxWidth: "85%", borderRadius: 14, padding: 12 },
-	card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, gap: 8 },
+	user: { alignSelf: "flex-end", maxWidth: "85%", borderRadius: 14, padding: SPACE.md },
+	card: {
+		borderWidth: StyleSheet.hairlineWidth,
+		borderRadius: 12,
+		padding: SPACE.md,
+		gap: SPACE.sm,
+	},
 	label: { fontSize: 12, fontWeight: "600", letterSpacing: 0.6 },
-	head: { flexDirection: "row", gap: 8, alignItems: "center" },
+	head: { flexDirection: "row", gap: SPACE.sm, alignItems: "center" },
 	option: {
 		flexDirection: "row",
-		gap: 8,
+		gap: SPACE.sm,
 		alignItems: "center",
 		borderWidth: 1,
 		borderRadius: 8,
-		paddingVertical: 6,
-		paddingHorizontal: 10,
+		paddingVertical: SPACE.sm,
+		paddingHorizontal: SPACE.md,
 	},
 	mark: { width: 14, fontSize: 14, fontWeight: "700" },
-	thinking: { borderLeftWidth: 3, paddingLeft: 10, gap: 4 },
-	reveal: { borderRadius: 8, padding: 8, gap: 2 },
+	thinking: { borderLeftWidth: 3, paddingLeft: SPACE.md, gap: SPACE.xs },
+	reveal: { borderRadius: 8, padding: SPACE.sm, gap: SPACE.xs },
 	optionText: { flex: 1 },
 	center: { textAlign: "center" },
-	divider: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 4 },
+	divider: { flexDirection: "row", alignItems: "center", gap: SPACE.md, marginVertical: SPACE.xs },
 	rule: { flex: 1, borderTopWidth: 2, borderStyle: "dotted" },
 });
