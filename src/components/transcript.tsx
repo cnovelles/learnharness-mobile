@@ -11,6 +11,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { AnsweredCard } from "@/lib/answer-card";
 import { PHASE_LABEL } from "@/lib/plan";
+import { PlanBlock } from "./plan-graph";
 import type { TranscriptRow } from "@/lib/transcript";
 import { Markdown } from "./markdown";
 import { ProbeCard } from "./probe-card";
@@ -247,12 +248,14 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 			return <Reasoning row={row} />;
 		case "question":
 			return <QuestionCard row={row} />;
-		case "plan":
-			return (
+		case "plan": {
+			const label = `Lesson plan, ${stepCount(row.steps)}. Open the plan.`;
+			// The text card: before slice E, and now for a layout that fails.
+			const card = (
 				<Pressable
 					onPress={onOpenPlan}
 					accessibilityRole="button"
-					accessibilityLabel={`Lesson plan, ${stepCount(row.steps)}. Open the plan.`}
+					accessibilityLabel={label}
 					style={[styles.card, { borderColor: c.line, backgroundColor: c.panel }]}
 					testID={`plan-${row.id}`}
 				>
@@ -262,6 +265,10 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 					</Text>
 				</Pressable>
 			);
+			return (
+				<PlanBlock id={row.id} tree={row.tree} label={label} onOpen={onOpenPlan} fallback={card} />
+			);
+		}
 		case "probe":
 			return <ProbeCard id={row.id} data={row} />;
 		case "divider":

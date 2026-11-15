@@ -111,6 +111,12 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "<rootDir>/tests/integration/"
+    ],
+    "setupFiles": [
+      "react-native-gesture-handler/jestSetup.js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup/gestures.ts"
     ]
   }
 }

@@ -250,7 +250,7 @@ function SessionBody({ record }: { record: SessionRecord }) {
 			edges={["bottom", "left", "right"]}
 		>
 			<Stack.Screen options={headerOptions} />
-			<PlanSheet visible={planOpen} steps={steps} onClose={() => setPlanOpen(false)} />
+			<PlanSheet visible={planOpen} steps={steps} tree={tree} onClose={() => setPlanOpen(false)} />
 			<KeyboardAvoidingView
 				behavior="padding"
 				keyboardVerticalOffset={headerHeight}

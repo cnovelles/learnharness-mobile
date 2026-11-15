@@ -22,6 +22,7 @@ import {
 	teachStepIndex,
 	type LhViewMessage,
 	type Phase3,
+	type PlanTree,
 } from "./shared";
 
 export type QuestionStatus =
@@ -49,7 +50,7 @@ export type TranscriptRow =
 			/** Only for status "answered". */
 			card?: AnsweredCard;
 	  }
-	| { kind: "plan"; id: string; steps: number }
+	| { kind: "plan"; id: string; steps: number; tree: PlanTree }
 	/** The probe_done assessment (issue 05 slice D). */
 	| ({ kind: "probe"; id: string } & ProbeCardData)
 	| { kind: "divider"; id: string; phase: Exclude<Phase3, "probe">; steps?: number }
@@ -167,7 +168,7 @@ export function transcriptRows(
 					rows.push({ kind: "probe", id, ...probeCardData(part) });
 				} else if (name.startsWith("plan_")) {
 					const tree = planPartTree(part);
-					if (tree) rows.push({ kind: "plan", id, steps: tree.nodes.length });
+					if (tree) rows.push({ kind: "plan", id, steps: tree.nodes.length, tree });
 					else
 						rows.push({
 							kind: "tool",

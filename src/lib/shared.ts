@@ -57,10 +57,17 @@ export {
 // with no DOM. The desktop draws the same numbers in components/plan-block.tsx.
 export {
 	ARROW_HEAD,
+	GLOW_BLUR,
+	GLOW_MARGIN,
+	GLOW_REACH,
 	GRAPH_PAD,
 	HEAD_H,
 	HEAD_W,
+	LINE_H,
+	NODE_H,
+	NODE_W_MIN,
 	STROKE_W,
+	TEXT_CAP_SCALE,
 	blockLayout,
 	edgePathD,
 	wrapTitle,

@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15 (issue 05 slice D done and checked; spacing scale checked on the iPhone SE and the Pro Max; next: slice E).
+Last update: 2026-11-15 (issue 05 slices D and E done and checked, spacing scale checked; next: slice F, the acceptance).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-15 (issue 05 slice D done and checked; spacing scale checke
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 05 slice E (the plan graph: `react-native-svg` with the shared layout from slice 0; the transcript gets the one-color block, the Plan sheet gets the graph with statuses; error state 14). Ask the user about design choices with mockups first. Slices 0, A, B, C and D and the spacing scale passed the Simulator check. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 395 pass. Optional, user decision open: a check on an older iOS runtime (the app targets iOS 16.4; only the 26.3 and 26.5 runtimes are installed).
+**Next step:** Issue 05 slice F (the acceptance): Jest for each slice and each error state (check the list in `docs/ISSUES.md`, issue 05), Maestro screenshots of a scripted lesson with Markdown, code, math, Mermaid, the probe card and the plan graph, then the user checks one real lesson on the Simulator. Slices 0, A, B, C, D and E and the spacing scale passed the Simulator check. Jest: 422 pass. Optional, user decision open: a check on an older iOS runtime (the app targets iOS 16.4; only the 26.3 and 26.5 runtimes are installed).
 
 **Facts found during the work**
 
@@ -58,6 +58,7 @@ Last update: 2026-11-15 (issue 05 slice D done and checked; spacing scale checke
 - State at the clear (2026-11-15, fifth clear): issue 05 slice D is done (phone `881732e`, Simulator check passed, `e2e:teach` passes). User check fixes in `2369719`: measured table columns, centered tables and Mermaid charts, the transcript follow rule (`createEndFollow`: only a drag and its momentum count; iOS sends `onMomentumScrollEnd` for the app's own animated scroll). Then the spacing scale (option A, spacing only) in the last commit; format, lint, typecheck and Jest pass, the Simulator check is open. Nothing runs now (Metro and the test Mac are stopped). The Simulator is in light mode, still paired with a stopped test Mac. CI for the last 3 commits is not checked yet.
 - Small screens (2026-11-15): the smallest iPhone screen in the app's range (iOS 16.4 and later) is 375 x 667 pt (iPhone SE 2nd and 3rd generation, iPhone 8; from memory). The simulator `iPhone SE (3rd generation)` on iOS 26.5 is `3960A9E9-57A3-4642-96C3-A4E29358A00D`. The dev build installs with `xcrun simctl install <udid> <DerivedData>/Build/Products/Debug-iphonesimulator/learnharnessmobile.app` (no new build).
 - Dev builds: React Native 0.88 shows a toast "Open debugger to view warnings." for the first warning. It covers the bottom of the screen for some seconds; on the SE it covered "Send answer", and Maestro taps failed. `metro.config.js` now ignores the fork's two require cycles (`requireCycleIgnorePatterns`), and `src/app/_layout.tsx` ignores the `onAnimatedValueUpdate` warning. A new warning brings the toast back: fix the cause or ignore it before a Maestro run on a small screen.
+- Plan graph (2026-11-15): react-native-svg keeps the old fill of a `Rect` and a `Text` in a `G` when only the color changes; give the `Svg` a key that changes with the colors. A JS `PanResponder` inside a native scroll view loses its touches: use react-native-gesture-handler (in the dev build, with `runOnJS: true`). In Jest the gesture library gets no Reanimated (`tests/setup/gestures.ts`), because the expo-router test tools replace Reanimated with an empty object.
 - A Maestro run needs a new `LH_E2E_RICH=1 npm run e2e:mac` each time, and Metro with `--clear` after each code change. With RICH, the prober now sends a refused `probe_done` first, then a rich assessment.
 - For a new manual check: make a new temporary folder for `LH_DATA_DIR` and `LH_AUTH_FILE` (the old scratchpad can be gone), start `npm run dev` with both set, load `http://localhost:3000` once, then start Electron with the same two variables and `LH_DEV_URL=http://localhost:3000`.
 - Claude Code CLI on a temporary data folder: turn it on in the desktop Settings → Providers → External CLI → Claude Code. The first click can fail to save; check `GET /api/settings` (`claudeCode.enabled: true`). Turning it on also sets the Strong model to `claude-code` `sonnet`. `/api/claude-code` answers only same-origin requests, so check it in the desktop window, not with curl.
