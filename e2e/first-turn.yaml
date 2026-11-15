@@ -55,6 +55,6 @@ appId: dev.local.learnharnessmobile
 - extendedWaitUntil:
     visible: ".*two bulges.*"
     timeout: 60000
-- assertVisible: "Your answer: The gravity of the Moon.*Correct\\."
+- assertVisible: "CORRECT"
 - assertNotVisible:
     id: "dock-question"

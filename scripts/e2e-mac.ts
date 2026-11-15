@@ -12,9 +12,19 @@
  * The scripted lesson (one probe, then the teacher):
  * 1. Prober: a short welcome and one probe about the tides.
  * 2. After the answer: probe_done, then a handoff sentence.
- * 3. Teacher: one paragraph about the two tidal bulges.
+ * 3. Teacher: one paragraph about the two tidal bulges and plan_init (two
+ *    steps), then a question about the plan.
+ * 4. After the learner's reply: the teaching text and a check for the
+ *    first step (it waits behind "Check your understanding").
+ * 5. After the answer: a short reply.
+ * e2e/first-turn.yaml uses steps 1 to 3; e2e/teach-cycle.yaml uses all.
+ *
+ * Control server (for Maestro, on 127.0.0.1, port in e2e/.control.txt):
+ * POST /models/clear removes the model settings (the Mac then refuses a
+ * turn with models_not_configured), POST /models/set sets them again.
  */
 import fs from "node:fs";
+import http from "node:http";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
@@ -23,6 +33,7 @@ const FORK = process.env.LH_FORK_DIR
 	? path.resolve(process.env.LH_FORK_DIR)
 	: path.resolve(import.meta.dirname, "../../learnharness");
 const PAIRING_FILE = path.resolve(import.meta.dirname, "../e2e/.pairing.txt");
+const CONTROL_FILE = path.resolve(import.meta.dirname, "../e2e/.control.txt");
 
 export const LESSON = {
 	probeText: "Welcome. First, one short question to see what you already know.",
@@ -40,6 +51,21 @@ export const LESSON = {
 	teach:
 		"The Moon pulls harder on the near side of the Earth than on the far side. " +
 		"This difference stretches the oceans into two bulges.",
+	plan: "graph TD\n  pull[Uneven pull] --> bulges[Two bulges]",
+	planQuestion: "This is the plan: two steps. Tell me when you are ready.",
+	lesson: "The near side is closer to the Moon, so the pull there is stronger.",
+	check: {
+		type: "check",
+		nodeId: "pull",
+		question: "Why is the pull on the near side stronger?",
+		options: [
+			{ label: "It is closer to the Moon", value: "closer" },
+			{ label: "The water there is warmer", value: "warmer" },
+		],
+		explanation: "Gravity gets weaker with distance, and the near side is closer.",
+		correctAnswer: "closer",
+	},
+	afterCheck: "Right. Next we look at the two bulges.",
 };
 
 const SECRET = "e".repeat(64);
@@ -80,7 +106,17 @@ async function main() {
 				},
 				{ text: LESSON.handoff },
 			],
-			teacher: [{ text: LESSON.teach, chunkSize: 8, chunkDelayMs: 30 }],
+			teacher: [
+				{
+					text: LESSON.teach,
+					chunkSize: 8,
+					chunkDelayMs: 30,
+					toolCalls: [{ name: "plan_init", arguments: { mermaid: LESSON.plan } }],
+				},
+				{ text: LESSON.planQuestion },
+				{ text: LESSON.lesson, toolCalls: [{ name: "quiz", arguments: LESSON.check }] },
+				{ text: LESSON.afterCheck },
+			],
 		},
 	});
 	console.log("Starting the fork server (next dev). This can take a minute…");
@@ -100,16 +136,21 @@ async function main() {
 	});
 	if (!connect.ok) throw new Error(`custom provider: ${await connect.text()}`);
 	const slot = (id: string) => ({ model: { provider: "custom", id } });
-	const models = await fetch(`${server.url}/api/settings/models`, {
-		method: "PUT",
-		headers: json,
-		body: JSON.stringify({
-			strong: slot("fake-strong"),
-			cheap: slot("fake-cheap"),
-			vision: slot("fake-cheap"),
-		}),
-	});
-	if (!models.ok) throw new Error(`models: ${await models.text()}`);
+	// The models section is one whole write: {} removes every slot.
+	const putModels = async (settings: Record<string, unknown>) => {
+		const res = await fetch(`${server.url}/api/settings/models`, {
+			method: "PUT",
+			headers: json,
+			body: JSON.stringify(settings),
+		});
+		if (!res.ok) throw new Error(`models: ${await res.text()}`);
+	};
+	const MODELS = {
+		strong: slot("fake-strong"),
+		cheap: slot("fake-cheap"),
+		vision: slot("fake-cheap"),
+	};
+	await putModels(MODELS);
 	await fetch(`${server.url}/api/settings/graph`, {
 		method: "PUT",
 		headers: json,
@@ -128,6 +169,28 @@ async function main() {
 	const text = JSON.stringify({ ...payload, urls: [`https://127.0.0.1:${address.port}`] });
 	fs.mkdirSync(path.dirname(PAIRING_FILE), { recursive: true });
 	fs.writeFileSync(PAIRING_FILE, text);
+
+	const control = http.createServer((req, res) => {
+		const done = (status: number, body: string) => {
+			res.writeHead(status, { "content-type": "text/plain" });
+			res.end(body);
+		};
+		const action =
+			req.method === "POST" && req.url === "/models/clear"
+				? putModels({})
+				: req.method === "POST" && req.url === "/models/set"
+					? putModels(MODELS)
+					: null;
+		if (!action) return done(404, "unknown");
+		action.then(
+			() => done(200, "ok"),
+			(e: unknown) => done(500, String(e)),
+		);
+	});
+	await new Promise<void>((resolve) => control.listen(0, "127.0.0.1", resolve));
+	const controlUrl = `http://127.0.0.1:${(control.address() as AddressInfo).port}`;
+	fs.writeFileSync(CONTROL_FILE, controlUrl);
+	console.log(`Control server: ${controlUrl}`);
 	console.log(`Test Mac ready. Data folder: ${server.dataDir}`);
 	console.log(`Pairing text (also in ${PAIRING_FILE}):\n${text}`);
 
@@ -136,6 +199,8 @@ async function main() {
 		if (stopping) return;
 		stopping = true;
 		fs.rmSync(PAIRING_FILE, { force: true });
+		fs.rmSync(CONTROL_FILE, { force: true });
+		control.close();
 		await gateway.stop();
 		await server.stop();
 		await fake.close();

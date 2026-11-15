@@ -47,3 +47,4 @@ tests/.cache/
 
 # The test Mac's pairing text (scripts/e2e-mac.ts)
 e2e/.pairing.txt
+e2e/.control.txt

@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (issue 04 slices B, C and D done; slice E next).
+Last update: 2026-11-14 (issue 04 slices 0 to E done; the user's real teach cycle is open).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-14 (issue 04 slices B, C and D done; slice E next).
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 04 slice E: the Maestro E2E probe → plan → teach → check (through the reveal) → the answered card, and a Maestro case for `models_not_configured`. Slices 0, A, B (phase, lesson map sheet, answered cards), C (steer, Stop, Skip, retry gate, foreground) and D (compaction, one banner) are done; details in `docs/ISSUES.md` (issue 04). Jest: 261 pass. Not run since `25a442c`: `npm run test:integration` (needs the fork dev server stopped). Not checked on the Simulator yet: slices A to D.
+**Next step:** issue 04 acceptance: the user checks one real teach cycle on the Simulator (pair with the fork desktop app, a lesson with the Claude Code CLI through probe, plan, teach and a check). All slices (0, A to E) are done; details in `docs/ISSUES.md` (issue 04). Jest: 261 pass. `npm run test:integration`: 4 pass. Maestro: `e2e/teach-cycle.yaml` and `e2e/first-turn.yaml` pass. After issue 04: issue 05 (rich rendering) or 18 (visual design); the "Tool: probe_done" row is still a plain tool line.
 
 **Facts found during the work**
 

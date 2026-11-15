@@ -8,8 +8,18 @@
  * composer sends steers. One banner shows the session's errors.
  */
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useRef, useState, type ComponentRef } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
+import { useHeaderHeight } from "expo-router/react-navigation";
+import {
+	Alert,
+	Keyboard,
+	KeyboardAvoidingView,
+	Pressable,
+	ScrollView,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PlanSheet } from "@/components/plan-sheet";
@@ -187,6 +197,17 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		[record.title, phase, hasPlan, running, stopTurn, openPlan],
 	);
 	const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
+	// The keyboard covers the screen on iOS: pad the view by its height
+	// (Expo keyboard guide). The offset is the header height.
+	const headerHeight = useHeaderHeight();
+	// A field in the dock is near the end of the transcript: show it when
+	// the keyboard opens.
+	useEffect(() => {
+		const sub = Keyboard.addListener("keyboardDidShow", () =>
+			scroll.current?.scrollToEnd({ animated: true }),
+		);
+		return () => sub.remove();
+	}, []);
 	// The check that the learner opened. It stays open while a refused answer is sent again.
 	const [openedKey, setOpenedKey] = useState<string | null>(null);
 
@@ -197,89 +218,98 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		>
 			<Stack.Screen options={headerOptions} />
 			<PlanSheet visible={planOpen} steps={steps} onClose={() => setPlanOpen(false)} />
-			<ScrollView
-				ref={scroll}
-				contentContainerStyle={styles.content}
-				keyboardShouldPersistTaps="handled"
-				onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
+			<KeyboardAvoidingView
+				behavior="padding"
+				keyboardVerticalOffset={headerHeight}
+				style={styles.screen}
 			>
-				<Transcript rows={rows} onOpenPlan={openPlan} />
-				{running ? (
-					<Body muted testID="turn-running">
-						{state.status === "submitted" ? "Sending…" : "The teacher is writing…"}
-					</Body>
-				) : null}
-				{compacting ? (
-					<Body muted testID="compacting">
-						{COMPACTING}
-					</Body>
-				) : null}
-				{banner ? (
-					<Panel>
-						<ErrorText testID="session-error">{banner.text}</ErrorText>
-						<View style={styles.row}>
-							{banner.retry ? (
-								<Button
-									title="Try again"
-									onPress={() => void session.retryBanner()}
-									disabled={compacting && banner.retry !== "sync"}
-									testID="retry-turn"
-								/>
-							) : null}
-							<Button
-								title="Close"
-								kind="plain"
-								onPress={session.closeBanner}
-								testID="clear-error"
-							/>
-						</View>
-					</Panel>
-				) : null}
-				{!running && pending ? (
-					<QuestionDock
-						key={pending.key}
-						call={pending}
-						reveal={revealPlan(state.nativeMessages, pending)}
-						opened={openedKey === pending.key}
-						onOpen={() => setOpenedKey(pending.key)}
-						draft={session.draft(pending.key)}
-						onDraft={(draft) => session.saveDraft(pending.key, draft)}
-						onSubmit={(answer) => session.answer(pending.toolCallId, answer, pending.key)}
-						onSkip={session.skipQuestion}
-						waiting={compacting}
-					/>
-				) : null}
-				{!running && malformed ? (
-					<Panel>
-						<Body>
-							The teacher&apos;s question was not complete. Ask the teacher to write it again.
+				<ScrollView
+					ref={scroll}
+					contentContainerStyle={styles.content}
+					keyboardShouldPersistTaps="handled"
+					onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
+				>
+					<Transcript rows={rows} onOpenPlan={openPlan} />
+					{running ? (
+						<Body muted testID="turn-running">
+							{state.status === "submitted" ? "Sending…" : "The teacher is writing…"}
 						</Body>
-						<Button
-							title="Ask again"
-							onPress={() => void session.retryQuestion()}
-							testID="retry-question"
+					) : null}
+					{compacting ? (
+						<Body muted testID="compacting">
+							{COMPACTING}
+						</Body>
+					) : null}
+					{banner ? (
+						<Panel>
+							<ErrorText testID="session-error">{banner.text}</ErrorText>
+							<View style={styles.row}>
+								{banner.retry ? (
+									<Button
+										title="Try again"
+										onPress={() => void session.retryBanner()}
+										disabled={compacting && banner.retry !== "sync"}
+										testID="retry-turn"
+									/>
+								) : null}
+								<Button
+									title="Close"
+									kind="plain"
+									onPress={session.closeBanner}
+									testID="clear-error"
+								/>
+							</View>
+						</Panel>
+					) : null}
+					{!running && pending ? (
+						<QuestionDock
+							key={pending.key}
+							call={pending}
+							reveal={revealPlan(state.nativeMessages, pending)}
+							opened={openedKey === pending.key}
+							onOpen={() => setOpenedKey(pending.key)}
+							draft={session.draft(pending.key)}
+							onDraft={(draft) => session.saveDraft(pending.key, draft)}
+							onSubmit={(answer) => session.answer(pending.toolCallId, answer, pending.key)}
+							onSkip={session.skipQuestion}
+							waiting={compacting}
 						/>
-					</Panel>
-				) : null}
-				{session.queuedSteers.length > 0 ? (
-					<View testID="queued-steers" style={{ gap: 4 }}>
-						{session.queuedSteers.map((q) => (
-							<Body key={q.id} muted>
-								Waiting for the teacher: {q.text}
+					) : null}
+					{!running && malformed ? (
+						<Panel>
+							<Body>
+								The teacher&apos;s question was not complete. Ask the teacher to write it again.
 							</Body>
-						))}
-					</View>
-				) : null}
-				{running || (!pending && (state.status === "ready" || session.unsentText !== null)) ? (
-					<Composer
-						key={session.unsentText ?? ""}
-						onSend={session.sendText}
-						initialText={session.unsentText ?? ""}
-						steer={running}
-						waiting={compacting}
-					/>
-				) : null}
-			</ScrollView>
+							<Button
+								title="Ask again"
+								onPress={() => void session.retryQuestion()}
+								testID="retry-question"
+							/>
+						</Panel>
+					) : null}
+				</ScrollView>
+				{/* The composer stays under the transcript, above the keyboard. */}
+				<View style={styles.bottom}>
+					{session.queuedSteers.length > 0 ? (
+						<View testID="queued-steers" style={{ gap: 4 }}>
+							{session.queuedSteers.map((q) => (
+								<Body key={q.id} muted>
+									Waiting for the teacher: {q.text}
+								</Body>
+							))}
+						</View>
+					) : null}
+					{running || (!pending && (state.status === "ready" || session.unsentText !== null)) ? (
+						<Composer
+							key={session.unsentText ?? ""}
+							onSend={session.sendText}
+							initialText={session.unsentText ?? ""}
+							steer={running}
+							waiting={compacting}
+						/>
+					) : null}
+				</View>
+			</KeyboardAvoidingView>
 		</SafeAreaView>
 	);
 }
@@ -311,6 +341,7 @@ const styles = StyleSheet.create({
 	screen: { flex: 1 },
 	content: { padding: 16, gap: 16, flexGrow: 1 },
 	row: { flexDirection: "row", gap: 12 },
+	bottom: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
 	headerTitle: { alignItems: "center", maxWidth: 200 },
 	headerButtons: { flexDirection: "row", gap: 16 },
 	headerName: { fontSize: 17, fontWeight: "600" },

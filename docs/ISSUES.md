@@ -109,7 +109,7 @@ Notes:
 - After `probe_done`, the phase is "plan" until the first teaching question.
 - Metro warns about two require cycles in the fork's `src/core` (upstream code; harmless).
 
-## 04 Full teach cycle `doing`
+## 04 Full teach cycle `doing` (open: the user's real teach cycle)
 
 Blocked by: 03.
 
@@ -148,7 +148,12 @@ Each slice lists its error states (`AGENTS.md`, "Error states"). Every error on 
 - Error states and their tests (`tests/app-session-compaction.test.tsx`, `tests/transcript.test.ts`): a missed `compaction-changed` is fixed by the next record read; a compaction that never ends does not lock the screen (the phone reads the record every 30 s); a compaction part with bad data shows the divider without a count.
 - Test setup note: `renderRouter` turns on Jest's fake timers. `package.json` keeps `nextTick` and `queueMicrotask` real (`fakeTimers.doNotFake`): the web streams use them, and a new fake clock in the next test lost them, which stopped the streams of later tests. The shared fake Mac is `tests/helpers/fake-mac.ts`.
 
-**E. Tests (next).** Jest for each slice and each error state: done (261 pass). Open: Maestro E2E with the fake provider: probe → plan → teach → check (through the reveal) → the answered card. A Maestro case for `models_not_configured` (refusal, set the model, send again, the turn runs).
+**E. Tests: done (2026-11-14).** Jest for each slice and each error state (261 pass). `npm run test:integration` passes (4 tests). Maestro on the Simulator (both passed 2026-11-14):
+
+- `e2e/teach-cycle.yaml` (`npm run e2e:teach`): the Mac has no model set, the first text gets the clear refusal (no raw code), the model is set on the Mac, Try again sends the same text, then probe → plan (Planning, "Plan · 2 steps", the Plan sheet with Next) → "Ready." → teach (Teaching, the check behind "Check your understanding", the reading thinking) → the answered card (CHECK, CORRECT, the reading thinking) and the Plan sheet with Now.
+- `e2e/first-turn.yaml` (`npm run e2e:test`): the issue 03 flow, with the new card text.
+- `scripts/e2e-mac.ts` now scripts the plan and teach turns and has a control server on 127.0.0.1 (`POST /models/clear`, `POST /models/set`; URL in `e2e/.control.txt`, not in git). `scripts/e2e-test.sh` runs one flow. Each flow needs a new `npm run e2e:mac` (the scripted lesson and the one-use pairing code are for one run).
+- A bug that the run found: the keyboard covered the message field. The session screen now uses `KeyboardAvoidingView` (`behavior="padding"`, `useHeaderHeight()` from `expo-router/react-navigation`, as the Expo keyboard guide says), the composer and the queued steers stay under the transcript, and the transcript scrolls to the end when the keyboard opens.
 
 Acceptance: the Maestro E2E passes; each error state above has a Jest test; the user checks one real teach cycle on the Simulator.
 
