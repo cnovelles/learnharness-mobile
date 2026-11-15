@@ -30,15 +30,7 @@
  */
 import type { Definition, Nodes, PhrasingContent, Root, RootContent, Table } from "mdast";
 import { Component, Fragment, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-	Platform,
-	ScrollView,
-	StyleSheet,
-	Text,
-	View,
-	useColorScheme,
-	type TextStyle,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View, useColorScheme, type TextStyle } from "react-native";
 
 import { CODE_COLORS, highlightCode, type CodeScheme, type CodeToken } from "@/lib/code-highlight";
 import { tableMarkdown } from "@/lib/copy-source";
@@ -54,12 +46,13 @@ import { hasInlineMath, mathBlockIsland, paragraphIsland } from "@/lib/math-html
 import { openLink } from "@/lib/open-link";
 import { CopyLabel, CopyTarget, useCopy } from "./copy";
 import { FORMULA_ERROR, MathIsland, MermaidIsland, type IslandStyle } from "./islands";
-import { ErrorText, usePalette, type Palette } from "./ui";
+import { ErrorText, FONT, usePalette, type Palette } from "./ui";
 import { SPACE } from "./spacing";
 
 export { COPY_LABEL_MS } from "./copy";
 
-export const MONO = Platform.select({ ios: "Menlo", default: "monospace" });
+/** Code and inline code: the desktop's mono font (issue 18). */
+export const MONO = FONT.ui;
 
 const HEADING_SIZE: Record<number, number> = { 1: 22, 2: 19, 3: 17 };
 
@@ -90,9 +83,11 @@ function Inline({ node, ctx }: { node: PhrasingContent; ctx: Ctx }): ReactNode {
 		case "text":
 			return node.value;
 		case "strong":
-			return <Text style={styles.strong}>{inlines(node.children, ctx)}</Text>;
+			return (
+				<Text style={[styles.strong, { color: c.strong }]}>{inlines(node.children, ctx)}</Text>
+			);
 		case "emphasis":
-			return <Text style={styles.em}>{inlines(node.children, ctx)}</Text>;
+			return <Text style={[styles.em, { color: c.italic }]}>{inlines(node.children, ctx)}</Text>;
 		case "delete":
 			return <Text style={styles.del}>{inlines(node.children, ctx)}</Text>;
 		case "break":
@@ -261,7 +256,7 @@ function Block({ node, ctx }: { node: RootContent; ctx: Ctx }): ReactNode {
 			return (
 				<Text
 					accessibilityRole="header"
-					style={[base, { fontSize: size, lineHeight: Math.round(size * 1.3), fontWeight: "700" }]}
+					style={[base, { fontSize: size, lineHeight: Math.round(size * 1.3), fontWeight: "900" }]}
 				>
 					{inlines(node.children, ctx)}
 				</Text>
@@ -636,7 +631,8 @@ export function Markdown({
 	compact?: boolean;
 	testID?: string;
 }) {
-	const base: TextStyle = StyleSheet.flatten(style) ?? {};
+	// Reading text uses the prose font unless the surface sets another.
+	const base: TextStyle = { fontFamily: FONT.prose, ...StyleSheet.flatten(style) };
 	return (
 		<View testID={testID}>
 			<MarkdownBoundary text={text} base={base}>

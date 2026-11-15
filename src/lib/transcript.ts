@@ -16,6 +16,7 @@ import { presentAnswer, type AnsweredCard } from "./answer-card";
 import { planPartTree } from "./plan";
 import { probeCardData, type ProbeCardData } from "./probe-card";
 import { teacherText } from "./teacher-text";
+import { toolRow, type ToolRowData } from "./tool-row";
 import {
 	QUESTION_TOOLS,
 	phaseTimeline,
@@ -56,7 +57,7 @@ export type TranscriptRow =
 	| { kind: "divider"; id: string; phase: Exclude<Phase3, "probe">; steps?: number }
 	/** Compaction: "moment" where it ran, "cut" where the kept history starts. */
 	| { kind: "compaction"; id: string; at: "moment" | "cut"; tokensBefore?: number }
-	| { kind: "tool"; id: string; name: string; failed: boolean };
+	| ToolRowData;
 
 const isQuestionTool = (name: string) => (QUESTION_TOOLS as readonly string[]).includes(name);
 
@@ -170,16 +171,17 @@ export function transcriptRows(
 					const tree = planPartTree(part);
 					if (tree) rows.push({ kind: "plan", id, steps: tree.nodes.length, tree });
 					else
-						rows.push({
-							kind: "tool",
-							id,
-							name,
-							failed:
+						rows.push(
+							toolRow(
+								part,
+								id,
+								name,
 								part.state === "output-error" ||
-								(part.state === "output-available" &&
-									(part.output as { ok?: unknown } | null)?.ok === false),
-						});
-				} else rows.push({ kind: "tool", id, name, failed: part.state === "output-error" });
+									(part.state === "output-available" &&
+										(part.output as { ok?: unknown } | null)?.ok === false),
+							),
+						);
+				} else rows.push(toolRow(part, id, name, part.state === "output-error"));
 			}
 		});
 	});

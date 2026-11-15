@@ -8,7 +8,7 @@
     "scheme": "learnharnessmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/learnharness.icon",
       "bundleIdentifier": "dev.local.learnharnessmobile",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "LearnHarness connects to the LearnHarness desktop app on your Mac over your local network.",
@@ -33,11 +33,33 @@
     "plugins": [
       "expo-router",
       [
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo-google-fonts/jetbrains-mono/400Regular/JetBrainsMono_400Regular.ttf",
+            "node_modules/@expo-google-fonts/jetbrains-mono/400Regular_Italic/JetBrainsMono_400Regular_Italic.ttf",
+            "node_modules/@expo-google-fonts/jetbrains-mono/500Medium/JetBrainsMono_500Medium.ttf",
+            "node_modules/@expo-google-fonts/jetbrains-mono/700Bold/JetBrainsMono_700Bold.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/400Regular_Italic/SourceSans3_400Regular_Italic.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/700Bold_Italic/SourceSans3_700Bold_Italic.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/900Black/SourceSans3_900Black.ttf",
+            "./assets/fonts/cmunbx.ttf"
+          ]
+        }
+      ],
+      [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#faf9f5",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 120,
+          "dark": {
+            "backgroundColor": "#141414",
+            "image": "./assets/images/splash-icon-dark.png"
+          }
         }
       ],
       "expo-secure-store",

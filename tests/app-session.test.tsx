@@ -102,7 +102,7 @@ it("a new session sends the first text, shows the probe, sends the answer and sh
 	// The answered card replaces the dock; the composer waits for text.
 	await waitFor(() => expect(screen.queryByTestId("dock-question")).toBeNull());
 	expect(screen.getByText("CORRECT")).toBeTruthy();
-	expect(screen.getByText("90% sure")).toBeTruthy();
+	expect(screen.getByLabelText("90% sure")).toBeTruthy();
 	expect(await screen.findByTestId("composer")).toBeTruthy();
 });
 

@@ -13,9 +13,11 @@ import type { AnsweredCard } from "@/lib/answer-card";
 import { PHASE_LABEL } from "@/lib/plan";
 import { PlanBlock } from "./plan-graph";
 import type { TranscriptRow } from "@/lib/transcript";
+import type { ToolRowData } from "@/lib/tool-row";
 import { Markdown } from "./markdown";
 import { ProbeCard } from "./probe-card";
-import { usePalette } from "./ui";
+import { ConfidenceRail } from "./confidence-rail";
+import { FONT, LABEL, TYPE, alpha, usePalette } from "./ui";
 import { SPACE } from "./spacing";
 
 const stepCount = (n: number) => `${n} step${n === 1 ? "" : "s"}`;
@@ -38,7 +40,7 @@ function Divider({ row }: { row: Extract<TranscriptRow, { kind: "divider" }> }) 
 	return (
 		<View style={styles.divider} testID={`phase-divider-${row.phase}`} accessibilityRole="header">
 			<View style={[styles.rule, { borderColor: c.line }]} />
-			<Text style={[styles.label, { color: c.muted }]}>{label.toUpperCase()}</Text>
+			<Text style={[LABEL, { color: c.muted }]}>{label.toUpperCase()}</Text>
 			<View style={[styles.rule, { borderColor: c.line }]} />
 		</View>
 	);
@@ -67,14 +69,16 @@ function Tucked({
 			accessibilityState={{ expanded: open }}
 			testID={testID}
 		>
-			<Text style={[styles.small, { color: c.muted, fontWeight: "600" }]}>
-				{open ? `${title} (tap to close)` : title}
+			<Text style={[LABEL, { color: c.muted }]}>
+				{title} {open ? "▴" : "▾"}
 			</Text>
 			{open ? (
 				markdown ? (
-					<Markdown text={text} compact style={[styles.small, { color: c.text }]} />
+					<View style={[styles.why, { backgroundColor: c.bg }]}>
+						<Markdown text={text} compact style={[styles.small, { color: c.text }]} />
+					</View>
 				) : (
-					<Text style={[styles.small, { color: c.text }]}>{text}</Text>
+					<Text style={[styles.thought, { color: c.muted }]}>{text}</Text>
 				)
 			) : null}
 		</Pressable>
@@ -94,9 +98,9 @@ function AnswerCardView({ id, card }: { id: string; card: AnsweredCard }) {
 	return (
 		<>
 			{card.readingThinking ? (
-				<View style={[styles.thinking, { borderColor: c.line }]} testID={`reading-${id}`}>
-					<Text style={[styles.label, { color: c.muted }]}>YOUR THINKING</Text>
-					<Text style={[styles.small, { color: c.text }]}>{card.readingThinking}</Text>
+				<View style={[styles.rail, { borderColor: alpha(c.muted, 0.3) }]} testID={`reading-${id}`}>
+					<Text style={[LABEL, { color: c.muted }]}>YOUR THINKING</Text>
+					<Text style={[styles.thought, { color: c.muted }]}>{card.readingThinking}</Text>
 				</View>
 			) : null}
 			<View
@@ -104,9 +108,20 @@ function AnswerCardView({ id, card }: { id: string; card: AnsweredCard }) {
 				testID={`question-${id}`}
 			>
 				<View style={styles.head}>
-					<Text style={[styles.label, { color: c.muted }]}>{card.label.toUpperCase()}</Text>
+					<Text style={[LABEL, { color: c.muted }]}>{card.label.toUpperCase()}</Text>
 					{verdict ? (
-						<Text style={[styles.label, { color: verdict.color }]} testID={`verdict-${id}`}>
+						<Text
+							style={[
+								LABEL,
+								styles.badge,
+								{
+									color: verdict.color,
+									backgroundColor:
+										card.verdict === "didntKnow" ? c.hover : alpha(verdict.color, 0.15),
+								},
+							]}
+							testID={`verdict-${id}`}
+						>
 							{verdict.text.toUpperCase()}
 						</Text>
 					) : null}
@@ -118,19 +133,7 @@ function AnswerCardView({ id, card }: { id: string; card: AnsweredCard }) {
 				{card.options.map((o, i) => (
 					<View
 						key={i}
-						style={[
-							styles.option,
-							{
-								borderColor:
-									o.mark === "check"
-										? c.ok
-										: o.mark === "x"
-											? c.danger
-											: o.selected
-												? c.accent
-												: c.line,
-							},
-						]}
+						style={[styles.option, optionTint(c, o.selected, o.mark)]}
 						accessibilityLabel={`${o.label}${o.selected ? ", your choice" : ""}${
 							o.mark === "check" ? ", correct" : o.mark === "x" ? ", wrong" : ""
 						}`}
@@ -152,15 +155,13 @@ function AnswerCardView({ id, card }: { id: string; card: AnsweredCard }) {
 					</View>
 				))}
 				{card.other ? (
-					<View style={[styles.option, { borderColor: c.accent }]}>
+					<View style={[styles.option, { borderColor: c.primary }]}>
 						<Text style={[styles.small, { color: c.text }]}>“{card.other}”</Text>
 					</View>
 				) : null}
 				{card.text ? <Text style={[styles.body, { color: c.text }]}>“{card.text}”</Text> : null}
 				{card.confidence !== undefined ? (
-					<Text style={[styles.small, { color: c.muted }]} testID={`confidence-${id}`}>
-						{card.confidence}% sure
-					</Text>
+					<ConfidenceRail value={card.confidence} testID={`confidence-${id}`} />
 				) : null}
 				{card.verdict === "didntKnow" ? (
 					<Text style={[styles.small, { color: c.muted }]}>Answered “I don&apos;t know”.</Text>
@@ -173,7 +174,7 @@ function AnswerCardView({ id, card }: { id: string; card: AnsweredCard }) {
 				) : null}
 				{card.committed ? (
 					<View style={[styles.reveal, { backgroundColor: c.bg }]} testID={`committed-${id}`}>
-						<Text style={[styles.small, { color: c.text, fontWeight: "600" }]}>The answer</Text>
+						<Text style={[LABEL, { color: c.muted }]}>THE ANSWER</Text>
 						<Markdown text={card.committed} compact style={[styles.small, { color: c.text }]} />
 					</View>
 				) : null}
@@ -190,11 +191,11 @@ function QuestionCard({ row }: { row: QuestionRow }) {
 			style={[styles.card, { borderColor: c.line, backgroundColor: c.panel }]}
 			testID={`question-${row.id}`}
 		>
-			<Text style={[styles.label, { color: c.muted }]}>
+			<Text style={[LABEL, { color: c.muted }]}>
 				{(TOOL_LABEL[row.tool] ?? "Question").toUpperCase()}
 			</Text>
 			<Markdown text={row.question} style={[styles.body, { color: c.text, fontWeight: "600" }]} />
-			<Text style={[styles.small, { color: row.status === "malformed" ? c.danger : c.muted }]}>
+			<Text style={[styles.note, { color: row.status === "malformed" ? c.danger : c.muted }]}>
 				{row.status === "malformed"
 					? "This question is not complete, so the phone cannot show it."
 					: row.status === "skipped"
@@ -216,14 +217,81 @@ function Reasoning({ row }: { row: Extract<TranscriptRow, { kind: "reasoning" }>
 			accessibilityRole="button"
 			accessibilityState={{ expanded: open }}
 			testID={`reasoning-${row.id}`}
+			style={[styles.rail, { borderColor: alpha(c.muted, 0.3) }]}
 		>
-			<Text style={[styles.small, { color: c.muted }]}>
-				{row.streaming ? "Thinking…" : open ? "Thinking (tap to close)" : "Thinking (tap to open)"}
+			<Text style={[LABEL, { color: c.muted }]}>
+				{row.streaming ? "AGENT'S THINKING…" : `AGENT'S THINKING ${open ? "▴" : "▾"}`}
 			</Text>
 			{open ? (
-				<Markdown text={row.text} compact style={[styles.small, { color: c.muted }]} />
+				<Markdown text={row.text} compact style={[styles.thought, { color: c.muted }]} />
 			) : null}
 		</Pressable>
+	);
+}
+
+type Mark = AnsweredCard["options"][number]["mark"];
+
+/** The desktop's option tints (answered-card.tsx). */
+function optionTint(c: ReturnType<typeof usePalette>, selected: boolean, mark: Mark) {
+	if (selected && mark === "check")
+		return { borderColor: alpha(c.ok, 0.6), backgroundColor: alpha(c.ok, 0.1) };
+	if (selected && mark === "x")
+		return { borderColor: alpha(c.danger, 0.6), backgroundColor: alpha(c.danger, 0.1) };
+	if (mark === "check") return { borderColor: alpha(c.ok, 0.4) };
+	if (selected) return { borderColor: c.primary, backgroundColor: c.hover };
+	return { borderColor: c.line };
+}
+
+/** A folded tool call, as the desktop's tool-call card. */
+function ToolRow({ row }: { row: ToolRowData }) {
+	const c = usePalette();
+	const [open, setOpen] = useState(false);
+	return (
+		<Pressable
+			onPress={() => setOpen((o) => !o)}
+			accessibilityRole="button"
+			accessibilityState={{ expanded: open }}
+			accessibilityLabel={`${row.failed ? "Failed tool" : "Tool"} ${row.name}${row.arg ? `, ${row.arg}` : ""}`}
+			testID={`tool-${row.id}`}
+		>
+			<View style={styles.toolHead}>
+				<Text style={[LABEL, { color: row.failed ? c.danger : c.muted }]}>
+					{row.name.toUpperCase()}
+				</Text>
+				{row.arg ? (
+					<Text style={[styles.toolArg, { color: c.muted }]} numberOfLines={1}>
+						{row.arg}
+					</Text>
+				) : null}
+				<Text style={[styles.toolArg, { color: c.muted }]}>{open ? "▾" : "▸"}</Text>
+			</View>
+			{open ? (
+				<View
+					style={[styles.toolPanel, { borderColor: c.line, backgroundColor: c.panel }]}
+					testID={`tool-panel-${row.id}`}
+				>
+					{row.input ? <ToolBlock title="INPUT" text={row.input} /> : null}
+					{row.failed ? (
+						<ToolBlock title="ERROR" text="The tool failed." color={c.danger} />
+					) : row.output ? (
+						<ToolBlock title="OUTPUT" text={row.output} />
+					) : null}
+					{!row.input && !row.failed && !row.output ? (
+						<Text style={[styles.toolText, { color: c.muted }]}>No input or output.</Text>
+					) : null}
+				</View>
+			) : null}
+		</Pressable>
+	);
+}
+
+function ToolBlock({ title, text, color }: { title: string; text: string; color?: string }) {
+	const c = usePalette();
+	return (
+		<View style={styles.toolBlock}>
+			<Text style={[LABEL, { color: c.muted }]}>{title}</Text>
+			<Text style={[styles.toolText, { color: color ?? c.text }]}>{text}</Text>
+		</View>
 	);
 }
 
@@ -232,8 +300,12 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 	switch (row.kind) {
 		case "user":
 			return (
-				<View style={[styles.user, { backgroundColor: c.accent }]} testID={`user-${row.id}`}>
-					<Text style={[styles.body, { color: c.onAccent }]}>{row.text}</Text>
+				<View
+					style={[styles.user, { backgroundColor: c.panel, borderColor: alpha(c.muted, 0.3) }]}
+					testID={`user-${row.id}`}
+				>
+					<Text style={[LABEL, { color: c.muted }]}>YOU</Text>
+					<Text style={[styles.body, { color: c.text }]}>{row.text}</Text>
 				</View>
 			);
 		case "text":
@@ -259,7 +331,7 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 					style={[styles.card, { borderColor: c.line, backgroundColor: c.panel }]}
 					testID={`plan-${row.id}`}
 				>
-					<Text style={[styles.label, { color: c.muted }]}>LESSON PLAN</Text>
+					<Text style={[LABEL, { color: c.muted }]}>LESSON PLAN</Text>
 					<Text style={[styles.body, { color: c.text }]}>
 						{stepCount(row.steps)}. Tap to see the steps.
 					</Text>
@@ -276,7 +348,7 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 		case "compaction":
 			return row.at === "moment" ? (
 				<Text
-					style={[styles.small, styles.center, { color: c.muted }]}
+					style={[styles.note, styles.center, { color: c.muted }]}
 					testID={`compaction-${row.id}`}
 				>
 					Context compacted
@@ -284,7 +356,7 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 			) : (
 				<View style={styles.divider} testID={`compaction-cut-${row.id}`}>
 					<View style={[styles.rule, { borderColor: c.line }]} />
-					<Text style={[styles.label, { color: c.muted }]}>
+					<Text style={[LABEL, { color: c.muted }]}>
 						{`HISTORY COMPACTED${
 							row.tokensBefore ? ` · ${Math.round(row.tokensBefore / 1000)}K TOKENS` : ""
 						}`}
@@ -293,11 +365,7 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 				</View>
 			);
 		case "tool":
-			return (
-				<Text style={[styles.small, { color: row.failed ? c.danger : c.muted }]}>
-					{row.failed ? `Tool failed: ${row.name}` : `Tool: ${row.name}`}
-				</Text>
-			);
+			return <ToolRow row={row} />;
 	}
 }
 
@@ -320,17 +388,30 @@ export function Transcript({
 
 const styles = StyleSheet.create({
 	list: { gap: SPACE.md },
-	body: { fontSize: 16, lineHeight: 23 },
-	small: { fontSize: 14, lineHeight: 20 },
-	user: { alignSelf: "flex-end", maxWidth: "85%", borderRadius: 14, padding: SPACE.md },
+	body: { ...TYPE.prose, fontFamily: FONT.prose },
+	small: { ...TYPE.base, fontFamily: FONT.prose },
+	/** UI notes: the mono chrome font, as the desktop. */
+	note: { ...TYPE.sm, fontFamily: FONT.ui },
+	/** The learner's thinking and the agent's thinking: italic, muted. */
+	thought: { fontSize: 15, lineHeight: 22, fontFamily: FONT.prose, fontStyle: "italic" },
+	/** The learner's message: a full-width band with a rail (desktop chat.tsx). */
+	user: {
+		borderLeftWidth: 6,
+		paddingVertical: SPACE.xs,
+		paddingLeft: SPACE.md,
+		paddingRight: SPACE.lg,
+		gap: SPACE.xs,
+	},
+	/** The thinking rows: the same rail, no fill. */
+	rail: { borderLeftWidth: 6, paddingLeft: SPACE.md, gap: SPACE.xs },
 	card: {
-		borderWidth: StyleSheet.hairlineWidth,
+		borderWidth: 1,
 		borderRadius: 12,
-		padding: SPACE.md,
+		padding: SPACE.lg,
 		gap: SPACE.sm,
 	},
-	label: { fontSize: 12, fontWeight: "600", letterSpacing: 0.6 },
 	head: { flexDirection: "row", gap: SPACE.sm, alignItems: "center" },
+	badge: { borderRadius: 4, paddingHorizontal: SPACE.xs, overflow: "hidden" },
 	option: {
 		flexDirection: "row",
 		gap: SPACE.sm,
@@ -341,10 +422,21 @@ const styles = StyleSheet.create({
 		paddingHorizontal: SPACE.md,
 	},
 	mark: { width: 14, fontSize: 14, fontWeight: "700" },
-	thinking: { borderLeftWidth: 3, paddingLeft: SPACE.md, gap: SPACE.xs },
+	why: { borderRadius: 8, padding: SPACE.sm, marginTop: SPACE.xs },
 	reveal: { borderRadius: 8, padding: SPACE.sm, gap: SPACE.xs },
 	optionText: { flex: 1 },
 	center: { textAlign: "center" },
 	divider: { flexDirection: "row", alignItems: "center", gap: SPACE.md, marginVertical: SPACE.xs },
 	rule: { flex: 1, borderTopWidth: 2, borderStyle: "dotted" },
+	toolHead: { flexDirection: "row", alignItems: "center", gap: SPACE.sm },
+	toolArg: { ...TYPE.xs, fontFamily: FONT.ui, flexShrink: 1 },
+	toolPanel: {
+		marginTop: SPACE.sm,
+		borderWidth: 1,
+		borderRadius: 12,
+		padding: SPACE.md,
+		gap: SPACE.sm,
+	},
+	toolBlock: { gap: SPACE.xs },
+	toolText: { fontFamily: FONT.ui, fontSize: 11, lineHeight: 18 },
 });
