@@ -4,14 +4,19 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { render, screen, fireEvent } from "@testing-library/react-native";
+import { act, render, screen, fireEvent } from "@testing-library/react-native";
+import * as Clipboard from "expo-clipboard";
 import * as ReactNative from "react-native";
 import { Alert, Linking, StyleSheet } from "react-native";
 
-import { Markdown } from "@/components/markdown";
+import { COPY_LABEL_MS, Markdown } from "@/components/markdown";
 import { Transcript } from "@/components/transcript";
 import * as highlight from "@/lib/code-highlight";
+import { tableMarkdown } from "@/lib/copy-source";
 import * as md from "@/lib/markdown";
+
+jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
+const setString = Clipboard.setStringAsync as jest.MockedFunction<typeof Clipboard.setStringAsync>;
 
 const BASE = { fontSize: 16, lineHeight: 23, color: "#111" };
 const show = (text: string) => render(<Markdown text={text} style={BASE} testID="md" />);
@@ -230,6 +235,74 @@ describe("code blocks (slice B)", () => {
 		await show("```js\nlet a = 1;\n```");
 		expect(screen.getByTestId("md-code")).toBeTruthy();
 		expect(screen.getByTestId("md-code-text")).toHaveTextContent("let a = 1;");
+	});
+});
+
+describe("long press to copy (slice B)", () => {
+	beforeEach(() => {
+		setString.mockReset();
+		setString.mockResolvedValue(true);
+	});
+
+	const longPress = async (index = 0) => {
+		await act(async () => {
+			fireEvent(screen.getAllByTestId("md-copy")[index]!, "longPress");
+		});
+	};
+
+	it("copies a code block as text and shows Copied for a short time", async () => {
+		jest.useFakeTimers();
+		try {
+			await show("```js\nlet a = 1;\nlet b = 2;\n```");
+			await longPress();
+			expect(setString).toHaveBeenCalledWith("let a = 1;\nlet b = 2;");
+			expect(screen.getByTestId("md-copy-label")).toHaveTextContent("Copied");
+			await act(async () => {
+				await jest.advanceTimersByTimeAsync(COPY_LABEL_MS);
+			});
+			expect(screen.queryByTestId("md-copy-label")).toBeNull();
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	it("copies a table as Markdown and a math block as TeX", async () => {
+		await show("| Name | Size |\n| :--- | ---: |\n| **a** | 1 |\n\n$$\n\\sum_k k\n$$");
+		await longPress(0);
+		expect(setString).toHaveBeenLastCalledWith("| Name | Size |\n| :--- | ---: |\n| **a** | 1 |");
+		await longPress(1);
+		expect(setString).toHaveBeenLastCalledWith("\\sum_k k");
+	});
+
+	it("gives VoiceOver the same Copy action", async () => {
+		await show("```\nx\n```");
+		await act(async () => {
+			fireEvent(screen.getByTestId("md-copy"), "accessibilityAction", {
+				nativeEvent: { actionName: "longpress" },
+			});
+		});
+		expect(setString).toHaveBeenCalledWith("x");
+	});
+
+	it("17. says Could not copy. when the clipboard refuses or throws", async () => {
+		setString.mockResolvedValueOnce(false);
+		await show("```\nx\n```");
+		await longPress();
+		expect(screen.getByTestId("md-copy-label")).toHaveTextContent("Could not copy.");
+		setString.mockRejectedValueOnce(new Error("pasteboard locked"));
+		await longPress();
+		expect(screen.getByTestId("md-copy-label")).toHaveTextContent("Could not copy.");
+		expect(screen.queryByText(/pasteboard/)).toBeNull();
+	});
+
+	it("17. never copies a blocked image URL, and keeps only safe links", async () => {
+		const table = md.parseMarkdown(
+			"| A | B |\n| --- | --- |\n| ![cat](https://x.test/cat.png) | [bad](javascript:alert(1)) |\n| a\\|b | [ok](https://x.test) |",
+		).children[0];
+		expect(table?.type).toBe("table");
+		const text = tableMarkdown(table as never);
+		expect(text).toBe("| A | B |\n| --- | --- |\n| cat | bad |\n| a\\|b | [ok](https://x.test) |");
+		expect(text).not.toContain("cat.png");
 	});
 });
 

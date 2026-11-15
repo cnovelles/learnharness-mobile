@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15 (issue 05 slice B: code colors done, copy waits for a dev build).
+Last update: 2026-11-15 (issue 05 slice B done: code colors and copy).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-15 (issue 05 slice B: code colors done, copy waits for a de
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 05 (rich rendering), the rest of slice B: long press to copy with `expo-clipboard`. It is a native module, so it needs a new dev build: ask the user before the build. The code colors of slice B are done (Shiki with the `matchAll` shim for Hermes). Slices A and B are not checked on the Simulator yet (the running Metro does not see file changes: restart it with `--clear`, after you ask the user). Decisions, slices and error states: `docs/ISSUES.md`, issue 05. New native modules for B to E (`react-native-svg`, `react-native-webview`, `expo-clipboard`) need a new dev build. Jest: 313 pass.
+**Next step:** check slices A and B on the Simulator (the running Metro does not see file changes: restart it with `--clear`, after you ask the user). Then issue 05 slice C (math and Mermaid islands in `react-native-webview`). The dev build of 2026-11-15 has all 3 new native modules (`expo-clipboard`, `react-native-svg`, `react-native-webview`), so slices C to E need no new build. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 318 pass.
 
 **Facts found during the work**
 

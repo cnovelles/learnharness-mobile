@@ -17,15 +17,21 @@
  * - Images never load (the desktop blocks remote images too).
  * - Links open only for http, https and mailto. Raw HTML shows as text.
  *
+ * - A long press on a code block, a table or a math block copies its source
+ *   (code as text, a table as Markdown, math as TeX). A short label shows
+ *   "Copied" or "Could not copy." (issue 05, decision 4 and error state 17).
+ *
  * Every message has an error boundary: if the drawing fails, the message
  * shows as plain text, and the rest of the transcript still shows.
  */
 import type { Definition, Nodes, PhrasingContent, Root, RootContent, Table } from "mdast";
-import { Component, Fragment, useMemo, type ReactNode } from "react";
+import * as Clipboard from "expo-clipboard";
+import { Component, Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
 	Alert,
 	Linking,
 	Platform,
+	Pressable,
 	ScrollView,
 	StyleSheet,
 	Text,
@@ -35,6 +41,7 @@ import {
 } from "react-native";
 
 import { CODE_COLORS, highlightCode, type CodeScheme, type CodeToken } from "@/lib/code-highlight";
+import { tableMarkdown } from "@/lib/copy-source";
 import { alertContent, parseMarkdown, plainText, safeLinkUrl } from "@/lib/markdown";
 import { usePalette, type Palette } from "./ui";
 
@@ -154,6 +161,87 @@ function LinkText({ url, ctx, children }: { url?: string; ctx: Ctx; children: Re
 	);
 }
 
+// ─── Copy ────────────────────────────────────────────────────────────────────
+
+/** How long the "Copied" or "Could not copy." label stays. */
+export const COPY_LABEL_MS = 1500;
+
+type CopyState = "idle" | "copied" | "failed";
+
+/** Writes the text to the clipboard. False when the write fails. */
+async function copyToClipboard(text: string): Promise<boolean> {
+	try {
+		const ok = await Clipboard.setStringAsync(text);
+		return ok !== false;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * A block that a long press copies. `source` gives the text at the time of
+ * the press. VoiceOver gets the same action as "Copy".
+ */
+function CopyBlock({
+	source,
+	label,
+	ctx,
+	children,
+}: {
+	source: () => string;
+	label: string;
+	ctx: Ctx;
+	children: ReactNode;
+}) {
+	const [state, setState] = useState<CopyState>("idle");
+	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const mounted = useRef(true);
+	useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
+			if (timer.current) clearTimeout(timer.current);
+		};
+	}, []);
+	const copy = () => {
+		void copyToClipboard(source()).then((ok) => {
+			if (!mounted.current) return;
+			setState(ok ? "copied" : "failed");
+			if (timer.current) clearTimeout(timer.current);
+			timer.current = setTimeout(() => {
+				if (mounted.current) setState("idle");
+			}, COPY_LABEL_MS);
+		});
+	};
+	return (
+		<Pressable
+			onLongPress={copy}
+			accessibilityHint={`Long press to copy the ${label}.`}
+			accessibilityActions={[{ name: "longpress", label: "Copy" }]}
+			onAccessibilityAction={(e) => {
+				if (e.nativeEvent.actionName === "longpress") copy();
+			}}
+			testID="md-copy"
+		>
+			{children}
+			{state !== "idle" ? (
+				<View
+					pointerEvents="none"
+					style={[styles.copyLabel, { backgroundColor: ctx.c.panel, borderColor: ctx.c.line }]}
+				>
+					<Text
+						style={{ fontSize: 12, color: state === "copied" ? ctx.c.text : ctx.c.danger }}
+						accessibilityLiveRegion="polite"
+						testID="md-copy-label"
+					>
+						{state === "copied" ? "Copied" : "Could not copy."}
+					</Text>
+				</View>
+			) : null}
+		</Pressable>
+	);
+}
+
 // ─── Blocks ──────────────────────────────────────────────────────────────────
 
 function Blocks({ nodes, ctx }: { nodes: readonly RootContent[]; ctx: Ctx }) {
@@ -232,24 +320,34 @@ function Block({ node, ctx }: { node: RootContent; ctx: Ctx }): ReactNode {
 			);
 		case "code":
 			return (
-				<CodeBlock
-					value={node.value}
-					lang={node.lang}
-					meta={node.meta ?? ""}
-					open={node.data?.open === true}
-					ctx={ctx}
-				/>
+				<CopyBlock source={() => node.value} label="code" ctx={ctx}>
+					<CodeBlock
+						value={node.value}
+						lang={node.lang}
+						meta={node.meta ?? ""}
+						open={node.data?.open === true}
+						ctx={ctx}
+					/>
+				</CopyBlock>
 			);
 		case "math":
 			return (
-				<ScrollView horizontal showsHorizontalScrollIndicator={false} testID="md-math">
-					<Text style={{ fontFamily: MONO, fontSize: fontSizeOf(base) * 0.88, color: base.color }}>
-						{node.value}
-					</Text>
-				</ScrollView>
+				<CopyBlock source={() => node.value} label="formula" ctx={ctx}>
+					<ScrollView horizontal showsHorizontalScrollIndicator={false} testID="md-math">
+						<Text
+							style={{ fontFamily: MONO, fontSize: fontSizeOf(base) * 0.88, color: base.color }}
+						>
+							{node.value}
+						</Text>
+					</ScrollView>
+				</CopyBlock>
 			);
 		case "table":
-			return <TableBlock node={node} ctx={ctx} />;
+			return (
+				<CopyBlock source={() => tableMarkdown(node)} label="table" ctx={ctx}>
+					<TableBlock node={node} ctx={ctx} />
+				</CopyBlock>
+			);
 		case "html":
 			return <Text style={base}>{node.value}</Text>;
 		case "footnoteDefinition":
@@ -501,6 +599,15 @@ const styles = StyleSheet.create({
 	},
 	lineNumbers: { textAlign: "right", marginRight: 12, minWidth: 18 },
 	codeScroll: { flex: 1 },
+	copyLabel: {
+		position: "absolute",
+		top: 6,
+		right: 6,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderRadius: 6,
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+	},
 	tableRow: { flexDirection: "row" },
 	cell: { paddingVertical: 6, paddingRight: 12 },
 });
