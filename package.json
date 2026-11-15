@@ -62,7 +62,9 @@
     "test:integration": "../learnharness/node_modules/.bin/tsx --test --test-concurrency=1 tests/integration/*.test.ts",
     "e2e:mac": "../learnharness/node_modules/.bin/tsx scripts/e2e-mac.ts",
     "e2e:test": "sh scripts/e2e-test.sh e2e/first-turn.yaml",
-    "e2e:teach": "sh scripts/e2e-test.sh e2e/teach-cycle.yaml"
+    "e2e:teach": "sh scripts/e2e-test.sh e2e/teach-cycle.yaml",
+    "islands": "node scripts/island-pages/build.cjs",
+    "hermes:run": "sh scripts/hermes-run/run.sh"
   },
   "private": true,
   "jest": {
@@ -71,6 +73,7 @@
       "<rootDir>/tests/**/*.test.ts?(x)"
     ],
     "moduleNameMapper": {
+      "^lh-island-pages$": "<rootDir>/.cache/island-pages/islands.js",
       "^katex$": "<rootDir>/../learnharness/node_modules/katex/dist/katex.js",
       "^micromark-extension-math$": "<rootDir>/tests/.cache/esm-cjs/micromark-extension-math.cjs",
       "^mdast-util-math$": "<rootDir>/tests/.cache/esm-cjs/mdast-util-math.cjs",
@@ -92,7 +95,8 @@
       "^@/(.*)$": "<rootDir>/src/$1"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|typebox|standard-navigation)"
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|typebox|standard-navigation)",
+      "<rootDir>/.cache/"
     ],
     "transform": {
       "^.+\\.mjs$": "babel-jest"

@@ -13,25 +13,25 @@
  *   the desktop's Shiki colors (src/lib/code-highlight.ts). A fence that is
  *   still open while the reply streams, an unknown language, a large block
  *   or a highlighter failure show the same block with no colors.
- * - Math: the TeX source in mono for now. Slice C draws it with KaTeX.
+ * - Math: KaTeX in a WebView island (slice C, src/components/islands.tsx).
+ *   A paragraph with inline math goes into one island with all its text. A
+ *   heading or a table cell with math shows the TeX source in mono.
+ * - Mermaid fences: drawn by Mermaid in a WebView island.
  * - Images never load (the desktop blocks remote images too).
  * - Links open only for http, https and mailto. Raw HTML shows as text.
  *
- * - A long press on a code block, a table or a math block copies its source
- *   (code as text, a table as Markdown, math as TeX). A short label shows
+ * - A long press on a code block, a table, a math block or a chart copies
+ *   its source (code as text, a table as Markdown, math as TeX, a chart as
+ *   its Mermaid source; src/components/copy.tsx). A short label shows
  *   "Copied" or "Could not copy." (issue 05, decision 4 and error state 17).
  *
  * Every message has an error boundary: if the drawing fails, the message
  * shows as plain text, and the rest of the transcript still shows.
  */
 import type { Definition, Nodes, PhrasingContent, Root, RootContent, Table } from "mdast";
-import * as Clipboard from "expo-clipboard";
-import { Component, Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Component, Fragment, useMemo, type ReactNode } from "react";
 import {
-	Alert,
-	Linking,
 	Platform,
-	Pressable,
 	ScrollView,
 	StyleSheet,
 	Text,
@@ -43,7 +43,13 @@ import {
 import { CODE_COLORS, highlightCode, type CodeScheme, type CodeToken } from "@/lib/code-highlight";
 import { tableMarkdown } from "@/lib/copy-source";
 import { alertContent, parseMarkdown, plainText, safeLinkUrl } from "@/lib/markdown";
-import { usePalette, type Palette } from "./ui";
+import { hasInlineMath, mathBlockIsland, paragraphIsland } from "@/lib/math-html";
+import { openLink } from "@/lib/open-link";
+import { CopyLabel, CopyTarget, useCopy } from "./copy";
+import { FORMULA_ERROR, MathIsland, MermaidIsland, type IslandStyle } from "./islands";
+import { ErrorText, usePalette, type Palette } from "./ui";
+
+export { COPY_LABEL_MS } from "./copy";
 
 export const MONO = Platform.select({ ios: "Menlo", default: "monospace" });
 
@@ -59,12 +65,6 @@ type Ctx = {
 	compact: boolean;
 	definitions: Map<string, Definition>;
 };
-
-function openLink(url: string) {
-	Linking.openURL(url).catch(() => {
-		Alert.alert("Could not open the link.");
-	});
-}
 
 function fontSizeOf(base: TextStyle): number {
 	return typeof base.fontSize === "number" ? base.fontSize : 16;
@@ -161,98 +161,25 @@ function LinkText({ url, ctx, children }: { url?: string; ctx: Ctx; children: Re
 	);
 }
 
-// ─── Copy ────────────────────────────────────────────────────────────────────
+// ─── Math and Mermaid ────────────────────────────────────────────────────────
 
-/** How long the "Copied" or "Could not copy." label stays. */
-export const COPY_LABEL_MS = 1500;
-
-type CopyState = "idle" | "copied" | "failed";
-
-/** Writes the text to the clipboard. False when the write fails. */
-async function copyToClipboard(text: string): Promise<boolean> {
-	try {
-		const ok = await Clipboard.setStringAsync(text);
-		return ok !== false;
-	} catch {
-		return false;
-	}
+function lineHeightOf(base: TextStyle): number {
+	return typeof base.lineHeight === "number" ? base.lineHeight : Math.round(fontSizeOf(base) * 1.5);
 }
 
-/**
- * The long press target of a block. It goes inside the block's sideways
- * scroll: a press target around a scroll view stops the scroll on iOS
- * (found on the Simulator, 2026-11-15). VoiceOver gets the same action as
- * "Copy".
- */
-function CopyTarget({
-	onCopy,
-	what,
-	children,
-}: {
-	onCopy: () => void;
-	what: string;
-	children: ReactNode;
-}) {
-	return (
-		<Pressable
-			onLongPress={onCopy}
-			accessibilityHint={`Long press to copy the ${what}.`}
-			accessibilityActions={[{ name: "longpress", label: "Copy" }]}
-			onAccessibilityAction={(e) => {
-				if (e.nativeEvent.actionName === "longpress") onCopy();
-			}}
-			testID="md-copy"
-		>
-			{children}
-		</Pressable>
-	);
-}
-
-/** The "Copied" or "Could not copy." label, on top of the block. */
-function CopyLabel({ state, ctx }: { state: CopyState; ctx: Ctx }) {
-	if (state === "idle") return null;
-	return (
-		<View
-			pointerEvents="none"
-			style={[styles.copyLabel, { backgroundColor: ctx.c.panel, borderColor: ctx.c.line }]}
-		>
-			<Text
-				style={{ fontSize: 12, color: state === "copied" ? ctx.c.text : ctx.c.danger }}
-				accessibilityLiveRegion="polite"
-				testID="md-copy-label"
-			>
-				{state === "copied" ? "Copied" : "Could not copy."}
-			</Text>
-		</View>
-	);
-}
-
-/** Copy for one block: `source` gives the text at the time of the press. */
-function useCopy(source: () => string): { copy: () => void; state: CopyState } {
-	const [state, setState] = useState<CopyState>("idle");
-	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const mounted = useRef(true);
-	useEffect(() => {
-		mounted.current = true;
-		return () => {
-			mounted.current = false;
-			if (timer.current) clearTimeout(timer.current);
-		};
-	}, []);
-	const copy = () => {
-		void copyToClipboard(source()).then((ok) => {
-			if (!mounted.current) return;
-			setState(ok ? "copied" : "failed");
-			if (timer.current) clearTimeout(timer.current);
-			timer.current = setTimeout(() => {
-				if (mounted.current) setState("idle");
-			}, COPY_LABEL_MS);
-		});
+function islandStyle(ctx: Ctx): IslandStyle {
+	const { c, scheme, base } = ctx;
+	return {
+		c,
+		scheme,
+		color: typeof base.color === "string" ? base.color : c.text,
+		fontSize: fontSizeOf(base),
+		lineHeight: lineHeightOf(base),
 	};
-	return { copy, state };
 }
 
-function MathBlock({ value, ctx }: { value: string; ctx: Ctx }) {
+/** The TeX source of a display formula in mono: the island's fallback. */
+function MathSource({ value, ctx }: { value: string; ctx: Ctx }) {
 	const { base } = ctx;
 	const { copy, state } = useCopy(() => value);
 	return (
@@ -264,8 +191,40 @@ function MathBlock({ value, ctx }: { value: string; ctx: Ctx }) {
 					</Text>
 				</CopyTarget>
 			</ScrollView>
-			<CopyLabel state={state} ctx={ctx} />
+			<CopyLabel state={state} c={ctx.c} />
 		</View>
+	);
+}
+
+/** A display formula: KaTeX in an island. A formula that KaTeX cannot draw
+ *  shows its source and the error at once, with no WebView (error state 8). */
+function MathBlock({ value, ctx }: { value: string; ctx: Ctx }) {
+	const island = useMemo(() => mathBlockIsland(value), [value]);
+	const fallback = <MathSource value={value} ctx={ctx} />;
+	if (island.failed) {
+		return (
+			<View>
+				{fallback}
+				<ErrorText testID="md-math-error">{FORMULA_ERROR}</ErrorText>
+			</View>
+		);
+	}
+	return <MathIsland island={island} look={islandStyle(ctx)} fallback={fallback} />;
+}
+
+/** A paragraph with inline math: one island with all its text (decision 4). */
+function MathParagraph({ nodes, ctx }: { nodes: readonly PhrasingContent[]; ctx: Ctx }) {
+	const island = useMemo(
+		() => paragraphIsland(nodes, (id) => ctx.definitions.get(id)?.url),
+		[nodes, ctx.definitions],
+	);
+	return (
+		<MathIsland
+			island={island}
+			look={islandStyle(ctx)}
+			fallback={<Text style={ctx.base}>{inlines(nodes, ctx)}</Text>}
+			testID="md-math-paragraph"
+		/>
 	);
 }
 
@@ -287,6 +246,7 @@ function Block({ node, ctx }: { node: RootContent; ctx: Ctx }): ReactNode {
 	const { c, base } = ctx;
 	switch (node.type) {
 		case "paragraph":
+			if (hasInlineMath(node.children)) return <MathParagraph nodes={node.children} ctx={ctx} />;
 			return <Text style={base}>{inlines(node.children, ctx)}</Text>;
 		case "heading": {
 			const size = HEADING_SIZE[node.depth] ?? fontSizeOf(base);
@@ -346,6 +306,15 @@ function Block({ node, ctx }: { node: RootContent; ctx: Ctx }): ReactNode {
 				</View>
 			);
 		case "code":
+			if (node.lang?.trim().toLowerCase() === "mermaid") {
+				return (
+					<MermaidIsland
+						source={node.value}
+						open={node.data?.open === true}
+						look={islandStyle(ctx)}
+					/>
+				);
+			}
 			return (
 				<CodeBlock
 					value={node.value}
@@ -461,7 +430,7 @@ function CodeBlock({
 					</Text>
 				</CopyTarget>
 			</ScrollView>
-			<CopyLabel state={state} ctx={ctx} />
+			<CopyLabel state={state} c={ctx.c} />
 		</View>
 	);
 }
@@ -515,7 +484,7 @@ function TableBlock({ node, ctx }: { node: Table; ctx: Ctx }) {
 					))}
 				</CopyTarget>
 			</ScrollView>
-			<CopyLabel state={state} ctx={ctx} />
+			<CopyLabel state={state} c={ctx.c} />
 		</View>
 	);
 }
@@ -625,15 +594,6 @@ const styles = StyleSheet.create({
 	},
 	lineNumbers: { textAlign: "right", marginRight: 12, minWidth: 18 },
 	codeScroll: { flex: 1 },
-	copyLabel: {
-		position: "absolute",
-		top: 6,
-		right: 6,
-		borderWidth: StyleSheet.hairlineWidth,
-		borderRadius: 6,
-		paddingHorizontal: 8,
-		paddingVertical: 3,
-	},
 	tableRow: { flexDirection: "row" },
 	cell: { paddingVertical: 6, paddingRight: 12 },
 });

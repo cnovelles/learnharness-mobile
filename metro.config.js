@@ -21,7 +21,13 @@ config.resolver.nodeModulesPaths = [
 	path.resolve(forkRoot, "node_modules/@streamdown/code/node_modules"),
 ];
 
+// The math and Mermaid island pages (issue 05 slice C), built from the
+// fork's KaTeX and Mermaid files into .cache/ (not in git).
+const { buildIslandPages } = require("./scripts/island-pages/build.cjs");
+const islandPages = buildIslandPages(forkRoot);
+
 const shims = {
+	"lh-island-pages": islandPages,
 	"node:crypto": path.resolve(projectRoot, "src/shims/node-crypto.ts"),
 	crypto: path.resolve(projectRoot, "src/shims/node-crypto.ts"),
 };

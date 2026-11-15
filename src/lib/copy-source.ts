@@ -7,8 +7,8 @@ import type { PhrasingContent, Table } from "mdast";
 
 import { safeLinkUrl } from "./markdown";
 
-/** Inline Markdown for one table cell. */
-function inlineMarkdown(nodes: readonly PhrasingContent[]): string {
+/** Inline Markdown: for a table cell, and for the copy of a math paragraph. */
+export function inlineMarkdown(nodes: readonly PhrasingContent[]): string {
 	return nodes
 		.map((node): string => {
 			switch (node.type) {

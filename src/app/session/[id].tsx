@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { createIslandViewport, IslandViewportContext } from "@/components/island-viewport";
 import { PlanSheet } from "@/components/plan-sheet";
 import { QuestionDock } from "@/components/question-dock";
 import { Transcript } from "@/components/transcript";
@@ -197,6 +198,8 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		[record.title, phase, hasPlan, running, stopTurn, openPlan],
 	);
 	const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
+	// Math and Mermaid islands start their WebView only near the screen.
+	const [viewport] = useState(createIslandViewport);
 	// The keyboard covers the screen on iOS: pad the view by its height
 	// (Expo keyboard guide). The offset is the header height.
 	const headerHeight = useHeaderHeight();
@@ -227,9 +230,17 @@ function SessionBody({ record }: { record: SessionRecord }) {
 					ref={scroll}
 					contentContainerStyle={styles.content}
 					keyboardShouldPersistTaps="handled"
-					onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
+					onContentSizeChange={() => {
+						scroll.current?.scrollToEnd({ animated: true });
+						viewport.notify();
+					}}
+					onScroll={viewport.notify}
+					onLayout={viewport.notify}
+					scrollEventThrottle={100}
 				>
-					<Transcript rows={rows} onOpenPlan={openPlan} />
+					<IslandViewportContext.Provider value={viewport}>
+						<Transcript rows={rows} onOpenPlan={openPlan} />
+					</IslandViewportContext.Provider>
 					{running ? (
 						<Body muted testID="turn-running">
 							{state.status === "submitted" ? "Sending…" : "The teacher is writing…"}

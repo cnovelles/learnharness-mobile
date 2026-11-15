@@ -14,6 +14,7 @@ import { Transcript } from "@/components/transcript";
 import * as highlight from "@/lib/code-highlight";
 import { tableMarkdown } from "@/lib/copy-source";
 import * as md from "@/lib/markdown";
+import { resetWebviews, sendFromPage, webviews } from "./helpers/fake-webview";
 
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 const setString = Clipboard.setStringAsync as jest.MockedFunction<typeof Clipboard.setStringAsync>;
@@ -22,6 +23,7 @@ const BASE = { fontSize: 16, lineHeight: 23, color: "#111" };
 const show = (text: string) => render(<Markdown text={text} style={BASE} testID="md" />);
 
 afterEach(() => {
+	resetWebviews();
 	jest.restoreAllMocks();
 	highlight.resetCodeHighlighter();
 });
@@ -77,15 +79,21 @@ describe("Markdown blocks and inline text", () => {
 		expect(screen.queryByTestId("md-code-lines")).toBeNull();
 	});
 
-	it("shows math as its TeX source until slice C, with no dollar signs", async () => {
+	it("draws math with KaTeX in islands (slice C), with no dollar signs", async () => {
 		await show("Area $A = \\pi r^2$ here.\n\n$$\n\\sum_k k\n$$");
-		expect(screen.getByTestId("md-inline-math")).toHaveTextContent("A = \\pi r^2");
-		expect(screen.getByTestId("md-math")).toHaveTextContent("\\sum_k k");
+		const [paragraph, block] = webviews().map(
+			(w) => w.props.injectedJavaScriptObject as { html: string },
+		);
+		expect(paragraph!.html).toMatch(/^<p>Area <span class="katex">/);
+		expect(paragraph!.html).not.toContain("$");
+		expect(block!.html).toContain('class="katex-display"');
+		expect(screen.queryByTestId("md-math-error")).toBeNull();
 	});
 
 	it("reads the old \\( \\) math delimiters, as the desktop does", async () => {
 		await show("Area \\(x^2\\) here.");
-		expect(screen.getByTestId("md-inline-math")).toHaveTextContent("x^2");
+		const data = webviews()[0]!.props.injectedJavaScriptObject as { html: string };
+		expect(data.html).toContain('<annotation encoding="application/x-tex">x^2</annotation>');
 	});
 
 	it("draws a table with a header row, inside a sideways scroll", async () => {
@@ -270,13 +278,17 @@ describe("long press to copy (slice B)", () => {
 		await show("| Name | Size |\n| :--- | ---: |\n| **a** | 1 |\n\n$$\n\\sum_k k\n$$");
 		await longPress(0);
 		expect(setString).toHaveBeenLastCalledWith("| Name | Size |\n| :--- | ---: |\n| **a** | 1 |");
-		await longPress(1);
+		// The math island: the page reports a long press.
+		await act(async () => {
+			sendFromPage(webviews()[0]!, { type: "longpress" });
+		});
 		expect(setString).toHaveBeenLastCalledWith("\\sum_k k");
 	});
 
 	it("keeps each copy target inside its sideways scroll (a target around it stops the scroll on iOS)", async () => {
-		await show("```js\nlet a = 1;\n```\n\n| A |\n| - |\n| 1 |\n\n$$\nx\n$$");
+		await show("```js\nlet a = 1;\n```\n\n| A |\n| - |\n| 1 |\n\n$$\n\\frac{1}{\n$$");
 		const targets = screen.getAllByTestId("md-copy");
+		// Code, table, and the source of a formula that KaTeX cannot draw.
 		expect(targets).toHaveLength(3);
 		for (const target of targets) {
 			let node = target.parent;

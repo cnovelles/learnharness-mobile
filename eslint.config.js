@@ -35,7 +35,12 @@ const USER_TEXT_RULES = [
 module.exports = defineConfig([
 	expoConfig,
 	{
-		ignores: ["dist/*", "tests/.cache/*"],
+		ignores: ["dist/*", "tests/.cache/*", ".cache/*"],
+	},
+	{
+		// The generated island pages (scripts/island-pages/build.cjs): Metro and
+		// Jest map this name to .cache/island-pages/islands.js.
+		settings: { "import/core-modules": ["lh-island-pages"] },
 	},
 	{
 		files: ["src/**/*.{ts,tsx}"],

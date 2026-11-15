@@ -62,6 +62,8 @@ module.exports = function buildEsmToCjs() {
 		);
 	});
 	buildShiki(esbuild);
+	// The island pages of issue 05 slice C (jest.moduleNameMapper: lh-island-pages).
+	require("../../scripts/island-pages/build.cjs").buildIslandPages(FORK);
 };
 
 /**
