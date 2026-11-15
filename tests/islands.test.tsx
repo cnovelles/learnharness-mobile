@@ -12,6 +12,7 @@ import * as ReactNative from "react-native";
 import { Linking, StyleSheet } from "react-native";
 
 import {
+	createEndFollow,
 	createIslandViewport,
 	isAtEnd,
 	isNearScreen,
@@ -328,6 +329,30 @@ describe("islands near the screen (decision 3)", () => {
 		expect(isAtEnd(900, 800, 1750)).toBe(true);
 		expect(isAtEnd(0, 800, 800)).toBe(true);
 		expect(isAtEnd(500, 800, 1750)).toBe(false);
+	});
+
+	it("keep the follow during the app's own scroll to the end, and stop it only for the reader's scroll", () => {
+		const follow = createEndFollow();
+		expect(follow.follows()).toBe(true);
+		// A middle frame of the app's animated scroll, after an island grew: not at the end.
+		follow.scrolled({ offset: 400, visible: 800, content: 2400 });
+		expect(follow.follows()).toBe(true);
+		// The reader drags up and lets go far from the end.
+		follow.userStart();
+		follow.scrolled({ offset: 300, visible: 800, content: 2400 });
+		expect(follow.follows()).toBe(false);
+		follow.userEnd({ offset: 200, visible: 800, content: 2400 });
+		expect(follow.follows()).toBe(false);
+		// Later app scroll events do not start the follow again.
+		follow.scrolled({ offset: 1600, visible: 800, content: 2400 });
+		expect(follow.follows()).toBe(false);
+		// The reader's momentum ends at the end: the follow starts again.
+		follow.userStart();
+		follow.userEnd({ offset: 1590, visible: 800, content: 2400 });
+		expect(follow.follows()).toBe(true);
+		// A tap on the status bar goes to the top.
+		follow.toTop();
+		expect(follow.follows()).toBe(false);
 	});
 
 	it("come near within one screen, and go far only at three screens", () => {

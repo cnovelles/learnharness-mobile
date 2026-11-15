@@ -61,6 +61,49 @@ export function isAtEnd(offset: number, visible: number, content: number): boole
 	return offset + visible >= content - AT_END_MARGIN;
 }
 
+export interface ScrollMetrics {
+	offset: number;
+	visible: number;
+	content: number;
+}
+
+/**
+ * Decides if new content scrolls the transcript to the end. Only the
+ * reader's own scroll (a drag, its momentum, a tap on the status bar)
+ * changes the decision. The app's own animated scrollToEnd also sends
+ * scroll events: a middle frame of it, after the content grew again, is
+ * not at the end, and it must not stop the follow (found on the Simulator,
+ * slice D: a growing island left the check card under the screen).
+ */
+export function createEndFollow() {
+	let following = true;
+	let userScroll = false;
+	const read = (m: ScrollMetrics) => {
+		following = isAtEnd(m.offset, m.visible, m.content);
+	};
+	return {
+		/** True when new content scrolls to the end. */
+		follows: () => following,
+		/** A drag or its momentum starts. */
+		userStart: () => {
+			userScroll = true;
+		},
+		/** Each scroll event. Only a scroll by the reader changes the decision. */
+		scrolled: (m: ScrollMetrics) => {
+			if (userScroll) read(m);
+		},
+		/** A drag or its momentum ends. */
+		userEnd: (m: ScrollMetrics) => {
+			read(m);
+			userScroll = false;
+		},
+		/** iOS: the reader tapped the status bar, and the view went to the top. */
+		toTop: () => {
+			following = false;
+		},
+	};
+}
+
 /** True when the view is near the visible part of the transcript. */
 export function useNearScreen(ref: RefObject<ComponentRef<typeof View> | null>): boolean {
 	const viewport = useContext(IslandViewportContext);

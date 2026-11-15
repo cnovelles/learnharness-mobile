@@ -1,7 +1,8 @@
 /**
  * Transcript rows for the phone: a flat list from the shared view messages
- * (projectView). Rows: text, reasoning, question cards, the lesson plan,
- * the phase dividers and a short line for other tools. Rich rendering
+ * (projectView). Rows: text, reasoning, question cards, the probe
+ * assessment, the lesson plan, the phase dividers and a short line for
+ * other tools. Rich rendering
  * (Markdown, math, the plan diagram, visuals) comes in issue 05.
  *
  * Phase dividers (the desktop rules, fork components/chat.tsx):
@@ -13,6 +14,7 @@
  */
 import { presentAnswer, type AnsweredCard } from "./answer-card";
 import { planPartTree } from "./plan";
+import { probeCardData, type ProbeCardData } from "./probe-card";
 import { teacherText } from "./teacher-text";
 import {
 	QUESTION_TOOLS,
@@ -48,6 +50,8 @@ export type TranscriptRow =
 			card?: AnsweredCard;
 	  }
 	| { kind: "plan"; id: string; steps: number }
+	/** The probe_done assessment (issue 05 slice D). */
+	| ({ kind: "probe"; id: string } & ProbeCardData)
 	| { kind: "divider"; id: string; phase: Exclude<Phase3, "probe">; steps?: number }
 	/** Compaction: "moment" where it ran, "cut" where the kept history starts. */
 	| { kind: "compaction"; id: string; at: "moment" | "cut"; tokensBefore?: number }
@@ -159,6 +163,8 @@ export function transcriptRows(
 					)
 						return;
 					rows.push(questionRow(part, id, name, malformedCallIds));
+				} else if (name === "probe_done") {
+					rows.push({ kind: "probe", id, ...probeCardData(part) });
 				} else if (name.startsWith("plan_")) {
 					const tree = planPartTree(part);
 					if (tree) rows.push({ kind: "plan", id, steps: tree.nodes.length });

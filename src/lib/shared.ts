@@ -27,6 +27,7 @@ export {
 	derivedNodeStatus,
 	emptyDockSelection,
 	malformedQuestionsOf,
+	parseProbeDoneInput,
 	pendingQuestionOf,
 	phaseAt3Lh,
 	phaseTimeline,

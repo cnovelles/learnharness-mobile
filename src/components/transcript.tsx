@@ -1,7 +1,8 @@
 /**
  * The session transcript: learner text, teacher text, reasoning (closed by
- * default, tap to open), the answered question cards, the lesson plan, the
- * phase dividers, and a short line for other tools. The teacher's text is
+ * default, tap to open), the answered question cards, the probe assessment
+ * (src/components/probe-card.tsx), the lesson plan, the phase dividers,
+ * and a short line for other tools. The teacher's text is
  * Markdown (issue 05, src/components/markdown.tsx); the learner's own text
  * stays plain, as on the desktop.
  */
@@ -12,6 +13,7 @@ import type { AnsweredCard } from "@/lib/answer-card";
 import { PHASE_LABEL } from "@/lib/plan";
 import type { TranscriptRow } from "@/lib/transcript";
 import { Markdown } from "./markdown";
+import { ProbeCard } from "./probe-card";
 import { usePalette } from "./ui";
 
 const stepCount = (n: number) => `${n} step${n === 1 ? "" : "s"}`;
@@ -259,6 +261,8 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 					</Text>
 				</Pressable>
 			);
+		case "probe":
+			return <ProbeCard id={row.id} data={row} />;
 		case "divider":
 			return <Divider row={row} />;
 		case "compaction":

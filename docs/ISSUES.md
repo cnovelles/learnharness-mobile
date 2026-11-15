@@ -221,6 +221,18 @@ Accepted limit: inline code in native text gets only a color and a background (n
       3. The long press: React Native sees no touches over a WebView (a `Pressable` around it never fired), and when the transcript takes over a drag, WebKit can send the page no `touchcancel`, so a 500 ms timer in the page copied during a scroll. The page now sends `longpress` on `touchend` after a still hold of 500 ms or more.
     - Simulator tool: the first screenshot after a swipe can be an old frame. Take a second screenshot before you tap by coordinate.
 - **D. Probe card.** Native, with `parseProbeDoneInput`. Each strand uses the slice A renderer.
+  - Decisions (user, 2026-11-15, from mockups):
+    1. Layout A, as on the desktop: a folded card "PROBE ASSESSMENT · N strands". A tap on the header opens one block for each strand (the name, then the assessment) and the summary last. The open state is local to the card (not kept).
+    2. The notes use the word "prober", as on the desktop.
+    3. A long press on the card header copies the assessment as Markdown: each strand as a bold name and its text, then the summary. The same "Copied" label as the other blocks. Never the raw tool record.
+  - Fact: the schema has `minItems: 1` for `strands`, so an empty list does not parse. The server refuses such a call (`output-error`).
+  - **Done (2026-11-15). Simulator check passed** with the scripted Mac (`LH_E2E_RICH=1 npm run e2e:mac`, then `npm run e2e:teach`; the prober now sends a `probe_done` that the Mac refuses, then a rich assessment with 3 strands: bold, italic, inline code, a literal `\n\n`, inline math and a summary).
+    - Code: `src/lib/probe-card.ts` (`probeCardData` reads the part in the desktop's order with the shared `parseProbeDoneInput`, now exported in `src/lib/shared.ts`; `PROBE_NOTE`; `probeMarkdown` for copy), `src/components/probe-card.tsx` (`ProbeCard`), a `probe` row in `src/lib/transcript.ts`. The strand text goes through `teacherText`, then the slice A `Markdown` (math islands work inside a strand).
+    - Tests: `tests/probe-card.test.tsx` (20: the rows from native records, error state 13 with all 4 notes, the fold, Markdown in the strands, copy, VoiceOver, copy failure, a strand whose renderer throws).
+    - Seen on the Simulator: the malformed note, the folded card "3 strands ▸", the open card with all strand formats and the KaTeX island, the summary last, dark mode, a long press copies the Markdown (`xcrun simctl pbpaste`) and leaves the card open or folded.
+    - Found and fixed in the check:
+      1. A strand name with its own bold gave broken Markdown in the copy (`**The Moon's **gravity****`). `probeMarkdown` now removes `**` and `__` inside the name.
+      2. The transcript stopped following new content at the end (the Maestro step "Check your understanding" failed; the check card stayed under the screen). The app's own animated `scrollToEnd` sends scroll events, and a middle frame after an island grew was not at the end. Now only the reader's own scroll changes the decision: a drag, its momentum, or a tap on the status bar (`createEndFollow` in `src/components/island-viewport.tsx`, a test in `tests/islands.test.tsx`). After the fix, `npm run e2e:teach` passes from start to end.
 - **E. Plan graph.** `react-native-svg` with the shared layout from slice 0. The transcript gets the one-color block, the Plan sheet gets the graph with statuses. The list stays in the Plan sheet.
 - **F. Acceptance.** Jest for each slice and each error state. Maestro screenshots of a scripted lesson with Markdown, code, math, Mermaid, the probe card and the plan.
 
@@ -242,9 +254,11 @@ New native modules: `react-native-svg`, `react-native-webview`, `expo-clipboard`
 12. The island tries to open a page: blocked. No network (CSP). Model text goes in only as escaped data.
 13. `probe_done`:
     - Still writing: "Writing the assessment…"
-    - Malformed (`output-error`): "The assessment was malformed. The teacher sent a corrected one."
-    - Refused (`ok: false`): "The teacher retried with a corrected assessment." The desktop shows the raw `output.error`; the phone does not (`AGENTS.md`, "Error states").
-    - No strands: the summary only.
+    - Malformed (`output-error`): "The assessment was malformed. The prober sent a corrected one."
+    - Refused (`ok: false`): "The prober retried with a corrected assessment." The desktop shows the raw `output.error`; the phone does not (`AGENTS.md`, "Error states").
+    - Finished (`output-available`, `ok: true`) but the input does not parse: "The phone cannot show this assessment." (The desktop shows "Writing the assessment…" here.)
+    - No summary: the strands only. An empty strand list does not parse (see the fact above).
+    - The renderer throws on one strand: the slice A error boundary shows that text plain; the other strands still show.
 14. Plan graph: the layout throws, so the Plan sheet shows the list only; an edge to a missing node is dropped; a cycle draws each node one time; a wide graph scrolls inside its block.
 15. Wide tables or long code lines scroll inside the block. The page never scrolls sideways.
 16. The light or dark mode changes: the code colors and the Mermaid theme draw again.

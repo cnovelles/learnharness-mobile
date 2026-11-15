@@ -24,7 +24,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { createIslandViewport, IslandViewportContext, isAtEnd } from "@/components/island-viewport";
+import {
+	createEndFollow,
+	createIslandViewport,
+	IslandViewportContext,
+	type ScrollMetrics,
+} from "@/components/island-viewport";
 import { PlanSheet } from "@/components/plan-sheet";
 import { QuestionDock } from "@/components/question-dock";
 import { Transcript } from "@/components/transcript";
@@ -205,12 +210,21 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	// New content scrolls the transcript to the end only when the reader is
 	// at the end. An island that starts near the screen changes its height:
 	// that must not pull a reader who scrolled up back to the end.
-	const atEnd = useRef(true);
-	const onTranscriptScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+	const [follow] = useState(createEndFollow);
+	const metrics = (event: NativeSyntheticEvent<NativeScrollEvent>): ScrollMetrics => {
 		const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-		atEnd.current = isAtEnd(contentOffset.y, layoutMeasurement.height, contentSize.height);
+		return {
+			offset: contentOffset.y,
+			visible: layoutMeasurement.height,
+			content: contentSize.height,
+		};
+	};
+	const onTranscriptScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+		follow.scrolled(metrics(event));
 		viewport.notify();
 	};
+	const onUserScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
+		follow.userEnd(metrics(event));
 	// The keyboard covers the screen on iOS: pad the view by its height
 	// (Expo keyboard guide). The offset is the header height.
 	const headerHeight = useHeaderHeight();
@@ -242,10 +256,15 @@ function SessionBody({ record }: { record: SessionRecord }) {
 					contentContainerStyle={styles.content}
 					keyboardShouldPersistTaps="handled"
 					onContentSizeChange={() => {
-						if (atEnd.current) scroll.current?.scrollToEnd({ animated: true });
+						if (follow.follows()) scroll.current?.scrollToEnd({ animated: true });
 						viewport.notify();
 					}}
 					onScroll={onTranscriptScroll}
+					onScrollBeginDrag={follow.userStart}
+					onScrollEndDrag={onUserScrollEnd}
+					onMomentumScrollBegin={follow.userStart}
+					onMomentumScrollEnd={onUserScrollEnd}
+					onScrollToTop={follow.toTop}
 					onLayout={viewport.notify}
 					scrollEventThrottle={100}
 				>

@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15 (issue 05 slice C done and checked on the Simulator).
+Last update: 2026-11-15 (issue 05 slice D done and checked on the Simulator).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-15 (issue 05 slice C done and checked on the Simulator).
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 05 slice D (the `probe_done` card: native, with `parseProbeDoneInput`, each strand with the slice A renderer; error state 13). Slices 0, A, B and C passed the Simulator check (2026-11-15). The dev build of 2026-11-15 has `expo-clipboard`, `react-native-svg` and `react-native-webview`, so slices D and E need no new build. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 372 pass.
+**Next step:** issue 05 slice E (the plan graph: `react-native-svg` with the shared layout from slice 0; the transcript gets the one-color block, the Plan sheet gets the graph with statuses; error state 14). Slices 0, A, B, C and D passed the Simulator check (2026-11-15). The dev build of 2026-11-15 has `react-native-svg`, so slice E needs no new build. Decisions, slices and error states: `docs/ISSUES.md`, issue 05. Jest: 393 pass.
 
 **Facts found during the work**
 

@@ -22,6 +22,8 @@
  * LH_E2E_RICH=1 adds `RICH` to the teaching text of step 4: Markdown, code
  * fences in 3 languages, a table, math (also a formula that KaTeX cannot
  * draw) and 2 Mermaid charts (one with a parse error). Issue 05, manual checks.
+ * It also makes the prober send a probe_done that the Mac refuses, then a
+ * rich assessment with 3 strands (slice D).
  *
  * Control server (for Maestro, on 127.0.0.1, port in e2e/.control.txt):
  * POST /models/clear removes the model settings (the Mac then refuses a
@@ -114,6 +116,26 @@ export const RICH = [
 	"- two, see [the source](https://example.test)",
 ].join("\n");
 const RICH_ON = process.env.LH_E2E_RICH === "1";
+/** A probe_done call that the Mac refuses: the schema needs one strand or more. */
+const PROBE_BAD = { assessment: { strands: [], summary: "No strands." } };
+/** A rich assessment for the probe card (LH_E2E_RICH=1, issue 05 slice D). */
+const PROBE_RICH = {
+	assessment: {
+		strands: [
+			{
+				strand: "The Moon's **gravity**",
+				assessment: "Picked the Moon at once. Knows `F = G m1 m2 / r^2` by name only.",
+			},
+			{
+				strand: "Why there are *two* bulges",
+				assessment:
+					"Expects one bulge on the Moon's side.\n\nThe pull falls off as $1/r^2$, so the far side lags.",
+			},
+			{ strand: "Spring and neap tides", assessment: "Not seen yet." },
+		],
+		summary: "Start from the two tidal bulges, then the Sun's part.",
+	},
+};
 
 const SECRET = "e".repeat(64);
 const DESKTOP = { "x-learnharness-desktop": SECRET };
@@ -138,16 +160,21 @@ async function main() {
 					chunkDelayMs: 40,
 					toolCalls: [{ name: "probe", arguments: LESSON.probe }],
 				},
+				// LH_E2E_RICH=1: first a call that the Mac refuses (no strands), then
+				// the rich assessment (issue 05 slice D).
+				...(RICH_ON ? [{ toolCalls: [{ name: "probe_done", arguments: PROBE_BAD }] }] : []),
 				{
 					toolCalls: [
 						{
 							name: "probe_done",
-							arguments: {
-								assessment: {
-									strands: [{ strand: "tides", assessment: "Knows the Moon causes tides." }],
-									summary: "Start from the two tidal bulges.",
-								},
-							},
+							arguments: RICH_ON
+								? PROBE_RICH
+								: {
+										assessment: {
+											strands: [{ strand: "tides", assessment: "Knows the Moon causes tides." }],
+											summary: "Start from the two tidal bulges.",
+										},
+									},
 						},
 					],
 				},
