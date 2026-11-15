@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (issue 04 done: the user's real teach cycle passed, and its 3 findings are fixed).
+Last update: 2026-11-14 (issue 05 approach chosen: native hybrid renderer; artifacts split into issue 19).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-14 (issue 04 done: the user's real teach cycle passed, and 
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** choose issue 05 (rich rendering) or 18 (visual design). Issue 04 is done: the user ran a real lesson with the Claude Code CLI on the Simulator (probe, plan, teach, a check), and the fix for its 3 findings is in (literal `\n` text, the kind label on the open question, Skip removed; details in `docs/ISSUES.md`, issue 04). Jest: 267 pass. Issue 05 now lists what the check found: raw Markdown, code blocks, the probe assessment card, the plan graph. Issue 18 lists the Expo starter icon and splash screen.
+**Next step:** issue 05 (rich rendering), slice 0 (fork: shared plan layout), then A (Markdown). The user chose the approach on 2026-11-14 from mockups: a native hybrid renderer, KaTeX and Mermaid in WebView islands, artifacts in issue 19, copy with a long press. Decisions, slices and 17 error states: `docs/ISSUES.md`, issue 05. Slice B starts with a check that Shiki's JavaScript regex engine runs on Hermes (not checked yet). New native modules (`react-native-svg`, `react-native-webview`, `expo-clipboard`) need a new dev build. Issue 04 is done (fix `1f2f104`); Jest: 267 pass.
 
 **Facts found during the work**
 

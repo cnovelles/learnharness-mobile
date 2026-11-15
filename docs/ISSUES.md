@@ -3,7 +3,7 @@
 Parent: `docs/PRD.md`. Labels: `needs-triage` on all. Status: `todo`, `doing`, `done`.
 Each issue is a vertical slice: it is done only when its tests pass and the upstream suite in the fork still passes (except the known upstream failure in `tests/subscription-auth.test.ts`).
 
-Order: 01 → 01b → 02 → 03 → 04 → (05, 06, 07, 08 in any order) → 09 → 10 → 11 → 12 → (13, 14) → 15.
+Order: 01 → 01b → 02 → 03 → 04 → (05, 06, 07, 08 in any order; 19 after 05) → 09 → 10 → 11 → 12 → (13, 14) → 15.
 17 (feature flags) is done. Later modes and features add their flag there.
 16 (ChatGPT sign-in test on the iPhone) can run at any time after a development build runs on the user's iPhone. Its result decides the sign-in part of 12.
 
@@ -167,18 +167,72 @@ Found for later: rich rendering (issue 05: Markdown, code blocks, the probe asse
 
 Acceptance: the Maestro E2E passes; each error state above has a Jest test; the user checks one real teach cycle on the Simulator. All three are done.
 
-## 05 Rich rendering `todo`
+## 05 Rich rendering `doing`
 
 Blocked by: 03.
 
-- Markdown, KaTeX math, code, Mermaid (WebView or native renderers; choose and document).
+- Markdown, KaTeX math, code, Mermaid.
 - Found in the issue 04 acceptance check (user screenshots of the desktop are the reference):
   - Teacher text shows raw Markdown on the phone: `## Step 1`, `**bold**`, `*italic*`, `- ` lists and backticks.
   - Code fences need a code block as on the desktop: a dark block with line numbers and syntax colors. Inline code (`true`, `count`) in small mono boxes, also in question options.
   - The `probe_done` call shows as a plain "Tool: probe_done" line. The desktop shows a "Probe concluded: your assessment" card with one block for each strand.
   - The lesson plan: the desktop draws the plan as a graph with arrows (prerequisites). The phone has only the list in the Plan sheet.
-- Visual (SVG) and demo artifacts through `/api/chats/:id/artifact-ui` in a sandboxed WebView.
-  Acceptance: golden-fixture sessions render without errors; snapshot or screenshot checks.
+- Visual (SVG) and demo artifacts moved to issue 19 (user decision 2026-11-14).
+
+**How the desktop renders (read 2026-11-14).**
+
+- Markdown: `Streamdown` in `components/ai-elements/message.tsx` (GFM, `remark-breaks` in the cjk plugin's `remarkPluginsAfter`, dollar math with `singleDollarTextMath`). Remote images are blocked ("[Image blocked: alt]"). `transformMathDelimiters` reads the old `\(…\)` and `\[…\]` math. Tool text goes through `repairMathForDisplay` (`ToolContentResponse`).
+- `components/md-blocks.tsx`: code fences use Streamdown's `CodeBlock` (Shiki `codeToTokens`, JavaScript regex engine, themes `github-light` and `github-dark`, line numbers unless the fence meta has `noLineNumbers`, `startLine=N`). Inline code: mono, `--lh-ink-code`. A copy icon on each block. GitHub alert markers (`[!IMPORTANT]` and 4 more) make a callout box.
+- Math: KaTeX 0.18. Mermaid: `components/mermaid-render.ts` (`securityLevel: "strict"`, a theme for each mode, font size 16), a spinner while the fence is open, `MermaidError` with Try again.
+- `probe_done`: `components/artifacts/probe-done-card.tsx`. The input goes through `parseProbeDoneInput` (shared core). A folded card "Probe assessment · N strands" that opens to one block for each strand and the summary.
+- Plan graph: `components/plan-block.tsx`. The layout is dagre (`dagre-d3-es`) with no DOM (`blockLayout`, `edgePathD`, `wrapTitle`, `nodeWidth`). The SVG is drawn by hand. The transcript block has one color (no statuses); the popup shows statuses and has pan and zoom. The file also imports `lucide-react` and DOM components, so the phone cannot import it as it is.
+
+**Decisions (user, 2026-11-14).** The user saw mockups of each option and chose A for all 4.
+
+1. Native hybrid renderer. Markdown, code, inline code, the probe card and the plan graph are native views. Not a WebView for each message (rejected: a separate web bundle of the fork's components, a height sync for each message, more memory, Jest cannot see inside it).
+2. Math in a KaTeX WebView island: one island for each paragraph or block that has math. The same engine as the desktop. Mermaid uses the same island. Not MathJax SVG (rejected: a different engine from the desktop).
+3. Visual and demo artifacts are a separate issue (19).
+4. Copy is in this issue: a long press on a block copies its source (code as text, a table as Markdown, math as TeX, Mermaid as the chart source). Uses `expo-clipboard`.
+
+Accepted limit: inline code in native text gets only a color and a background (no padding, no rounded corners, from memory, check in slice A). Issue 18 decides the final look.
+
+**Slices.**
+
+- **0. Fork: shared plan layout.** Move the pure layout helpers out of `components/plan-block.tsx` into a DOM-free fork file. `plan-block.tsx` imports them, so the desktop does not change. The fork's tests must still pass. Push to `fork` only.
+- **A. Markdown.** Parse with the mdast stack that the fork has (`mdast-util-from-markdown`, GFM, math). Draw headings, paragraphs, bold, italic, lists, links, quotes and callouts, tables and inline code as native views. Use it for the teacher text, the reasoning, the questions and options, Why and "The answer". The learner's own text stays plain.
+- **B. Code blocks.** Shiki `codeToTokens` with the JavaScript regex engine and the desktop themes, drawn as native `Text`. A column of line numbers (`noLineNumbers`, `startLine=N`). The block scrolls sideways. A fixed list of bundled languages. Long press to copy. First check: Shiki's regex engine runs on Hermes (not checked yet). If it does not, code blocks show without colors, and we choose again with the user.
+- **C. Math and Mermaid islands.** `react-native-webview` with a local HTML page that has KaTeX and Mermaid in it (no network). The text goes in as escaped data. The island reports its height.
+- **D. Probe card.** Native, with `parseProbeDoneInput`. Each strand uses the slice A renderer.
+- **E. Plan graph.** `react-native-svg` with the shared layout from slice 0. The transcript gets the one-color block, the Plan sheet gets the graph with statuses. The list stays in the Plan sheet.
+- **F. Acceptance.** Jest for each slice and each error state. Maestro screenshots of a scripted lesson with Markdown, code, math, Mermaid, the probe card and the plan.
+
+New native modules: `react-native-svg`, `react-native-webview`, `expo-clipboard`. Add them with `npx expo install`. They need a new dev build.
+
+**Error states.** Each one gets a clear message (`userMessage`) and a test.
+
+1. Unclosed fence or partial Markdown while a reply streams: a code block that is still in progress. Raw Markdown does not flicker on screen.
+2. The renderer throws on a message: an error boundary shows that message as plain text (`teacherText`). The rest of the transcript still shows.
+3. Unknown code language: a plain mono block with line numbers and no colors.
+4. The highlighter fails, or the code is longer than a size limit: a plain block. The app does not freeze.
+5. Remote images: blocked, with "[Image blocked: alt]", as on the desktop.
+6. Links: only `http`, `https` and `mailto` open. Other schemes show as text.
+7. Raw HTML in the text: shown as text, never run.
+8. A math error, or the island does not load: the TeX source in mono and "The phone cannot show this formula."
+9. A Mermaid parse error or a time-out: "The phone cannot draw this diagram.", the source folded, and Try again.
+10. The WebView process stops: load it again one time, then use the fallback of 8 or 9.
+11. The island's height message is missing or wrong: a minimum height, and the content scrolls inside it.
+12. The island tries to open a page: blocked. No network (CSP). Model text goes in only as escaped data.
+13. `probe_done`:
+    - Still writing: "Writing the assessment…"
+    - Malformed (`output-error`): "The assessment was malformed. The teacher sent a corrected one."
+    - Refused (`ok: false`): "The teacher retried with a corrected assessment." The desktop shows the raw `output.error`; the phone does not (`AGENTS.md`, "Error states").
+    - No strands: the summary only.
+14. Plan graph: the layout throws, so the Plan sheet shows the list only; an edge to a missing node is dropped; a cycle draws each node one time; a wide graph scrolls inside its block.
+15. Wide tables or long code lines scroll inside the block. The page never scrolls sideways.
+16. The light or dark mode changes: the code colors and the Mermaid theme draw again.
+17. Copy fails: "Could not copy." Copy never copies a blocked image URL or a raw tool record.
+
+Acceptance: golden-fixture sessions render without errors; each error state above has a Jest test; Maestro screenshots of the scripted lesson; the user checks one real lesson on the Simulator.
 
 ## 06 Practice on the phone `todo`
 
@@ -306,3 +360,14 @@ Blocked by: 04, 05. Requested by the user on 2026-11-14, after the real lesson c
 - Error states: errors, empty lists and loading states get the same design care (see `AGENTS.md`, "Error states").
 - App icon and splash screen: the app still uses the Expo starter images (`assets/images/icon.png`, `assets/expo.icon`, `assets/images/splash-icon.png` on blue `#208AEF`). Replace them with LearnHarness images (ask the user which ones).
   Acceptance: screenshots of the same session on the desktop and the phone side by side, approved by the user; screen tests still pass.
+- Inline code: decide between the native band (color and background only) and a `View` inside the text (rounded and padded, but it cannot break across lines). See issue 05, "Accepted limit". Show the user Simulator screenshots of both.
+
+## 19 Visual and demo artifacts `todo`
+
+Blocked by: 05. Split from issue 05 (user decision 2026-11-14).
+
+- Visual (SVG) and demo artifacts through `POST /api/chats/:id/artifact-ui` (the gateway allows it) in a sandboxed WebView inside the lesson.
+- Until this issue is done, an artifact shows as a placeholder row: "Interactive demo. Open it on the Mac."
+- Needs its own security review before code: the sandbox, no network, no access to the device token or the pinned fetch, no navigation out of the WebView.
+- List the error states here before the code (`AGENTS.md`, "Error states").
+  Acceptance: a scripted lesson with one SVG artifact and one demo artifact renders on the Simulator; each error state has a test.
