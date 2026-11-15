@@ -47,7 +47,7 @@ Last update: 2026-11-15, seventh clear (issue 18 slices A, B, C done, D part don
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 18 slice D is done (see `docs/ISSUES.md`, issue 18). Slice E is done (inline code as a `View`). The icon and splash passed the check (open: the name under the icon). Next: the side-by-side acceptance (desktop and phone screenshots of the same session). Issue 05 waits only for the user to check one real lesson (Claude has no model key). Jest: 453 pass. See `docs/ISSUES.md`, issue 18 "Slices and state".
+**Next step:** Issue 18 slice D is done (see `docs/ISSUES.md`, issue 18). Slice E is done (inline code as a `View`). The icon and splash passed the check (open: the name under the icon). The side-by-side screenshots are made and wait for the user's approval (`e2e/screenshots/side-by-side/`). Issue 05 waits only for the user to check one real lesson (Claude has no model key). Jest: 453 pass. See `docs/ISSUES.md`, issue 18 "Slices and state".
 
 **Facts found during the work**
 
