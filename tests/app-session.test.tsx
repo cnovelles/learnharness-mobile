@@ -328,9 +328,11 @@ describe("teach-phase checks", () => {
 		await renderRouter(APP, { initialUrl: `/session/${id}` });
 
 		const question = await screen.findByTestId("dock-question");
-		expect(question.props.children).toBe(
-			"```js\nconsole.log('1');\nconsole.log('2');\n```\nWhat prints first?",
+		// The repaired fence draws as a code block (issue 05 slice A).
+		expect(within(question).getByTestId("md-code-text")).toHaveTextContent(
+			"console.log('1');\nconsole.log('2');",
 		);
+		expect(within(question).getByText("What prints first?")).toBeTruthy();
 		expect(screen.queryByText(/\\n/)).toBeNull();
 		expect(screen.getByTestId("dock-kind")).toHaveTextContent("PREDICTION");
 

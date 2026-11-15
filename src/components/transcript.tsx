@@ -1,8 +1,9 @@
 /**
  * The session transcript: learner text, teacher text, reasoning (closed by
  * default, tap to open), the answered question cards, the lesson plan, the
- * phase dividers, and a short line for other tools. Plain text for now;
- * Markdown, math and the plan diagram come in issue 05.
+ * phase dividers, and a short line for other tools. The teacher's text is
+ * Markdown (issue 05, src/components/markdown.tsx); the learner's own text
+ * stays plain, as on the desktop.
  */
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -10,6 +11,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { AnsweredCard } from "@/lib/answer-card";
 import { PHASE_LABEL } from "@/lib/plan";
 import type { TranscriptRow } from "@/lib/transcript";
+import { Markdown } from "./markdown";
 import { usePalette } from "./ui";
 
 const stepCount = (n: number) => `${n} step${n === 1 ? "" : "s"}`;
@@ -43,11 +45,14 @@ function Tucked({
 	text,
 	testID,
 	defaultOpen = false,
+	markdown = false,
 }: {
 	title: string;
 	text: string;
 	testID: string;
 	defaultOpen?: boolean;
+	/** The teacher's text (Why) is Markdown; the learner's own text is not. */
+	markdown?: boolean;
 }) {
 	const c = usePalette();
 	const [open, setOpen] = useState(defaultOpen);
@@ -61,7 +66,13 @@ function Tucked({
 			<Text style={[styles.small, { color: c.muted, fontWeight: "600" }]}>
 				{open ? `${title} (tap to close)` : title}
 			</Text>
-			{open ? <Text style={[styles.small, { color: c.text }]}>{text}</Text> : null}
+			{open ? (
+				markdown ? (
+					<Markdown text={text} compact style={[styles.small, { color: c.text }]} />
+				) : (
+					<Text style={[styles.small, { color: c.text }]}>{text}</Text>
+				)
+			) : null}
 		</Pressable>
 	);
 }
@@ -96,7 +107,10 @@ function AnswerCardView({ id, card }: { id: string; card: AnsweredCard }) {
 						</Text>
 					) : null}
 				</View>
-				<Text style={[styles.body, { color: c.text, fontWeight: "600" }]}>{card.question}</Text>
+				<Markdown
+					text={card.question}
+					style={[styles.body, { color: c.text, fontWeight: "600" }]}
+				/>
 				{card.options.map((o, i) => (
 					<View
 						key={i}
@@ -121,14 +135,16 @@ function AnswerCardView({ id, card }: { id: string; card: AnsweredCard }) {
 						<Text style={[styles.mark, { color: o.mark === "check" ? c.ok : c.danger }]}>
 							{o.mark === "check" ? "✓" : o.mark === "x" ? "✗" : " "}
 						</Text>
-						<Text
-							style={[
-								styles.small,
-								{ color: o.selected ? c.text : c.muted, fontWeight: o.selected ? "600" : "400" },
-							]}
-						>
-							{o.label}
-						</Text>
+						<View style={styles.optionText}>
+							<Markdown
+								text={o.label}
+								compact
+								style={[
+									styles.small,
+									{ color: o.selected ? c.text : c.muted, fontWeight: o.selected ? "600" : "400" },
+								]}
+							/>
+						</View>
 					</View>
 				))}
 				{card.other ? (
@@ -149,14 +165,12 @@ function AnswerCardView({ id, card }: { id: string; card: AnsweredCard }) {
 					<Tucked title="Your thinking" text={card.thinking} testID={`thinking-${id}`} />
 				) : null}
 				{card.explanation ? (
-					<Tucked title="Why" text={card.explanation} testID={`why-${id}`} />
+					<Tucked title="Why" text={card.explanation} testID={`why-${id}`} markdown />
 				) : null}
 				{card.committed ? (
 					<View style={[styles.reveal, { backgroundColor: c.bg }]} testID={`committed-${id}`}>
-						<Text style={[styles.small, { color: c.text }]}>
-							<Text style={{ fontWeight: "600" }}>The answer: </Text>
-							{card.committed}
-						</Text>
+						<Text style={[styles.small, { color: c.text, fontWeight: "600" }]}>The answer</Text>
+						<Markdown text={card.committed} compact style={[styles.small, { color: c.text }]} />
 					</View>
 				) : null}
 			</View>
@@ -175,7 +189,7 @@ function QuestionCard({ row }: { row: QuestionRow }) {
 			<Text style={[styles.label, { color: c.muted }]}>
 				{(TOOL_LABEL[row.tool] ?? "Question").toUpperCase()}
 			</Text>
-			<Text style={[styles.body, { color: c.text, fontWeight: "600" }]}>{row.question}</Text>
+			<Markdown text={row.question} style={[styles.body, { color: c.text, fontWeight: "600" }]} />
 			<Text style={[styles.small, { color: row.status === "malformed" ? c.danger : c.muted }]}>
 				{row.status === "malformed"
 					? "This question is not complete, so the phone cannot show it."
@@ -202,7 +216,9 @@ function Reasoning({ row }: { row: Extract<TranscriptRow, { kind: "reasoning" }>
 			<Text style={[styles.small, { color: c.muted }]}>
 				{row.streaming ? "Thinking…" : open ? "Thinking (tap to close)" : "Thinking (tap to open)"}
 			</Text>
-			{open ? <Text style={[styles.small, { color: c.muted }]}>{row.text}</Text> : null}
+			{open ? (
+				<Markdown text={row.text} compact style={[styles.small, { color: c.muted }]} />
+			) : null}
 		</Pressable>
 	);
 }
@@ -218,9 +234,11 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 			);
 		case "text":
 			return (
-				<Text style={[styles.body, { color: c.text }]} testID={`text-${row.id}`}>
-					{row.text}
-				</Text>
+				<Markdown
+					text={row.text}
+					style={[styles.body, { color: c.text }]}
+					testID={`text-${row.id}`}
+				/>
 			);
 		case "reasoning":
 			return <Reasoning row={row} />;
@@ -307,7 +325,8 @@ const styles = StyleSheet.create({
 	},
 	mark: { width: 14, fontSize: 14, fontWeight: "700" },
 	thinking: { borderLeftWidth: 3, paddingLeft: 10, gap: 4 },
-	reveal: { borderRadius: 8, padding: 8 },
+	reveal: { borderRadius: 8, padding: 8, gap: 2 },
+	optionText: { flex: 1 },
 	center: { textAlign: "center" },
 	divider: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 4 },
 	rule: { flex: 1, borderTopWidth: 2, borderStyle: "dotted" },

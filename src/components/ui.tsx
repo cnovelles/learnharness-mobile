@@ -25,6 +25,9 @@ const LIGHT = {
 	onAccent: "#ffffff",
 	danger: "#c4314b",
 	ok: "#2e8b57",
+	/** Code blocks and inline code (issue 05). Issue 18 sets the final look. */
+	codeBg: "#ecece8",
+	code: "#9a3b5c",
 };
 const DARK = {
 	bg: "#141414",
@@ -36,6 +39,8 @@ const DARK = {
 	onAccent: "#111111",
 	danger: "#f7768e",
 	ok: "#73c991",
+	codeBg: "#262626",
+	code: "#e6a5c0",
 };
 export type Palette = typeof LIGHT;
 

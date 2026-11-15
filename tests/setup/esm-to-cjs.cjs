@@ -30,6 +30,9 @@ const PACKAGES = {
 	"mdast-util-from-markdown": "mdast-util-from-markdown",
 	"mdast-util-math": "mdast-util-math",
 	"micromark-extension-math": "micromark-extension-math",
+	"mdast-util-gfm": "mdast-util-gfm",
+	"micromark-extension-gfm": "micromark-extension-gfm",
+	remend: "remend",
 };
 
 module.exports = function buildEsmToCjs() {
@@ -54,7 +57,8 @@ module.exports = function buildEsmToCjs() {
 	names.forEach(([, file], i) => {
 		fs.writeFileSync(
 			path.join(OUT, `${file}.cjs`),
-			`module.exports = require("./bundle.cjs").m${i};\n`,
+			// __esModule lets a default import (remend) find the default export.
+			`module.exports = { __esModule: true, ...require("./bundle.cjs").m${i} };\n`,
 		);
 	});
 };

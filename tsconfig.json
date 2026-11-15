@@ -5,7 +5,14 @@
     "paths": {
       "@/*": ["./src/*"],
       "@/assets/*": ["./assets/*"],
-      "@lh/*": ["../learnharness/*"]
+      "@lh/*": ["../learnharness/*"],
+      "mdast": ["../learnharness/node_modules/@types/mdast"],
+      "mdast-util-from-markdown": ["../learnharness/node_modules/mdast-util-from-markdown"],
+      "mdast-util-gfm": ["../learnharness/node_modules/mdast-util-gfm"],
+      "mdast-util-math": ["../learnharness/node_modules/mdast-util-math"],
+      "micromark-extension-gfm": ["../learnharness/node_modules/micromark-extension-gfm"],
+      "micromark-extension-math": ["../learnharness/node_modules/micromark-extension-math"],
+      "remend": ["../learnharness/node_modules/remend"]
     },
     "types": ["jest"],
     "allowImportingTsExtensions": true

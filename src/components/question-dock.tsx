@@ -39,7 +39,9 @@ import {
 	type QuestionData,
 	type QuestionDraft,
 } from "@/lib/shared";
+import { markdownPreview } from "@/lib/markdown";
 import { teacherText } from "@/lib/teacher-text";
+import { Markdown } from "./markdown";
 import { Body, Button, Field, Panel, usePalette } from "./ui";
 
 export interface PendingQuestionCall {
@@ -80,10 +82,14 @@ function Choice({
 				},
 			]}
 		>
-			<Text style={[styles.choiceText, { color: c.text, fontWeight: selected ? "600" : "400" }]}>
-				{label}
-			</Text>
-			{detail ? <Text style={[styles.small, { color: c.muted }]}>{detail}</Text> : null}
+			<Markdown
+				text={label}
+				compact
+				style={[styles.choiceText, { color: c.text, fontWeight: selected ? "600" : "400" }]}
+			/>
+			{detail ? (
+				<Markdown text={detail} compact style={[styles.small, { color: c.muted }]} />
+			) : null}
 		</Pressable>
 	);
 }
@@ -165,10 +171,14 @@ function DockForm({
 			<Text style={[styles.kind, { color: c.muted }]} testID="dock-kind">
 				{dockLabel(qd, tool)}
 			</Text>
-			<Body style={{ fontWeight: "600" }} testID="dock-question">
-				{teacherText(qd.question)}
-			</Body>
-			{qd.context ? <Body muted>{teacherText(qd.context)}</Body> : null}
+			<Markdown
+				text={teacherText(qd.question)}
+				style={[styles.body, { color: c.text, fontWeight: "600" }]}
+				testID="dock-question"
+			/>
+			{qd.context ? (
+				<Markdown text={teacherText(qd.context)} style={[styles.body, { color: c.muted }]} />
+			) : null}
 			{qd.mode === "text" ? (
 				<Field
 					value={form.text}
@@ -257,8 +267,7 @@ function RevealBar({
 	onReadingThinking: (text: string) => void;
 	onOpen: () => void;
 }) {
-	const question = teacherText(qd.question);
-	const preview = question.length > 90 ? `${question.slice(0, 90)}…` : question;
+	const preview = markdownPreview(teacherText(qd.question));
 	return (
 		<>
 			<Field
@@ -339,6 +348,7 @@ export function QuestionDock({
 const styles = StyleSheet.create({
 	kind: { fontSize: 12, fontWeight: "600", letterSpacing: 0.8 },
 	choice: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 2 },
+	body: { fontSize: 15, lineHeight: 21 },
 	choiceText: { fontSize: 15, lineHeight: 21 },
 	small: { fontSize: 13, lineHeight: 18 },
 	stops: { flexDirection: "row", flexWrap: "wrap", gap: 6 },

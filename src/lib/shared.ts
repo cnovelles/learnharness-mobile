@@ -35,6 +35,7 @@ export {
 	projectView,
 	questionDataForCall,
 	repairMathForDisplay,
+	transformMathDelimiters,
 	toggleOption,
 	toggleOther,
 	toolQuestionKind,

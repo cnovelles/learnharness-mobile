@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-14 (issue 05 slice 0 done: the shared plan layout, fork `c6e79ca`).
+Last update: 2026-11-14 (issue 05 slice A done: Markdown as native views).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-14 (issue 05 slice 0 done: the shared plan layout, fork `c6
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** issue 05 (rich rendering), slice A (Markdown). Slice 0 is done (fork `c6e79ca`, `components/plan-layout.ts`). The user chose the approach on 2026-11-14 from mockups: a native hybrid renderer, KaTeX and Mermaid in WebView islands, artifacts in issue 19, copy with a long press. Decisions, slices and 17 error states: `docs/ISSUES.md`, issue 05. Slice B starts with a check that Shiki's JavaScript regex engine runs on Hermes (not checked yet). New native modules (`react-native-svg`, `react-native-webview`, `expo-clipboard`) need a new dev build. Issue 04 is done (fix `1f2f104`); Jest: 273 pass.
+**Next step:** issue 05 (rich rendering), slice B (code colors with Shiki and copy). It starts with a check that Shiki's JavaScript regex engine runs on Hermes (not checked yet). Slices 0 and A are done; slice A is not checked on the Simulator yet (the running Metro does not see file changes: restart it with `--clear`, after you ask the user). Decisions, slices and error states: `docs/ISSUES.md`, issue 05. New native modules for B to E (`react-native-svg`, `react-native-webview`, `expo-clipboard`) need a new dev build. Jest: 297 pass.
 
 **Facts found during the work**
 
@@ -61,6 +61,7 @@ Last update: 2026-11-14 (issue 05 slice 0 done: the shared plan layout, fork `c6
 - The phone has no Skip (user decision 2026-11-14). "I don't know" is the honest answer. The desktop dismisses a question only through the stop action.
 - In the Simulator, typing a long text with the simulator tool can drop a word and finish late. Check the field before you press Start.
 
+- Shared packages for the phone's own code (issue 05): the Markdown parser packages are not phone dependencies. `tsconfig.json` `paths` point to the fork's `node_modules`, Metro finds them through `nodeModulesPaths`, and Jest bundles them in `tests/setup/esm-to-cjs.cjs` (the shim sets `__esModule`, so a default import such as `remend` works). React retries a render one time after an error, so a test that makes a render throw must throw on every call, not once.
 - Expo SDK 58: global `fetch` streams (WinterCG), `TextDecoder` and web streams are built in.
 - `components/session-core.ts` (`SessionModel`) is pure TypeScript with an injectable fetch. The phone uses it unchanged with `remoteFetch`.
 - The only Node import reachable from `SessionModel` is `node:crypto` in `src/core/coverage.ts` (via the barrel).
