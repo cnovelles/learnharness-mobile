@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-16, eleventh clear (issue 15 in progress: desktop fork installed, iPhone Release build, ATS "pinned" policy).
+Last update: 2026-11-16, after the eleventh clear (issue 15 done: the user did a lesson on cellular through Tailscale).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-16, eleventh clear (issue 15 in progress: desktop fork inst
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Finish issue 15 (`docs/ISSUES.md`, issue 15 "State", the "Next" line): rebuild with the new ATS policy, the Simulator check on the Tailscale address, the iPhone Release build, then one lesson on cellular. Issue 05 still waits for the user's real-lesson check. Then pick the next issue with the user (07, 08, 09 and later).
+**Next step:** Issue 15 is done. Before 2026-11-23, build and install again (free profile), or move to the paid team (`ios.appleTeamId`). Issue 05 still waits for the user's real-lesson check. Then pick the next issue with the user (07, 08, 09 and later).
 
 **Facts found during the work**
 
@@ -63,7 +63,7 @@ Last update: 2026-11-16, eleventh clear (issue 15 in progress: desktop fork inst
 - State (2026-11-15, after issue 06): slices D (`bff1b1a`) and E are done. `npm run e2e:practice` passed on the SE and the Pro Max. Nothing runs now (Metro and the test Mac are stopped). Both Simulators are booted in dark mode, paired with a stopped test Mac, and have the current dev build. CI passed for `1fc767d`.
 - Loading states (2026-11-15): the transcript reveals top to bottom with a 1.5 s limit for each block (user decision). See `docs/ISSUES.md`, issue 05, "Loading states". Also fixed after the user's check: Next problem waits until the Mac accepts a dismissal (`9816092`).
 - State at the clear (2026-11-15, tenth clear): issue 06 is done (`bff1b1a` slice D, `621bd5e` slice E, `9816092` the dismissal fix from the user's check). Transcript loading states are done (`46c37e6`, top-to-bottom reveal). CI passed for all four. Jest 519 pass (one full-suite run had 1 failure that did not repeat in 2 more runs; watch for a flaky test under load). The fork has no new commits since `c6e79ca`. Nothing runs now (Metro and the test Mac are stopped). Both Simulators have the current dev build (no native change) and are booted in dark mode; both are paired with a stopped test Mac, so a manual check needs a new `LH_E2E_RICH=1 npm run e2e:mac`, Metro with `--clear`, and pairing again (Settings > Forget this Mac, or `clearState` in a Maestro flow).
-- State at the clear (2026-11-16, eleventh clear): issue 15 slices A–F done; D done; G blocked by ATS, fixed in code (phone, the last commit: ATS "pinned" policy plugin, lint guards, test, `docs/TRANSPORT-SECURITY.md`) but NOT built yet. Fork `a1f16a1` (personal build, Tailscale warning) is pushed to `fork`. The user's Mac runs the fork build 0.6.1 from `/Applications/LearnHarness.app` on the real data (backup `data-backup-2026-11-15-v0.4.1`). The iPhone has the OLD Release build (profile until 2026-11-23) and is paired over Tailscale. Nothing runs now (test Mac and Metro stopped). Both Simulators have the old dev build: rebuild after the prebuild. Jest 525 pass.
+- State after the eleventh clear (2026-11-16): issue 15 done. The new dev build is on both Simulators, the new Release build is on the iPhone (installed over Wi-Fi), and the lesson on cellular worked. Nothing runs. Earlier state at the clear: issue 15 slices A–F done; D done; G blocked by ATS, fixed in code (phone, the last commit: ATS "pinned" policy plugin, lint guards, test, `docs/TRANSPORT-SECURITY.md`) but NOT built yet. Fork `a1f16a1` (personal build, Tailscale warning) is pushed to `fork`. The user's Mac runs the fork build 0.6.1 from `/Applications/LearnHarness.app` on the real data (backup `data-backup-2026-11-15-v0.4.1`). The iPhone has the OLD Release build (profile until 2026-11-23) and is paired over Tailscale. Nothing runs now (test Mac and Metro stopped). Both Simulators have the old dev build: rebuild after the prebuild. Jest 525 pass.
 - Jest under the full suite's load: a session-screen test file needs `jest.setTimeout(20_000)`. With the 5 s default, the first screen (the rich renderer loads) times out, and its held stream breaks the next tests in that file.
 - Side-by-side screenshots of the desktop: the test Mac's server needs the desktop secret header, so open a copy of its data folder with the fork's `npm run dev` (`LH_DATA_DIR`, `LH_AUTH_FILE`) in the built-in browser. Stop the test Mac first: both use the `.next/dev` lock.
 - Deep links into the dev build (`learnharnessmobile:///settings`) show an "Open in" system alert on each `openurl`, and the alerts queue up. Tap through the app instead.

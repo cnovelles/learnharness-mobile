@@ -415,7 +415,7 @@ Blocked by: 10.
 - Docker image of the fork in browser mode with the gateway and sync service; `tailscale serve`; deploy guide (Hetzner or Fly.io).
   Acceptance: the mode 1 E2E suite passes against the container.
 
-## 15 Personal build and setup guide `doing`
+## 15 Personal build and setup guide `done`
 
 Blocked by: 04.
 
@@ -450,7 +450,7 @@ Blocked by: 04.
 - F. Guide: `docs/SETUP.md` (build, install, Tailscale, pair, keep the Mac awake, reinstall each 7 days on a free Apple ID, problems and fixes).
 - G. Acceptance: one lesson with Wi-Fi off on the iPhone (cellular through Tailscale).
 
-### State (2026-11-15)
+### State (2026-11-16)
 
 - A and B: done (fork `a1f16a1`, pushed to `fork`). The fork suite has only the 3 known upstream failures. A start with a temporary `--user-data-dir` passed (server up, updater off).
 - C: done. Backup `~/Library/Application Support/LearnHarness/data-backup-2026-11-15-v0.4.1` (same as `data` after 0.4.1 quit). The fork build 0.6.1 x64 is in `/Applications/LearnHarness.app` and runs on the real data. The user still has to confirm that the sessions show.
@@ -460,8 +460,10 @@ Blocked by: 04.
 - G found a blocker: on cellular the phone could not connect. Cause (proved in the Simulator log): iOS ATS refuses the self-signed certificate on the 100.x address ("ATS failed system trust") before the pin check. `NSAllowsLocalNetworking` covers only LAN addresses. User decision 2026-11-16: ATS off ("pinned" policy), behind one config plugin so that another policy is easy later, and a check of every other network path. Done in the phone repo (see `docs/TRANSPORT-SECURITY.md`): `plugins/with-transport-security.js`, ESLint network guards for `src/`, `tests/transport-security.test.ts`. The audit found no other network path (WebView CSP has no network source, remote images blocked, links open in Safari).
 - `scripts/e2e-mac.ts` has `LH_E2E_GATEWAY_HOST` (listen and pair on another address, for example the Tailscale one) and logs the gateway lines.
 - One open oddity: in the first Simulator run, a handshake to the 100.x address stalled at `read_server_hello` for 4 s (no server answer); the second run got a HelloRetryRequest and went on to the ATS error. Watch for it in the next check.
-- Next: (1) `npx expo prebuild --platform ios --no-install`, build the dev build and install it on both Simulators (native change); (2) Simulator check: `LH_E2E_GATEWAY_HOST=100.102.253.62 npm run e2e:mac`, Metro with `--clear`, `npm run e2e:test` on the Pro Max; (3) Release build on the iPhone with `xcodebuild -allowProvisioningUpdates` and `devicectl` (see `docs/SETUP.md`); (4) G: one lesson with Wi-Fi off. The phone stays paired (the pairing is in the Keychain; a new install keeps it).
-- On 2026-11-16 the user moves to the paid Apple Developer Program: change `ios.appleTeamId` in `app.json` to the new team, prebuild, build again.
+- Done 2026-11-16: prebuild (the Info.plist has only `NSAllowsArbitraryLoads = true`). The new dev build is on both Simulators. Simulator check on `100.102.253.62`: `e2e/first-turn.yaml` passes on the Pro Max, no TLS errors in the gateway log. The 4 s `read_server_hello` stall did not come back.
+- E again: the new Release build is on the iPhone. The phone was connected only over Wi-Fi (`transportType: localNetwork`, the charging port is broken). The first `devicectl` install timed out (`NWError 60`) while it mounted the developer disk image; a second try worked (keep the phone unlocked).
+- G: done. The user did one lesson with Wi-Fi off, on cellular through Tailscale. The Mac log has no TLS errors after the new build. It has 3 `upstream error socket hang up` lines: `proxy()` in the fork's `electron/phone-access.cjs` logs them when the phone closes a stream and the gateway destroys the upstream request. They are noise, not failures.
+- Apple team: Xcode still has only the free Personal Team `52B7323R6Q`. When the paid team is active, change `ios.appleTeamId`, prebuild, build again. The free profile ends on 2026-11-23.
 
 ## 16 ChatGPT sign-in on a real iPhone (test) `todo`
 
