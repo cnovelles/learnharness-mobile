@@ -455,7 +455,13 @@ Blocked by: 04.
 - A and B: done (fork `a1f16a1`, pushed to `fork`). The fork suite has only the 3 known upstream failures. A start with a temporary `--user-data-dir` passed (server up, updater off).
 - C: done. Backup `~/Library/Application Support/LearnHarness/data-backup-2026-11-15-v0.4.1` (same as `data` after 0.4.1 quit). The fork build 0.6.1 x64 is in `/Applications/LearnHarness.app` and runs on the real data. The user still has to confirm that the sessions show.
 - E: the Release build is on the iPhone (profile until 2026-11-23). `expo run:ios` failed with "No profiles" (no `-allowProvisioningUpdates`); `xcodebuild -allowProvisioningUpdates` and `devicectl device install` worked. iOS refused the first start until the user trusts the Apple ID.
-- F: `docs/SETUP.md` is written. D and G are open.
+- F: `docs/SETUP.md` is written.
+- D: done. Tailscale is on the Mac (`100.102.253.62`, `macbook-pro`) and the iPhone (`100.115.17.124`, `iphone-13-pro-max`), same account; `tailscale ping` works. The phone paired again with Tailscale on (device record `tailscale: true`).
+- G found a blocker: on cellular the phone could not connect. Cause (proved in the Simulator log): iOS ATS refuses the self-signed certificate on the 100.x address ("ATS failed system trust") before the pin check. `NSAllowsLocalNetworking` covers only LAN addresses. User decision 2026-11-16: ATS off ("pinned" policy), behind one config plugin so that another policy is easy later, and a check of every other network path. Done in the phone repo (see `docs/TRANSPORT-SECURITY.md`): `plugins/with-transport-security.js`, ESLint network guards for `src/`, `tests/transport-security.test.ts`. The audit found no other network path (WebView CSP has no network source, remote images blocked, links open in Safari).
+- `scripts/e2e-mac.ts` has `LH_E2E_GATEWAY_HOST` (listen and pair on another address, for example the Tailscale one) and logs the gateway lines.
+- One open oddity: in the first Simulator run, a handshake to the 100.x address stalled at `read_server_hello` for 4 s (no server answer); the second run got a HelloRetryRequest and went on to the ATS error. Watch for it in the next check.
+- Next: (1) `npx expo prebuild --platform ios --no-install`, build the dev build and install it on both Simulators (native change); (2) Simulator check: `LH_E2E_GATEWAY_HOST=100.102.253.62 npm run e2e:mac`, Metro with `--clear`, `npm run e2e:test` on the Pro Max; (3) Release build on the iPhone with `xcodebuild -allowProvisioningUpdates` and `devicectl` (see `docs/SETUP.md`); (4) G: one lesson with Wi-Fi off. The phone stays paired (the pairing is in the Keychain; a new install keeps it).
+- On 2026-11-16 the user moves to the paid Apple Developer Program: change `ios.appleTeamId` in `app.json` to the new team, prebuild, build again.
 
 ## 16 ChatGPT sign-in on a real iPhone (test) `todo`
 

@@ -34,6 +34,11 @@
  * It also makes the prober send a probe_done that the Mac refuses, then a
  * rich assessment with 3 strands (slice D).
  *
+ * LH_E2E_GATEWAY_HOST=<IPv4> makes the gateway listen on that address and
+ * puts only that address in the pairing text (default 127.0.0.1). Use the
+ * Mac's Tailscale address (100.x) to check the phone's App Transport
+ * Security rules for that range in the Simulator (issue 15).
+ *
  * Control server (for Maestro, on 127.0.0.1, port in e2e/.control.txt):
  * POST /models/clear removes the model settings (the Mac then refuses a
  * turn with models_not_configured), POST /models/set sets them again.
@@ -293,11 +298,13 @@ async function main() {
 		target: () => ({ url: server.url, secret: SECRET }),
 		tlsDir: path.join(server.home, "phone-access-tls"),
 		info: { name: "Test Mac", version: "e2e" },
+		log: (line: string) => console.log(`[gateway] ${line}`),
 	});
-	const address: AddressInfo = await gateway.start({ host: "127.0.0.1", port: 0 });
+	const gatewayHost = process.env.LH_E2E_GATEWAY_HOST || "127.0.0.1";
+	const address: AddressInfo = await gateway.start({ host: gatewayHost, port: 0 });
 	const { code } = gateway.startPairing();
 	const payload = JSON.parse(gateway.pairingPayload(code));
-	const text = JSON.stringify({ ...payload, urls: [`https://127.0.0.1:${address.port}`] });
+	const text = JSON.stringify({ ...payload, urls: [`https://${gatewayHost}:${address.port}`] });
 	fs.mkdirSync(path.dirname(PAIRING_FILE), { recursive: true });
 	fs.writeFileSync(PAIRING_FILE, text);
 

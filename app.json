@@ -12,10 +12,7 @@
       "bundleIdentifier": "dev.local.learnharnessmobile",
       "appleTeamId": "52B7323R6Q",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "LearnHarness connects to the LearnHarness desktop app on your Mac over your local network.",
-        "NSAppTransportSecurity": {
-          "NSAllowsLocalNetworking": true
-        }
+        "NSLocalNetworkUsageDescription": "LearnHarness connects to the LearnHarness desktop app on your Mac over your local network."
       }
     },
     "android": {
@@ -33,6 +30,7 @@
     },
     "plugins": [
       "expo-router",
+      ["./plugins/with-transport-security", { "policy": "pinned" }],
       [
         "expo-font",
         {

@@ -49,6 +49,40 @@ const SPACING_RULES = [
 	},
 ];
 
+/**
+ * Transport security (docs/TRANSPORT-SECURITY.md): App Transport Security is
+ * off (plugins/with-transport-security.js), so the pinned session is the only
+ * thing that protects the network. App code reaches the network only through
+ * the PinnedFetch (src/lib/native-pinned-fetch.ts). These rules block the
+ * other ways out.
+ */
+const NETWORK_MESSAGE =
+	"This goes around the pinned transport. Reach the Mac through useMacFetch() (PinnedFetch). See docs/TRANSPORT-SECURITY.md.";
+const NETWORK_GLOBALS = ["fetch", "XMLHttpRequest", "WebSocket", "EventSource"].map((name) => ({
+	name,
+	message: NETWORK_MESSAGE,
+}));
+const NETWORK_PROPERTIES = ["fetch", "XMLHttpRequest", "WebSocket", "EventSource"].flatMap(
+	(property) =>
+		["globalThis", "window", "global", "self"].map((object) => ({
+			object,
+			property,
+			message: NETWORK_MESSAGE,
+		})),
+);
+const NETWORK_IMPORTS = {
+	paths: [
+		{ name: "expo/fetch", message: NETWORK_MESSAGE },
+		{ name: "expo-web-browser", message: NETWORK_MESSAGE },
+		{ name: "expo-image", message: "Remote images are blocked. " + NETWORK_MESSAGE },
+		{
+			name: "react-native",
+			importNames: ["Image", "ImageBackground"],
+			message: "Remote images are blocked. " + NETWORK_MESSAGE,
+		},
+	],
+};
+
 module.exports = defineConfig([
 	expoConfig,
 	{
@@ -63,6 +97,14 @@ module.exports = defineConfig([
 		files: ["src/**/*.{ts,tsx}"],
 		ignores: ["src/lib/user-error.ts"],
 		rules: { "no-restricted-syntax": ["error", ...USER_TEXT_RULES, ...SPACING_RULES] },
+	},
+	{
+		files: ["src/**/*.{ts,tsx}"],
+		rules: {
+			"no-restricted-globals": ["error", ...NETWORK_GLOBALS],
+			"no-restricted-properties": ["error", ...NETWORK_PROPERTIES],
+			"no-restricted-imports": ["error", NETWORK_IMPORTS],
+		},
 	},
 	prettierConfig,
 ]);
