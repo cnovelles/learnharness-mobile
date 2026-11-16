@@ -32,6 +32,13 @@ import {
 	IslandViewportContext,
 	type ScrollMetrics,
 } from "@/components/island-viewport";
+import {
+	DictationProblemLine,
+	DictationRow,
+	MicButton,
+	useDictationInput,
+	useOrphanText,
+} from "@/components/dictation";
 import { PlanSheet } from "@/components/plan-sheet";
 import { QuestionDock } from "@/components/question-dock";
 import { PracticeDock } from "@/components/practice-dock";
@@ -53,6 +60,7 @@ import {
 	usePalette,
 } from "@/components/ui";
 import { useMacFetch } from "@/lib/connection-context";
+import { appendDictation } from "@/lib/dictation";
 import { PHASE_LABEL, latestPlanTree, planSteps } from "@/lib/plan";
 import type { SessionRecord } from "@/lib/sessions";
 import { phaseAt3Lh, type Phase3 } from "@/lib/shared";
@@ -92,57 +100,72 @@ function Composer({
 			setSending(false);
 		}
 	}
+	const addText = (dictated: string) => setText((current) => appendDictation(current, dictated));
+	const dictation = useDictationInput(addText);
+	// Text from a run whose dock closed comes here (issue 07).
+	useOrphanText(addText);
 	const stop = steer && onStop && !text.trim() && !sending;
 	const canSend = !!text.trim() && !waiting && !sending;
+	if (dictation.active) {
+		return (
+			<View style={[styles.composer, { backgroundColor: c.panel, borderColor: c.line }]}>
+				<DictationRow input={dictation} />
+			</View>
+		);
+	}
 	return (
-		<View style={[styles.composer, { backgroundColor: c.panel, borderColor: c.line }]}>
-			<TextInput
-				testID="composer"
-				accessibilityLabel="Message"
-				value={text}
-				onChangeText={setText}
-				placeholder="Ask, answer, or steer the lesson…"
-				placeholderTextColor={c.muted}
-				multiline
-				style={[styles.composerInput, { color: c.text }]}
-			/>
-			{stop ? (
-				<Pressable
-					testID="stop-turn"
-					accessibilityRole="button"
-					accessibilityLabel="Stop this turn"
-					onPress={() => confirmStop(onStop)}
-					style={({ pressed }) => [
-						styles.composerButton,
-						{ backgroundColor: pressed ? c.hover : c.panel },
-					]}
-				>
-					<Icon name="square.fill" size={14} color={c.text} />
-				</Pressable>
-			) : (
-				<Pressable
-					testID="send"
-					accessibilityRole="button"
-					accessibilityLabel="Send"
-					accessibilityState={{ disabled: !canSend, busy: sending }}
-					disabled={!canSend}
-					onPress={() => void send()}
-					style={({ pressed }) => [
-						styles.composerButton,
-						{
-							backgroundColor: c.primary,
-							opacity: !canSend && !sending ? 0.4 : pressed ? 0.9 : 1,
-						},
-					]}
-				>
-					{sending ? (
-						<Spinner color={c.onPrimary} />
-					) : (
-						<Icon name="arrow.turn.down.left" size={18} color={c.onPrimary} />
-					)}
-				</Pressable>
-			)}
-		</View>
+		<>
+			<DictationProblemLine input={dictation} />
+			<View style={[styles.composer, { backgroundColor: c.panel, borderColor: c.line }]}>
+				<TextInput
+					testID="composer"
+					accessibilityLabel="Message"
+					value={text}
+					onChangeText={setText}
+					placeholder="Ask, answer, or steer the lesson…"
+					placeholderTextColor={c.muted}
+					multiline
+					style={[styles.composerInput, { color: c.text }]}
+				/>
+				<MicButton input={dictation} />
+				{stop ? (
+					<Pressable
+						testID="stop-turn"
+						accessibilityRole="button"
+						accessibilityLabel="Stop this turn"
+						onPress={() => confirmStop(onStop)}
+						style={({ pressed }) => [
+							styles.composerButton,
+							{ backgroundColor: pressed ? c.hover : c.panel },
+						]}
+					>
+						<Icon name="square.fill" size={14} color={c.text} />
+					</Pressable>
+				) : (
+					<Pressable
+						testID="send"
+						accessibilityRole="button"
+						accessibilityLabel="Send"
+						accessibilityState={{ disabled: !canSend, busy: sending }}
+						disabled={!canSend}
+						onPress={() => void send()}
+						style={({ pressed }) => [
+							styles.composerButton,
+							{
+								backgroundColor: c.primary,
+								opacity: !canSend && !sending ? 0.4 : pressed ? 0.9 : 1,
+							},
+						]}
+					>
+						{sending ? (
+							<Spinner color={c.onPrimary} />
+						) : (
+							<Icon name="arrow.turn.down.left" size={18} color={c.onPrimary} />
+						)}
+					</Pressable>
+				)}
+			</View>
+		</>
 	);
 }
 

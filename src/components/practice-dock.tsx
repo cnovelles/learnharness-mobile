@@ -32,6 +32,8 @@ import { PLUGIN_PROBLEM } from "@/lib/user-error";
 import { Markdown } from "./markdown";
 import { Button, FONT, Icon, LABEL, TYPE, usePalette } from "./ui";
 import { SPACE } from "./spacing";
+import { DictationProblemLine, DictationRow, MicButton, useDictationInput } from "./dictation";
+import { appendDictation } from "@/lib/dictation";
 
 /** The share of the screen height that the statement can use. */
 export const STATEMENT_MAX_SHARE = 0.35;
@@ -73,6 +75,9 @@ export function PracticeDock({
 	const { height } = useWindowDimensions();
 	const [expanded, setExpanded] = useState(true);
 	const [text, setText] = useState(initialText);
+	const dictation = useDictationInput((dictated) =>
+		setText((current) => appendDictation(current, dictated)),
+	);
 	const [sending, setSending] = useState(false);
 	const raw = (input as { statement?: unknown } | null)?.statement;
 	const statement = typeof raw === "string" ? teacherText(raw) : "";
@@ -169,22 +174,30 @@ export function PracticeDock({
 						multiline
 						style={[styles.input, { color: c.text }]}
 					/>
+					<DictationProblemLine input={dictation} />
 					<View style={styles.submitRow}>
-						{waiting ? (
-							<Text style={[styles.quiet, styles.grow, { color: c.muted }]}>
-								The Mac is making the history shorter…
-							</Text>
+						{dictation.active ? (
+							<DictationRow input={dictation} />
 						) : (
-							<View style={styles.grow} />
+							<>
+								{waiting ? (
+									<Text style={[styles.quiet, styles.grow, { color: c.muted }]}>
+										The Mac is making the history shorter…
+									</Text>
+								) : (
+									<View style={styles.grow} />
+								)}
+								<MicButton input={dictation} size={32} />
+								<Button
+									title="Submit thinking"
+									size="sm"
+									onPress={() => void submit()}
+									disabled={!canSend}
+									busy={sending}
+									testID="practice-send"
+								/>
+							</>
 						)}
-						<Button
-							title="Submit thinking"
-							size="sm"
-							onPress={() => void submit()}
-							disabled={!canSend}
-							busy={sending}
-							testID="practice-send"
-						/>
 					</View>
 				</View>
 			)}

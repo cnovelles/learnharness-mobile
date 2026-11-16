@@ -7,6 +7,7 @@ import { LogBox } from "react-native";
 
 import { FONT, Loading, usePalette } from "@/components/ui";
 import { ConnectionProvider, useConnection } from "@/lib/connection-context";
+import { DictationProvider } from "@/lib/dictation-context";
 import { FlagsProvider } from "@/lib/flags-context";
 import { ServerEventsProvider } from "@/lib/server-events-context";
 
@@ -55,8 +56,10 @@ export default function RootLayout() {
 		<FlagsProvider>
 			<ConnectionProvider>
 				<ServerEventsProvider>
-					<StatusBar style="auto" />
-					<RootStack />
+					<DictationProvider>
+						<StatusBar style="auto" />
+						<RootStack />
+					</DictationProvider>
 				</ServerEventsProvider>
 			</ConnectionProvider>
 		</FlagsProvider>

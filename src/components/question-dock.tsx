@@ -18,6 +18,8 @@
  * While the Mac compacts, Send answer waits (`waiting`).
  */
 import { useMemo, useState } from "react";
+import { DictationProblemLine, DictationRow, MicButton, useDictationInput } from "./dictation";
+import { appendDictation } from "@/lib/dictation";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { cardLabel } from "@/lib/answer-card";
@@ -163,6 +165,12 @@ function DockForm({
 	const multi = qd.mode === "multi-select";
 	const ask = qd.kind === "ask";
 	const ready = canSubmit(qd, form);
+	// Dictation goes into the answer (text questions) or "Your thinking" (issue 07).
+	const dictation = useDictationInput((text) =>
+		qd.mode === "text"
+			? setForm({ ...form, text: appendDictation(form.text, text) })
+			: setForm({ ...form, thinking: appendDictation(form.thinking, text) }),
+	);
 
 	async function submit() {
 		if (!ready || sending || waiting) return;
@@ -252,13 +260,25 @@ function DockForm({
 					/>
 				</>
 			)}
-			<Button
-				title="Send answer"
-				onPress={() => void submit()}
-				disabled={!ready || waiting}
-				busy={sending}
-				testID="submit-answer"
-			/>
+			<DictationProblemLine input={dictation} />
+			<View style={styles.actions}>
+				{dictation.active ? (
+					<DictationRow input={dictation} />
+				) : (
+					<>
+						<MicButton input={dictation} size={44} />
+						<View style={styles.grow}>
+							<Button
+								title="Send answer"
+								onPress={() => void submit()}
+								disabled={!ready || waiting}
+								busy={sending}
+								testID="submit-answer"
+							/>
+						</View>
+					</>
+				)}
+			</View>
 		</Panel>
 	);
 }
@@ -276,6 +296,9 @@ function RevealBar({
 	onOpen: () => void;
 }) {
 	const preview = markdownPreview(teacherText(qd.question));
+	const dictation = useDictationInput((text) =>
+		onReadingThinking(appendDictation(readingThinking, text)),
+	);
 	return (
 		<>
 			<Field
@@ -291,7 +314,19 @@ function RevealBar({
 					<Body style={{ fontWeight: "600" }}>Check your understanding</Body>
 					<Body muted>{preview}</Body>
 				</View>
-				<Button title="Open" onPress={onOpen} testID="reveal-open" />
+				<DictationProblemLine input={dictation} />
+				<View style={styles.actions}>
+					{dictation.active ? (
+						<DictationRow input={dictation} />
+					) : (
+						<>
+							<MicButton input={dictation} size={44} />
+							<View style={styles.grow}>
+								<Button title="Open" onPress={onOpen} testID="reveal-open" />
+							</View>
+						</>
+					)}
+				</View>
 			</Panel>
 		</>
 	);
@@ -362,6 +397,9 @@ const styles = StyleSheet.create({
 	small: { fontSize: 13, lineHeight: 18, fontFamily: FONT.prose },
 	// One row of equal stops on every iPhone width (375 pt and up): no wrap.
 	stops: { flexDirection: "row", gap: SPACE.sm },
+	/** The main button with the dictation mic on its left. */
+	actions: { flexDirection: "row", alignItems: "center", gap: SPACE.sm },
+	grow: { flex: 1 },
 	stop: {
 		flex: 1,
 		minWidth: 0,

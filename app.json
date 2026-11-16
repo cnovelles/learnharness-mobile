@@ -12,7 +12,8 @@
       "bundleIdentifier": "dev.local.learnharnessmobile",
       "appleTeamId": "52B7323R6Q",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "LearnHarness connects to the LearnHarness desktop app on your Mac over your local network."
+        "NSLocalNetworkUsageDescription": "LearnHarness connects to the LearnHarness desktop app on your Mac over your local network.",
+        "NSMicrophoneUsageDescription": "LearnHarness uses the microphone when you tap the dictation button. Speech becomes text on this iPhone."
       }
     },
     "android": {

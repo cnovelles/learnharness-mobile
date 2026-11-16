@@ -352,13 +352,67 @@ Blocked by: 04.
 | A problem card or a conclude card with missing fields                        | The card shows what it has. No chip for an unknown outcome. Never raw data.                                                                                                   | Jest, transcript                 |
 | A plugin problem (made on the Mac)                                           | Panel: "This problem uses a plugin. Work on it on the Mac." with Dismiss. No thinking field.                                                                                  | Jest                             |
 
-## 07 Dictation `todo`
+## 07 Dictation `doing`
 
 Blocked by: 04.
 
 - On-device speech recognition into the active field (thinking, answer, reading thinking, composer). Default.
 - Optional Deepgram: `GET /api/stt/token` through the gateway, WebSocket with the shared URL builder, native PCM capture.
   Acceptance: E2E injects an audio file and checks the text in the thinking field.
+
+### Facts (2026-11-16)
+
+- Desktop (fork `components/dictation.tsx`): Deepgram only. One primary target: the open question's field (text mode: the answer; select modes: "Your thinking"), else the composer. The text is deferred: the finals collect while you speak and go into the field once, when you stop. While it records, the desktop shows only a red Stop pill and a level meter (no live text). Esc cancels and drops the text. Deepgram: `nova-3`, `endpointing=300`, no interim results, token as WebSocket subprotocol `["bearer", token]`, `CloseStream` on stop, then a 3 s safety close. Language comes from the Mac setting `dictation.language` (`"en"` by default, `"multi"` possible).
+- The gateway already allows `GET /api/stt/token` and `GET /api/settings`. No fork change is needed. The token route answers 503 when the Mac has no `DEEPGRAM_API_KEY`.
+- iOS SDK 26.5 (checked in the swiftinterface): `SpeechAnalyzer`, `SpeechTranscriber`, `DictationTranscriber`, `SpeechDetector`, `AssetInventory` (model download: `status`, `assetInstallationRequest`), `supportedLocale(equivalentTo:)`, `bestAvailableAudioFormat`, and `start(inputAudioFile:finishAfterFile:)` (an audio file as input: the E2E path). All iOS 26 and later.
+- The app supports iOS 16.4 and later. The user's iPhone has iOS 26.5.2.
+- The iOS keyboard already has its own dictation mic. The app's button adds what the keyboard does not: no keyboard on screen, the meter, and one target as on the desktop.
+- Community library `expo-speech-recognition` 58.0.1 (SFSpeechRecognizer) was looked at and not chosen.
+
+### Decisions (user, 2026-11-16)
+
+- Engine on the phone: Apple SpeechAnalyzer in our own Swift module (like `modules/pinned-fetch`), on the device only. On iOS 16–25 the app shows no on-device engine (the keyboard mic still works).
+- Behavior as on the desktop: tap the mic, speak, tap Stop, the text goes into the target field once. No live text.
+- Placement: option C. One mic button in the composer row, next to Send. While it records, the composer row shows Stop and the meter. The lesson screen hides the composer while a question or a problem is open, so each dock has the mic next to its main button (question: Send answer; practice: Submit thinking; reading: Open). One mic on screen at a time (user, 2026-11-16, after the dock mockup).
+- Deepgram is part of issue 07 (not a later issue).
+- The engine choice is a new "Dictation" section in the existing Settings screen: the engine, the language from the Mac, and the model state. Default: on this iPhone.
+
+### Error states (each gets a user message and a test)
+
+| State                                                                                           | Message and behavior                                                                                 |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Microphone access refused                                                                       | "Microphone access is off. Open Settings" (opens the app's iOS settings).                            |
+| Speech recognition access refused (if SpeechAnalyzer needs it; slice A finds out)               | "Speech recognition is off for LearnHarness. Open Settings".                                         |
+| iOS older than 26 with the on-device engine                                                     | The mic shows the reason: "Dictation on the iPhone needs iOS 26. Use Deepgram or the keyboard mic."  |
+| The language has no on-device model                                                             | "The iPhone has no speech model for this language." The Settings section shows the same.             |
+| The model download fails (no network)                                                           | "Could not get the speech model. Connect to the internet and try again."                             |
+| The model download is canceled                                                                  | The row goes back to idle. No message.                                                               |
+| No speech heard                                                                                 | "No speech heard." The field does not change.                                                        |
+| An interruption (a call, Siri, another app takes the audio)                                     | The run stops and keeps the text so far.                                                             |
+| The app goes to the background during a run                                                     | The run stops and keeps the text so far.                                                             |
+| The target field goes away during a run (the question was answered on the Mac, the dock closed) | The text goes into the composer, not lost.                                                           |
+| Deepgram: the Mac has no key (503)                                                              | "Dictation needs a Deepgram key on the Mac."                                                         |
+| Deepgram: the Mac is not reachable                                                              | The normal connection message (`describeError`).                                                     |
+| Deepgram: the token grant fails (502)                                                           | "Deepgram did not answer. Try again."                                                                |
+| Deepgram: the socket fails or the network goes during a run                                     | The run stops and keeps the finals so far: "Dictation stopped: the connection to Deepgram was lost." |
+| A second start while a run is on (double tap)                                                   | Ignored (one run at a time, a generation counter as on the desktop).                                 |
+
+### Slices
+
+- A. Spike: Swift module `modules/speech` with SpeechAnalyzer and SpeechTranscriber: permission, model status and download, start from the mic, levels, stop with the final text, start from an audio file. Check on the Simulator and on the iPhone. Record what needs which Info.plist key.
+- B. TypeScript dictation core (pure, Jest): phases, generation counter, the target registry (dock field or composer), the deferred buffer, the error mapping to user messages.
+- C. UI: the mic in the composer row, Stop and the meter while it records, the download row, the error line. Wire the targets (answer, thinking, reading thinking, practice work field, composer). Check on the SE and the Pro Max.
+- D. Settings: the Dictation section (engine, language from the Mac, model state and download).
+- E. Deepgram: native PCM capture and a native WebSocket in the Swift module, only to `wss://api.deepgram.com` (fixed in native code), token from the gateway through the pinned fetch. Update `docs/TRANSPORT-SECURITY.md` (a new network path: audit, guards, test).
+- F. E2E: a Maestro flow that feeds an audio file (a dev-build-only input) and checks the text in the thinking field. Then the user's check on the iPhone.
+
+### State (2026-11-16)
+
+- A: done. `modules/dictation`: `DictationEngine.swift` (no Expo code; SpeechTranscriber where the device has it, else DictationTranscriber; model status and download; microphone and audio-file runs; RMS levels) and `DictationModule.swift` (permissions, audio session, interruptions, events with a run id). `npm run test:native-dictation` runs the engine on macOS with a `say` file. The engine logs facts (engine, locale, counts; never the text) with `os.Logger`, category `dictation`.
+- Facts found: an Intel Mac has only DictationTranscriber (`SpeechTranscriber.isAvailable` is false). The iOS Simulator runs DictationTranscriber on a file but gives 0 finals (the same code on macOS gives the text). So the Simulator flow uses a scripted engine (`src/lib/dictation-scripted.ts`, dev builds only, `EXPO_PUBLIC_LH_E2E_DICTATION_TEXT`), and the native engine is checked on macOS and on the iPhone. `AVAudioApplication` needs iOS 17, so the module uses `AVAudioSession` for the permission (the pod targets iOS 16.4). A pod named `Speech` would hide Apple's `Speech` module: the pod is `Dictation`.
+- B: done. `src/lib/dictation.ts` (phases, generation counter, deferred text, owner and orphan text, error codes to messages, a 5 s stop safety net), `src/lib/dictation-language.ts` (the Mac's `dictation.language`, the last known one offline, `multi` = the phone's language). Tests: `tests/dictation.test.ts`, `tests/dictation-language.test.ts`, `tests/dictation-scripted.test.ts`.
+- C: in progress. Done: `src/components/dictation.tsx` (MicButton, DictationRow with Stop and the meter, the download row, DictationProblemLine with Open Settings), `src/lib/dictation-context.tsx` (one controller, background stops the run), the mic in the composer, the question dock, the reading bar and the practice dock. `e2e/dictation.yaml` passes on the Pro Max and the SE (`npm run e2e:dictation`, Metro with `EXPO_PUBLIC_LH_E2E_DICTATION_TEXT="The Moon makes two bulges."`). Not done: component tests for the composer orphan text and the practice and reading mics; the user's check on the iPhone with the real microphone.
+- Next: D (Settings section), E (Deepgram with its security audit), then a Release build on the iPhone for the user's check.
 
 ## 08 Graph list, cost and context `todo`
 
