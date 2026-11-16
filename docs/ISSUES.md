@@ -450,6 +450,13 @@ Blocked by: 04.
 - F. Guide: `docs/SETUP.md` (build, install, Tailscale, pair, keep the Mac awake, reinstall each 7 days on a free Apple ID, problems and fixes).
 - G. Acceptance: one lesson with Wi-Fi off on the iPhone (cellular through Tailscale).
 
+### State (2026-11-15)
+
+- A and B: done (fork `a1f16a1`, pushed to `fork`). The fork suite has only the 3 known upstream failures. A start with a temporary `--user-data-dir` passed (server up, updater off).
+- C: done. Backup `~/Library/Application Support/LearnHarness/data-backup-2026-11-15-v0.4.1` (same as `data` after 0.4.1 quit). The fork build 0.6.1 x64 is in `/Applications/LearnHarness.app` and runs on the real data. The user still has to confirm that the sessions show.
+- E: the Release build is on the iPhone (profile until 2026-11-23). `expo run:ios` failed with "No profiles" (no `-allowProvisioningUpdates`); `xcodebuild -allowProvisioningUpdates` and `devicectl device install` worked. iOS refused the first start until the user trusts the Apple ID.
+- F: `docs/SETUP.md` is written. D and G are open.
+
 ## 16 ChatGPT sign-in on a real iPhone (test) `todo`
 
 Blocked by: a development build on the user's iPhone (needs Xcode 26.4 or later).
