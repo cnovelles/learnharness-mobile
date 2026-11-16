@@ -21,6 +21,7 @@ import { ConcludeCard, NextProblemLine, PracticeThinking, ProblemCard } from "./
 import { ConfidenceRail } from "./confidence-rail";
 import { FONT, LABEL, TYPE, alpha, usePalette } from "./ui";
 import { SPACE } from "./spacing";
+import { RevealScope, RevealSlot, useRevealActive } from "./reveal";
 
 const stepCount = (n: number) => `${n} step${n === 1 ? "" : "s"}`;
 
@@ -387,11 +388,33 @@ export function Transcript({
 	/** Opens the lesson map (the Plan sheet). */
 	onOpenPlan: () => void;
 }) {
+	const gated = useRevealActive();
+	if (!gated) {
+		return (
+			<View style={styles.list} testID="transcript">
+				{rows.map((row) => (
+					<Row key={`${row.kind}-${row.id}`} row={row} onOpenPlan={onOpenPlan} />
+				))}
+			</View>
+		);
+	}
+	// The top-to-bottom reveal: a text row shows block by block (its
+	// Markdown makes the slots), every other row is one slot.
 	return (
-		<View style={styles.list} testID="transcript">
-			{rows.map((row) => (
-				<Row key={`${row.kind}-${row.id}`} row={row} onOpenPlan={onOpenPlan} />
-			))}
+		<View testID="transcript">
+			{rows.map((row, i) => {
+				const key = `${row.kind}-${row.id}`;
+				const space = i === 0 ? 0 : SPACE.md;
+				return row.kind === "text" ? (
+					<RevealScope key={key} prefix={[i]} space={space}>
+						<Row row={row} onOpenPlan={onOpenPlan} />
+					</RevealScope>
+				) : (
+					<RevealSlot key={key} order={[i]} space={space}>
+						<Row row={row} onOpenPlan={onOpenPlan} />
+					</RevealSlot>
+				);
+			})}
 		</View>
 	);
 }

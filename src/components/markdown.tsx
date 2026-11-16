@@ -46,6 +46,7 @@ import { hasInlineMath, mathBlockIsland, paragraphIsland } from "@/lib/math-html
 import { openLink } from "@/lib/open-link";
 import { CopyLabel, CopyTarget, useCopy } from "./copy";
 import { FORMULA_ERROR, MathIsland, MermaidIsland, type IslandStyle } from "./islands";
+import { RevealSlot, useReportReady, useRevealScope } from "./reveal";
 import { ErrorText, FONT, usePalette, type Palette } from "./ui";
 import { SPACE } from "./spacing";
 
@@ -231,14 +232,34 @@ function MathParagraph({ nodes, ctx }: { nodes: readonly PhrasingContent[]; ctx:
 
 // ─── Blocks ──────────────────────────────────────────────────────────────────
 
-function Blocks({ nodes, ctx }: { nodes: readonly RootContent[]; ctx: Ctx }) {
-	return (
-		<View style={{ gap: ctx.compact ? 4 : 10 }}>
-			{nodes
-				.filter((n) => n.type !== "definition")
-				.map((node, i) => (
-					<Block key={i} node={node} ctx={ctx} />
+function Blocks({
+	nodes,
+	ctx,
+	scope,
+}: {
+	nodes: readonly RootContent[];
+	ctx: Ctx;
+	/** A transcript text row: each block is a slot of the top-to-bottom reveal. */
+	scope?: { prefix: readonly number[]; space: number } | null;
+}) {
+	const gap = ctx.compact ? 4 : 10;
+	const shown = nodes.filter((n) => n.type !== "definition");
+	if (scope) {
+		return (
+			<View>
+				{shown.map((node, i) => (
+					<RevealSlot key={i} order={[...scope.prefix, i]} space={i === 0 ? scope.space : gap}>
+						<Block node={node} ctx={ctx} />
+					</RevealSlot>
 				))}
+			</View>
+		);
+	}
+	return (
+		<View style={{ gap }}>
+			{shown.map((node, i) => (
+				<Block key={i} node={node} ctx={ctx} />
+			))}
 		</View>
 	);
 }
@@ -485,6 +506,8 @@ function useColumnWidths(node: Table, fontSize: number) {
 			old?.key === key && old.widths.every((w, j) => w === next[j]) ? old : { key, widths: next },
 		);
 	};
+	// The table is drawn when its cells are measured (the reveal waits for it).
+	useReportReady(total === 0 || measured?.key === key);
 	return { widths: measured?.key === key ? measured.widths : estimate, onCell };
 }
 
@@ -584,7 +607,10 @@ function MarkdownTree({
 	const scheme: CodeScheme = useColorScheme() === "dark" ? "dark" : "light";
 	const root = useMemo(() => parseMarkdown(text), [text]);
 	const definitions = useMemo(() => collectDefinitions(root), [root]);
-	return <Blocks nodes={root.children} ctx={{ c, scheme, base, compact, definitions }} />;
+	const scope = useRevealScope();
+	return (
+		<Blocks nodes={root.children} ctx={{ c, scheme, base, compact, definitions }} scope={scope} />
+	);
 }
 
 type BoundaryProps = { text: string; base: TextStyle; children: ReactNode };

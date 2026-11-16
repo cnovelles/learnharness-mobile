@@ -21,8 +21,9 @@ import type { MathIsland as MathIslandData } from "@/lib/math-html";
 import { openLink } from "@/lib/open-link";
 import { userMessage } from "@/lib/user-error";
 import { copyActions, CopyLabel, useCopy } from "./copy";
-import { useNearScreen } from "./island-viewport";
-import { Button, ErrorText, type Palette } from "./ui";
+import { useNearScreenState } from "./island-viewport";
+import { useReportReady } from "./reveal";
+import { Button, ErrorText, Spinner, type Palette } from "./ui";
 import { WebIsland } from "./web-island";
 import { SPACE } from "./spacing";
 
@@ -64,9 +65,13 @@ export function MathIsland({
 }) {
 	const { c } = look;
 	const slot = useRef<ComponentRef<typeof View>>(null);
-	const near = useNearScreen(slot);
+	const nearState = useNearScreenState(slot);
+	const near = nearState === "near";
 	const [loadFailed, setLoadFailed] = useState(false);
 	const [height, setHeight] = useState<number | null>(null);
+	const loaded = height !== null;
+	// The reveal waits for the first height. A far island loads later.
+	useReportReady(loadFailed || loaded || nearState === "far");
 	const { copy, state } = useCopy(() => island.copy);
 	const data = useMemo(
 		() => ({
@@ -83,29 +88,59 @@ export function MathIsland({
 	);
 	let body: ReactNode;
 	if (loadFailed) body = fallback;
-	else if (near) {
+	else {
 		body = (
-			<WebIsland
-				html={MATH_HTML}
-				script={MATH_SCRIPT}
-				data={data}
-				live
-				minHeight={look.lineHeight}
-				maxHeight={MATH_MAX_HEIGHT}
-				initialHeight={height}
-				onHeight={setHeight}
-				onMessage={(message) => {
-					if (message.type === "longpress") copy();
-					else if (message.type === "link") {
-						const url = island.links[message.index];
-						if (url) openLink(url);
-					}
-				}}
-				onFail={() => setLoadFailed(true)}
-				testID="md-math-island"
-			/>
+			<>
+				{/* Before the first height: a quiet box with the size of the text,
+				    never the TeX source. It shows only when the reveal stops
+				    waiting, or for an island that comes near while you scroll. */}
+				<View
+					style={loaded ? styles.gone : [styles.placeholder, { backgroundColor: c.codeBg }]}
+					testID={loaded ? undefined : "md-math-loading"}
+				>
+					<View
+						style={styles.invisible}
+						accessibilityElementsHidden
+						importantForAccessibility="no-hide-descendants"
+					>
+						{fallback}
+					</View>
+					{near && !loaded ? (
+						<View pointerEvents="none" style={styles.mermaidSpinner}>
+							<Spinner />
+						</View>
+					) : null}
+				</View>
+				{near ? (
+					// Loading, the island sits on the box with no opacity: it has the
+					// right width to measure its height.
+					<View style={loaded ? undefined : styles.loadingLayer}>
+						<WebIsland
+							html={MATH_HTML}
+							script={MATH_SCRIPT}
+							data={data}
+							live
+							minHeight={look.lineHeight}
+							maxHeight={MATH_MAX_HEIGHT}
+							initialHeight={height}
+							onHeight={setHeight}
+							onMessage={(message) => {
+								if (message.type === "longpress") copy();
+								else if (message.type === "link") {
+									const url = island.links[message.index];
+									if (url) openLink(url);
+								}
+							}}
+							onFail={() => setLoadFailed(true)}
+							testID="md-math-island"
+						/>
+					</View>
+				) : loaded ? (
+					<View style={{ height }} />
+				) : null}
+			</>
 		);
-	} else body = height === null ? fallback : <View style={{ height }} />;
+	}
 	return (
 		<View ref={slot} collapsable={false} {...copyActions(copy, "formula")} testID={testID}>
 			{body}
@@ -132,7 +167,8 @@ export function MermaidIsland({
 }) {
 	const { c, scheme } = look;
 	const slot = useRef<ComponentRef<typeof View>>(null);
-	const near = useNearScreen(slot);
+	const nearState = useNearScreenState(slot);
+	const near = nearState === "near";
 	const [phase, setPhase] = useState<MermaidPhase>("drawing");
 	const [attempt, setAttempt] = useState(0);
 	const [showSource, setShowSource] = useState(false);
@@ -156,6 +192,9 @@ export function MermaidIsland({
 		const timer = setTimeout(() => setPhase("failed"), MERMAID_TIMEOUT_MS);
 		return () => clearTimeout(timer);
 	}, [drawing, attempt]);
+	// The reveal waits for the chart (or its error). A streaming fence shows
+	// its "Drawing" box at once; a far chart loads later.
+	useReportReady(open || phase !== "drawing" || nearState === "far");
 
 	if (open) {
 		return (
@@ -246,6 +285,10 @@ const styles = StyleSheet.create({
 		borderWidth: StyleSheet.hairlineWidth,
 		borderRadius: 8,
 	},
+	gone: { display: "none" },
+	placeholder: { borderRadius: 8 },
+	invisible: { opacity: 0 },
+	loadingLayer: { position: "absolute", top: 0, left: 0, right: 0, opacity: 0 },
 	mermaidSpinner: {
 		...StyleSheet.absoluteFill,
 		alignItems: "center",

@@ -112,19 +112,26 @@ export function createEndFollow() {
 	};
 }
 
-/** True when the view is near the visible part of the transcript. */
-export function useNearScreen(ref: RefObject<ComponentRef<typeof View> | null>): boolean {
+/** Where a view is: near the visible part, far from it, or not measured yet. */
+export type NearState = "unknown" | "near" | "far";
+
+/**
+ * Near, far or not measured yet. The top-to-bottom reveal needs "not
+ * measured yet": a far island counts as ready (it loads later), but an
+ * island that was not measured must not count as far.
+ */
+export function useNearScreenState(ref: RefObject<ComponentRef<typeof View> | null>): NearState {
 	const viewport = useContext(IslandViewportContext);
-	const [near, setNear] = useState(viewport === null);
+	const [state, setState] = useState<NearState>(viewport === null ? "near" : "unknown");
 	useEffect(() => {
-		// With no viewport, `near` starts true and stays true.
+		// With no viewport, the view is near and stays near.
 		if (!viewport) return;
 		let live = true;
 		const check = () => {
 			ref.current?.measureInWindow((_x, y, _w, h) => {
 				if (!live || !Number.isFinite(y)) return;
 				const screen = Dimensions.get("window").height;
-				setNear((was) => isNearScreen(y, h, screen, was));
+				setState((was) => (isNearScreen(y, h, screen, was === "near") ? "near" : "far"));
 			});
 		};
 		check();
@@ -134,5 +141,10 @@ export function useNearScreen(ref: RefObject<ComponentRef<typeof View> | null>):
 			unsubscribe();
 		};
 	}, [viewport, ref]);
-	return near;
+	return state;
+}
+
+/** True when the view is near the visible part of the transcript. */
+export function useNearScreen(ref: RefObject<ComponentRef<typeof View> | null>): boolean {
+	return useNearScreenState(ref) === "near";
 }

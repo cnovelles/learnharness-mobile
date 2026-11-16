@@ -291,6 +291,14 @@ New native modules: `react-native-svg`, `react-native-webview`, `expo-clipboard`
 
 Acceptance: golden-fixture sessions render without errors; each error state above has a Jest test; Maestro screenshots of the scripted lesson; the user checks one real lesson on the Simulator.
 
+### Loading states: top-to-bottom reveal (2026-11-15)
+
+- User decision 2026-11-15 (after animated examples of 4 options): the transcript shows top to bottom. A block shows only when it and every block above it are drawn, so content grows only at the bottom and nothing pushes the text. The block at the front waits at most 1.5 s (`REVEAL_LIMIT_MS`); then it shows its own loading box and the blocks under it go on.
+- Code: `src/lib/reveal-gate.ts` (the order and the time limit, pure), `src/components/reveal.tsx` (`RevealProvider` in the session screen, `RevealSlot`, `RevealScope` for a text row, `useReportReady`). A text row is one slot for each top-level Markdown block; every other row is one slot. A hidden slot stays mounted in its place with no height, so its island loads and measures itself. A block that was hidden fades in (200 ms; none with Reduce Motion).
+- Reporters: `MathIsland` (first height), `MermaidIsland` (drawn or failed; a streaming fence is ready), the Markdown table (measured columns), `PlanBlock` (width). A far island counts as ready (it loads later); `useNearScreenState` tells "not measured yet" from "far".
+- A formula that is not drawn yet shows a quiet box with the size of its text, never the TeX source. The source shows only for a formula that cannot load or that KaTeX cannot draw (error state 8).
+- Tests: `tests/reveal-gate.test.ts`, `tests/reveal.test.tsx`; the screen tests set the limit to 0 (Jest has no layout). Simulator: `npm run e2e:rich` passed on the Pro Max and the SE; a frame series of a session open shows the top-to-bottom growth with no jumps.
+
 ## 06 Practice on the phone `done`
 
 Blocked by: 04.

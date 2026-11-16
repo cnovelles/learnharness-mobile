@@ -21,6 +21,13 @@ jest.mock("expo-secure-store", () => ({
 	deleteItemAsync: async (key: string) => void mockKeychain.delete(key),
 }));
 jest.mock("expo-device", () => ({ deviceName: "Test iPhone" }));
+// The top-to-bottom reveal waits up to 1.5 s for each formula, and Jest has
+// no layout, so an island never gets its height. These tests check other
+// things: no wait (tests/reveal.test.tsx checks the wait).
+jest.mock("@/lib/reveal-gate", () => {
+	const actual = jest.requireActual("@/lib/reveal-gate");
+	return { ...actual, createRevealGate: () => actual.createRevealGate(0) };
+});
 // Each pinned fetch keeps the fake Mac of its own test, so work that an
 // earlier test left running cannot reach the next test's Mac.
 jest.mock("@/lib/native-pinned-fetch", () => ({

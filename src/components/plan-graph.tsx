@@ -64,6 +64,7 @@ import {
 } from "@/lib/shared";
 import { SPACE } from "./spacing";
 import { FONT, TYPE, usePalette, type Palette } from "./ui";
+import { useReportReady } from "./reveal";
 
 /** The faint yellow of the current step (desktop `fill-yellow-400/25`). */
 const GLOW_COLOR = "#facc15";
@@ -242,6 +243,8 @@ export function PlanBlock({
 }) {
 	const data = useMemo(() => planGraph(tree, GRAPH_PAD), [tree]);
 	const [width, onLayout] = useWidth();
+	// The reveal waits for the width: the graph's height comes from it.
+	useReportReady(!data || width > 0);
 	if (!data) return <>{fallback}</>;
 	// Hidden until the width is known, so the graph does not jump.
 	const scale = graphScale(data.view.w, width);

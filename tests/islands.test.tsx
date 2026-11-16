@@ -371,7 +371,7 @@ describe("islands near the screen (decision 3)", () => {
 		expect(isNearScreen(-1200, 100, 1000, false)).toBe(false);
 	});
 
-	it("show the native text until the island comes near, then start the WebView", async () => {
+	it("show a quiet box (never the TeX source) until the island comes near and has its height", async () => {
 		let top = 5000;
 		jest
 			.spyOn(
@@ -388,11 +388,16 @@ describe("islands near the screen (decision 3)", () => {
 			</IslandViewportContext.Provider>,
 		);
 		expect(webviews()).toHaveLength(0);
-		expect(screen.getByText(/Pull/)).toBeTruthy();
+		// The box keeps the size of the text, but the text and its TeX are not shown.
+		expect(screen.getByTestId("md-math-loading")).toBeTruthy();
+		expect(screen.queryByText(/Pull/)).toBeNull();
 		top = 300;
 		await act(async () => {
 			viewport.notify();
 		});
 		expect(webviews()).toHaveLength(1);
+		expect(screen.getByTestId("md-math-loading")).toBeTruthy();
+		await page(only(), { type: "height", height: 30 });
+		expect(screen.queryByTestId("md-math-loading")).toBeNull();
 	});
 });

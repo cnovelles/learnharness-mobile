@@ -35,6 +35,7 @@ import {
 import { PlanSheet } from "@/components/plan-sheet";
 import { QuestionDock } from "@/components/question-dock";
 import { PracticeDock } from "@/components/practice-dock";
+import { RevealProvider } from "@/components/reveal";
 import { Transcript } from "@/components/transcript";
 import {
 	alpha,
@@ -364,7 +365,9 @@ function SessionBody({ record }: { record: SessionRecord }) {
 					scrollEventThrottle={100}
 				>
 					<IslandViewportContext.Provider value={viewport}>
-						<Transcript rows={rows} onOpenPlan={openPlan} />
+						<RevealProvider>
+							<Transcript rows={rows} onOpenPlan={openPlan} />
+						</RevealProvider>
 					</IslandViewportContext.Provider>
 					{running ? (
 						<StatusLine testID="turn-running">
