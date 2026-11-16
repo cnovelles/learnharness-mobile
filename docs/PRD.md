@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15, issue 06 (practice) done: slices A to E.
+Last update: 2026-11-15, tenth clear (issue 06 done; transcript loading states done).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-15, issue 06 (practice) done: slices A to E.
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 06 (practice) is done; see `docs/ISSUES.md`, issue 06 "State". Pick the next issue from `docs/ISSUES.md` with the user. Issue 05 still waits only for the user's real-lesson check.
+**Next step:** Pick the next issue from `docs/ISSUES.md` with the user (open: 07 Dictation, 08 Graph list, cost and context, 09 Local store and outbox, and later ones). Issue 05 still waits only for the user's real-lesson check. Issue 06 and the loading states are done; see `docs/ISSUES.md`, issue 06 "State" and issue 05 "Loading states".
 
 **Facts found during the work**
 
@@ -62,6 +62,7 @@ Last update: 2026-11-15, issue 06 (practice) done: slices A to E.
 - State at the clear (2026-11-15, ninth clear): issue 06 slices A (`aefab87`), B (`2def412`) and C (`b6a7516`) are done; Jest 494 pass. CI passed for `3c240c7` (`b47b5be` was cancelled by the newer push, not failed). The issue 06 commits were pushed at the clear; their CI is not checked yet. The fork has no new commits since `c6e79ca`. Nothing runs now (no Metro, no test Mac). Both Simulators have the dev build `LearnHarness.app` (no native change since). No Simulator check of issue 06 yet. Decisions 2026-11-15: a second "New practice" button on home (no switch); the dock caps the statement at 35% of the height and collapses to a bar; Dismiss in the dock with an iOS alert; metadata opens inside the conclude card.
 - State (2026-11-15, after issue 06): slices D (`bff1b1a`) and E are done. `npm run e2e:practice` passed on the SE and the Pro Max. Nothing runs now (Metro and the test Mac are stopped). Both Simulators are booted in dark mode, paired with a stopped test Mac, and have the current dev build. CI passed for `1fc767d`.
 - Loading states (2026-11-15): the transcript reveals top to bottom with a 1.5 s limit for each block (user decision). See `docs/ISSUES.md`, issue 05, "Loading states". Also fixed after the user's check: Next problem waits until the Mac accepts a dismissal (`9816092`).
+- State at the clear (2026-11-15, tenth clear): issue 06 is done (`bff1b1a` slice D, `621bd5e` slice E, `9816092` the dismissal fix from the user's check). Transcript loading states are done (`46c37e6`, top-to-bottom reveal). CI passed for all four. Jest 519 pass (one full-suite run had 1 failure that did not repeat in 2 more runs; watch for a flaky test under load). The fork has no new commits since `c6e79ca`. Nothing runs now (Metro and the test Mac are stopped). Both Simulators have the current dev build (no native change) and are booted in dark mode; both are paired with a stopped test Mac, so a manual check needs a new `LH_E2E_RICH=1 npm run e2e:mac`, Metro with `--clear`, and pairing again (Settings > Forget this Mac, or `clearState` in a Maestro flow).
 - Jest under the full suite's load: a session-screen test file needs `jest.setTimeout(20_000)`. With the 5 s default, the first screen (the rich renderer loads) times out, and its held stream breaks the next tests in that file.
 - Side-by-side screenshots of the desktop: the test Mac's server needs the desktop secret header, so open a copy of its data folder with the fork's `npm run dev` (`LH_DATA_DIR`, `LH_AUTH_FILE`) in the built-in browser. Stop the test Mac first: both use the `.next/dev` lock.
 - Deep links into the dev build (`learnharnessmobile:///settings`) show an "Open in" system alert on each `openurl`, and the alerts queue up. Tap through the app instead.
