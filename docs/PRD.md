@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-16, twelfth clear (issue 15 done; issue 07 dictation built: on-device SpeechAnalyzer and Deepgram, not yet checked on the iPhone).
+Last update: 2026-11-16, after the twelfth clear (issue 07 done: the on-device mic passed on the iPhone; the Deepgram check waits for a key).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-16, twelfth clear (issue 15 done; issue 07 dictation built:
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 07 (`docs/ISSUES.md`, issue 07 "State", the "Not done" and "Next" lines): the dictation E2E flows on both Simulators, the Release build on the iPhone, the user's check of both engines. Then the wide-content mockups for issue 05. Before 2026-11-23, build and install again (free profile), or move to the paid team (`ios.appleTeamId`). Issue 05 still waits for the user's real-lesson check. Then pick the next issue with the user (07, 08, 09 and later).
+**Next step:** The wide-content mockups for issue 05 (fit code, charts and graphs to the screen, with zoom). Issue 07 is done except the Deepgram check on the iPhone, which waits for the user's Deepgram key (`docs/ISSUES.md`, issue 07 "State"). Before 2026-11-23, build and install again (free profile), or move to the paid team (`ios.appleTeamId`). Issue 05 still waits for the user's real-lesson check. Then pick the next issue with the user (07, 08, 09 and later).
 
 **Facts found during the work**
 
@@ -63,6 +63,7 @@ Last update: 2026-11-16, twelfth clear (issue 15 done; issue 07 dictation built:
 - State (2026-11-15, after issue 06): slices D (`bff1b1a`) and E are done. `npm run e2e:practice` passed on the SE and the Pro Max. Nothing runs now (Metro and the test Mac are stopped). Both Simulators are booted in dark mode, paired with a stopped test Mac, and have the current dev build. CI passed for `1fc767d`.
 - Loading states (2026-11-15): the transcript reveals top to bottom with a 1.5 s limit for each block (user decision). See `docs/ISSUES.md`, issue 05, "Loading states". Also fixed after the user's check: Next problem waits until the Mac accepts a dismissal (`9816092`).
 - State at the clear (2026-11-15, tenth clear): issue 06 is done (`bff1b1a` slice D, `621bd5e` slice E, `9816092` the dismissal fix from the user's check). Transcript loading states are done (`46c37e6`, top-to-bottom reveal). CI passed for all four. Jest 519 pass (one full-suite run had 1 failure that did not repeat in 2 more runs; watch for a flaky test under load). The fork has no new commits since `c6e79ca`. Nothing runs now (Metro and the test Mac are stopped). Both Simulators have the current dev build (no native change) and are booted in dark mode; both are paired with a stopped test Mac, so a manual check needs a new `LH_E2E_RICH=1 npm run e2e:mac`, Metro with `--clear`, and pairing again (Settings > Forget this Mac, or `clearState` in a Maestro flow).
+- State after the twelfth clear (2026-11-16): the issue 07 E2E flows pass on both Simulators. The new Release build is on the iPhone (profile until 2026-11-23), and the on-device mic passed the user's check in a real lesson (scroll does not stop it). The Deepgram check waits for a key. Nothing runs (Metro and the test Mac are stopped).
 - State at the twelfth clear (2026-11-16): issue 07 code done (slices A–E), commits on `phase-1/pairing`; nothing runs; both Simulators have the newest dev build; the iPhone has the build from before issue 07. Fork `679599b` (gateway log fix) is installed in `/Applications`.
 - State after the eleventh clear (2026-11-16): issue 15 done. The new dev build is on both Simulators, the new Release build is on the iPhone (installed over Wi-Fi), and the lesson on cellular worked. Nothing runs. Earlier state at the clear: issue 15 slices A–F done; D done; G blocked by ATS, fixed in code (phone, the last commit: ATS "pinned" policy plugin, lint guards, test, `docs/TRANSPORT-SECURITY.md`) but NOT built yet. Fork `a1f16a1` (personal build, Tailscale warning) is pushed to `fork`. The user's Mac runs the fork build 0.6.1 from `/Applications/LearnHarness.app` on the real data (backup `data-backup-2026-11-15-v0.4.1`). The iPhone has the OLD Release build (profile until 2026-11-23) and is paired over Tailscale. Nothing runs now (test Mac and Metro stopped). Both Simulators have the old dev build: rebuild after the prebuild. Jest 525 pass.
 - Jest under the full suite's load: a session-screen test file needs `jest.setTimeout(20_000)`. With the 5 s default, the first screen (the rich renderer loads) times out, and its held stream breaks the next tests in that file.
