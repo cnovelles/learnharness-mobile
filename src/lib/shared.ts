@@ -30,6 +30,7 @@ export {
 	malformedQuestionsOf,
 	parseProbeDoneInput,
 	pendingQuestionOf,
+	practiceProblemForCall,
 	phaseAt3Lh,
 	phaseTimeline,
 	teachStepIndex,

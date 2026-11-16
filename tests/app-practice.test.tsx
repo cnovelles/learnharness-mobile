@@ -9,8 +9,8 @@ import path from "node:path";
 import { Alert, Dimensions } from "react-native";
 
 import { FakeMac, type Rec, pairedConnection } from "./helpers/fake-mac";
-import { SOLVED, conclude, pose } from "./helpers/practice-record";
-import { DISMISS_FAILED, PROBLEM_NOT_ACTIVE } from "@/lib/user-error";
+import { PROBLEM, SOLVED, conclude, pose } from "./helpers/practice-record";
+import { DISMISS_FAILED, PROBLEM_NOT_ACTIVE, PROBLEM_STILL_ACTIVE } from "@/lib/user-error";
 
 const mockKeychain = new Map<string, string>();
 jest.mock("expo-secure-store", () => ({
@@ -298,5 +298,127 @@ describe("slice C: the practice dock", () => {
 		expect(await screen.findByTestId("retry-turn")).toBeTruthy();
 		expect(screen.queryByText("boom")).toBeNull();
 		expect(await screen.findByTestId("practice-dock")).toBeTruthy();
+	});
+});
+
+/** A practice session in the pause: one problem posed and concluded. */
+function practiceInPause(): string {
+	return mac.add(
+		"Recurrences",
+		[
+			{ role: "user", id: "u_1", content: "Recurrences", timestamp: 1 },
+			...(pose("call_p1") as Rec[]),
+			...(conclude("call_c1", SOLVED, "Well done.") as Rec[]),
+		],
+		"practice",
+	);
+}
+
+describe("slice D: Next problem in the practice pause", () => {
+	it("the pause shows Next problem over the composer; it sends next and the new problem opens the dock", async () => {
+		const id = practiceInPause();
+		mac.turns.push(() => pose("call_p2", { ...PROBLEM, statement: "Second problem." }) as Rec[]);
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByTestId("next-problem")).toBeTruthy();
+		expect(screen.getByTestId("composer")).toBeTruthy();
+		await fireEvent.press(screen.getByTestId("next-problem"));
+		expect(await screen.findByTestId("practice-dock")).toBeTruthy();
+		expect(mac.inputs).toEqual([{ type: "next" }]);
+		expect(screen.queryByTestId("next-problem")).toBeNull();
+	});
+
+	it("text in the composer keeps both: Send sends the text, not next", async () => {
+		const id = practiceInPause();
+		mac.turns.push(() => [mac.assistant([{ type: "text", text: "Because the roots differ." }])]);
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		await fireEvent.changeText(await screen.findByTestId("composer"), "Why two roots?");
+		expect(screen.getByTestId("next-problem")).toBeTruthy();
+		await fireEvent.press(screen.getByTestId("send"));
+		expect(await screen.findByText("Because the roots differ.")).toBeTruthy();
+		expect(mac.inputs).toEqual([{ type: "text", text: "Why two roots?" }]);
+		// After the answer the pause goes on.
+		expect(await screen.findByTestId("next-problem")).toBeTruthy();
+	});
+
+	it("no Next problem in a teaching session", async () => {
+		const id = mac.add("Recurrences", [
+			{ role: "user", id: "u_1", content: "Recurrences", timestamp: 1 },
+			...(pose("call_p1") as Rec[]),
+			...(conclude("call_c1", SOLVED, "Well done.") as Rec[]),
+		]);
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByTestId("composer")).toBeTruthy();
+		expect(screen.queryByTestId("next-problem")).toBeNull();
+	});
+
+	it("no Next problem before the first problem", async () => {
+		const fresh = mac.add(
+			"Recurrences",
+			[
+				{ role: "user", id: "u_1", content: "Recurrences", timestamp: 1 },
+				mac.assistant([{ type: "text", text: "What level are you at?" }]),
+			],
+			"practice",
+		);
+		await renderRouter(APP, { initialUrl: `/session/${fresh}` });
+		expect(await screen.findByTestId("composer")).toBeTruthy();
+		expect(screen.queryByTestId("next-problem")).toBeNull();
+	});
+
+	it("no Next problem while a problem is active", async () => {
+		const id = practiceWithProblem();
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByTestId("practice-dock")).toBeTruthy();
+		expect(screen.queryByTestId("next-problem")).toBeNull();
+	});
+
+	it("while the next turn runs, Next problem hides and the composer shows Stop", async () => {
+		const id = practiceInPause();
+		mac.holdNext = true;
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		await fireEvent.press(await screen.findByTestId("next-problem"));
+		await waitFor(() => expect(mac.holding).toBe(true));
+		expect(await screen.findByTestId("stop-turn")).toBeTruthy();
+		expect(screen.queryByTestId("next-problem")).toBeNull();
+		await act(async () => mac.release(id, pose("call_p2") as Rec[]));
+		expect(await screen.findByTestId("practice-dock")).toBeTruthy();
+	});
+
+	it("error state: while the Mac compacts, Next problem waits", async () => {
+		const id = practiceInPause();
+		mac.chats.get(id)!.compacting = true;
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByTestId("next-problem")).toBeDisabled();
+		expect(screen.getByTestId("compacting")).toHaveTextContent(/making the history shorter/);
+		await fireEvent.press(screen.getByTestId("next-problem"));
+		expect(mac.inputs).toEqual([]);
+	});
+
+	it("error state: the Mac refuses next (a problem is active there); Try again reads the session", async () => {
+		const id = practiceInPause();
+		mac.refuseNext = { status: 400, body: { error: "next input requires no active problem" } };
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		await fireEvent.press(await screen.findByTestId("next-problem"));
+		const banner = await screen.findByTestId("session-error");
+		expect(banner).toHaveTextContent(PROBLEM_STILL_ACTIVE);
+		expect(screen.queryByText(/requires no active problem/)).toBeNull();
+		// The Mac posed a problem in the meantime: Try again reads the record.
+		mac.chats.get(id)!.messages.push(...(pose("call_p2") as Rec[]));
+		await fireEvent.press(screen.getByTestId("retry-turn"));
+		expect(await screen.findByTestId("practice-dock")).toBeTruthy();
+		expect(mac.inputs).toHaveLength(1);
+	});
+
+	it("error state: network loss; Try again sends next again", async () => {
+		const id = practiceInPause();
+		mac.networkFailNextChat = true;
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		await fireEvent.press(await screen.findByTestId("next-problem"));
+		expect(await screen.findByTestId("session-error")).toBeTruthy();
+		mac.turns.push(() => pose("call_p2") as Rec[]);
+		await fireEvent.press(screen.getByTestId("retry-turn"));
+		expect(await screen.findByTestId("practice-dock")).toBeTruthy();
+		// The lost request never reached the Mac.
+		expect(mac.inputs).toEqual([{ type: "next" }]);
 	});
 });

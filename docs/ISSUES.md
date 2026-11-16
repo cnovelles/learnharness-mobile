@@ -313,7 +313,7 @@ Blocked by: 04.
 - A. Start a practice session: a second "New practice" button on the home screen, next to "New session" (user decision 2026-11-15, option B). It opens the new-session screen in practice mode (title "New practice", "What do you want to practice?", "Start practice"). The screen has no switch.
 - B. Transcript rows: problem card, thinking row, conclude card with outcome chip, verdict, model solution and metadata, the dismissed line, the Next problem line. Golden transcript test. Metadata: a tap on "METADATA" opens the rows inside the card, a second tap closes them (user decision 2026-11-15, option A).
 - C. Practice dock: statement, thinking field, Submit thinking, Dismiss with a confirm, the waiting states. A long statement scrolls inside the dock at a maximum of about 35% of the screen height. A chevron collapses the dock to a slim "PROBLEM · statement…" bar; a tap on the bar opens it again, and the thinking text stays (user decision 2026-11-15, option A). Dismiss: a quiet "Dismiss" text button in the PROBLEM row opens an iOS alert (Cancel / Dismiss) (user decision 2026-11-15, option A).
-- D. Next problem button in the practice pause.
+- D. Next problem button in the practice pause: a wide green "NEXT PROBLEM →" button over the composer (user decision 2026-11-15, option B). The composer stays, so a question about the last problem is also one tap. The rule is the desktop's `nextReady`; the button waits while the Mac compacts. Done.
 - E. Fake Mac practice script, Maestro flow `e2e/practice.yaml` (pose, thinking, conclude, Next problem, second problem, dismiss), screenshots on the SE and the Pro Max.
 
 ### State (2026-11-15, ninth clear)

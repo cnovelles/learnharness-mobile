@@ -145,6 +145,58 @@ function Composer({
 	);
 }
 
+/**
+ * The practice pause (issue 06 slice D, user decision 2026-11-15, option
+ * B): a wide green button over the composer. The desktop morphs its send
+ * button; on the phone both stay, so a question about the last problem
+ * and the next problem are each one tap. The green is the app's
+ * correct-answer color, with the page color for the text (the desktop's
+ * `bg-success text-background`). While the Mac compacts, it waits (the
+ * screen's compacting line says why).
+ */
+function NextProblemButton({
+	onPress,
+	waiting,
+}: {
+	onPress: () => Promise<boolean>;
+	waiting: boolean;
+}) {
+	const c = usePalette();
+	const [sending, setSending] = useState(false);
+	async function press() {
+		if (sending || waiting) return;
+		setSending(true);
+		try {
+			await onPress();
+		} finally {
+			setSending(false);
+		}
+	}
+	return (
+		<Pressable
+			testID="next-problem"
+			accessibilityRole="button"
+			accessibilityLabel="Next problem"
+			accessibilityState={{ disabled: waiting || sending, busy: sending }}
+			disabled={waiting || sending}
+			onPress={() => void press()}
+			style={({ pressed }) => [
+				styles.nextProblem,
+				{ backgroundColor: c.ok, opacity: waiting ? 0.4 : pressed ? 0.85 : 1 },
+			]}
+		>
+			{sending ? (
+				<Spinner color={c.bg} />
+			) : (
+				<>
+					<Text style={[LABEL, { color: c.bg }]}>NEXT PROBLEM</Text>
+					<Icon name="arrow.right" size={14} color={c.bg} />
+				</>
+			)}
+		</Pressable>
+	);
+}
+
 /** The header title: the session title and the phase under it (the desktop PhaseChip). */
 function HeaderTitle({ title, phase }: { title: string; phase: Phase3 }) {
 	const c = usePalette();
@@ -372,7 +424,12 @@ function SessionBody({ record }: { record: SessionRecord }) {
 							onSubmit={(text) => session.submitThinking(session.problem!.toolCallId, text)}
 							onDismiss={() => void session.dismissProblem()}
 						/>
-					) : running || (!pending && (state.status === "ready" || session.unsentText !== null)) ? (
+					) : null}
+					{session.nextReady && !session.problem ? (
+						<NextProblemButton onPress={session.sendNext} waiting={compacting} />
+					) : null}
+					{session.problem ? null : running ||
+					  (!pending && (state.status === "ready" || session.unsentText !== null)) ? (
 						<Composer
 							key={session.unsentText ?? ""}
 							onSend={session.sendText}
@@ -460,6 +517,15 @@ const styles = StyleSheet.create({
 		fontFamily: FONT.prose,
 		fontSize: 16,
 		lineHeight: 20,
+	},
+	/** The composer button's height and radius, the full width. */
+	nextProblem: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: SPACE.xs,
+		minHeight: 44,
+		borderRadius: 8,
 	},
 	/** 40 x 40; the radius is the shell's 16 minus its 8 padding. */
 	composerButton: {

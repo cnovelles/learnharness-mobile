@@ -44,6 +44,9 @@
  *   the record again, so the dock comes back.
  * - A refusal that says the problem is not active (or still active) offers
  *   a sync, not a resend.
+ * - Next problem (slice D): `nextReady` is the desktop's practice pause.
+ *   `sendNext` sends `{ type: "next" }`; a refused or lost one is unsent,
+ *   so Try again sends it again (or reads the session for a gate refusal).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
@@ -55,6 +58,7 @@ import {
 	SessionModel,
 	activeProblemOf,
 	endsInFailedTurn,
+	practiceProblemForCall,
 	malformedQuestionsOf,
 	pendingQuestionOf,
 	visibleQueuedSteers,
@@ -92,7 +96,8 @@ export interface SessionBanner {
 type Unsent =
 	| { kind: "text"; text: string }
 	| { kind: "thinking"; problemCallId: string; text: string }
-	| { kind: "answer"; toolCallId: string; answer: QuestionAnswerData; key: string };
+	| { kind: "answer"; toolCallId: string; answer: QuestionAnswerData; key: string }
+	| { kind: "next" };
 
 export type SessionLoad =
 	| { status: "loading" }
@@ -135,6 +140,14 @@ export interface SessionControls {
 	unsentThinking: string | null;
 	/** Dismiss the active problem (no turn runs while the dock shows). */
 	dismissProblem(): Promise<void>;
+	/**
+	 * The practice pause (the desktop's nextReady): a practice session, no
+	 * problem, no question and no turn, and at least one problem posed.
+	 * True also while the Mac compacts: the button shows and waits.
+	 */
+	nextReady: boolean;
+	/** Ask for the next problem (`{ type: "next" }`). Resolves when the Mac accepts it. */
+	sendNext(): Promise<boolean>;
 	/** The question that waits for the learner, when no turn runs. */
 	pending: ReturnType<typeof pendingQuestionOf>;
 	/** A question call with bad input, when no turn runs and no question waits. */
@@ -284,6 +297,24 @@ export function useSessionModel(
 		[model],
 	);
 
+	const sendNext = useCallback(
+		() =>
+			new Promise<boolean>((resolve) => {
+				let accepted = false;
+				const onAccepted = () => {
+					accepted = true;
+					setUnsent(null);
+					resolve(true);
+				};
+				void model.send({ type: "next" }, onAccepted).then((ok) => {
+					if (accepted) return;
+					setUnsent(ok ? null : { kind: "next" });
+					resolve(ok);
+				});
+			}),
+		[model],
+	);
+
 	// Turns that the Mac starts by itself, and records that change without a turn.
 	useEffect(() => attachSessionEvents(model, hub, hooks), [model, hub, hooks]);
 
@@ -363,6 +394,30 @@ export function useSessionModel(
 				: null,
 		[state],
 	);
+	// The desktop's nextReady (fork components/chat.tsx). The record's kind
+	// does not change, so the first read is enough.
+	const nextReady = useMemo(
+		() =>
+			record.kind === "practice" &&
+			(state.status === "ready" || state.status === "error") &&
+			!pending &&
+			!problem &&
+			state.nativeMessages.some(
+				(m) =>
+					m.role === "assistant" &&
+					m.content.some(
+						(b, contentIndex) =>
+							b.type === "toolCall" &&
+							!!practiceProblemForCall(state.nativeMessages, {
+								messageId: m.id,
+								contentIndex,
+								toolCallId: b.id,
+								toolName: b.name,
+							}),
+					),
+			),
+		[record.kind, state, pending, problem],
+	);
 	const queuedSteers = useMemo(
 		() => visibleQueuedSteers(state.steerQueue, state.nativeMessages),
 		[state.steerQueue, state.nativeMessages],
@@ -401,8 +456,10 @@ export function useSessionModel(
 					? submitThinking(unsent.problemCallId, unsent.text)
 					: unsent?.kind === "answer"
 						? answer(unsent.toolCallId, unsent.answer, unsent.key)
-						: model.send({ type: "retry" }),
-		[unsent, sendText, submitThinking, answer, model],
+						: unsent?.kind === "next"
+							? sendNext()
+							: model.send({ type: "retry" }),
+		[unsent, sendText, submitThinking, answer, sendNext, model],
 	);
 
 	const banner = useMemo<SessionBanner | null>(() => {
@@ -435,6 +492,8 @@ export function useSessionModel(
 		submitThinking,
 		unsentThinking: unsent?.kind === "thinking" ? unsent.text : null,
 		dismissProblem,
+		nextReady,
+		sendNext,
 		pending,
 		malformed,
 		sendText,
