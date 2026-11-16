@@ -415,13 +415,40 @@ Blocked by: 10.
 - Docker image of the fork in browser mode with the gateway and sync service; `tailscale serve`; deploy guide (Hetzner or Fly.io).
   Acceptance: the mode 1 E2E suite passes against the container.
 
-## 15 Personal build and setup guide `todo`
+## 15 Personal build and setup guide `doing`
 
 Blocked by: 04.
 
 - Unsigned local build of the fork for the user's Mac (no upstream notarization profile). Phone install with a development build or TestFlight (user's Apple account; the user does the sign-in).
 - Guide: install Tailscale on Mac and iPhone (the user creates the account), turn on Phone Access, pair.
   Acceptance: the user pairs a real iPhone and does one lesson away from home.
+
+### Facts (2026-11-15)
+
+- The user runs LearnHarness 0.4.1 (upstream build, x86_64) from `~/Development/learnharness/dist/mac` on the real data (3.3 MB, 4 chats, Claude Code provider). A fork build must never write to `dist/`: the running app is there.
+- The fork's `desktop:dist` builds arm64 only, signs with the upstream team and notarizes. This Mac is an Intel MacBook Pro (`MacBookPro16,1`). The personal build is x64, unsigned, not notarized, with its own output folder.
+- No upstream data migration between 0.4.1 and 0.6.1 was found (only atomic-write fixes in the stores). The upgrade is still one-way, so take a backup first.
+- System sleep is off on the power adapter (`pmset sleep 0`). A closed lid still puts the Mac to sleep.
+- Tailscale is not installed. The gateway already sends Tailscale addresses (100.64.0.0/10) first, but only the addresses that exist at pairing time.
+- Phone: iPhone 13 Pro Max, iOS 26.5.2, Developer Mode on, paired with Xcode. Xcode has the Personal Team `52B7323R6Q` (free). The upstream 0.4.1 build in `dist/mac` is signed with the same team, so the user built it on this Mac. Expo sets the team with `ios.appleTeamId` in `app.json`. On the paid team, change that ID.
+- Not checked yet (from memory, can be wrong): iOS App Transport Security accepts the self-signed HTTPS connection to a 100.x address as it does for a LAN address. Check it in the Simulator after Tailscale is on.
+
+### Decisions (2026-11-15)
+
+- Replace 0.4.1 with the fork build in `/Applications`, on the real data, after a backup of the data folder.
+- Free Apple ID (Personal Team) now: the app stops after 7 days. The user moves to the paid Developer Program on 2026-11-16 (1-year profile, TestFlight possible).
+- Release build on the iPhone (JavaScript inside the app, no Metro).
+- The Phone Access window warns when the Mac has no Tailscale address. Mockups first.
+
+### Slices
+
+- A. Fork: `npm run desktop:personal` (x64 unsigned build into `dist-personal/`). Start it once with a temporary data folder.
+- B. Fork: the "no Tailscale address" warning in the Phone Access window (mockups, then code and tests).
+- C. Install: back up the data, quit 0.4.1, install the fork build, open the real sessions.
+- D. Tailscale on the Mac and the iPhone (the user). Check the 100.x address and the ATS question in the Simulator.
+- E. Phone: Release build on the iPhone with the Personal Team. Pair over Tailscale.
+- F. Guide: `docs/SETUP.md` (build, install, Tailscale, pair, keep the Mac awake, reinstall each 7 days on a free Apple ID, problems and fixes).
+- G. Acceptance: one lesson with Wi-Fi off on the iPhone (cellular through Tailscale).
 
 ## 16 ChatGPT sign-in on a real iPhone (test) `todo`
 

@@ -10,6 +10,7 @@
     "ios": {
       "icon": "./assets/learnharness.icon",
       "bundleIdentifier": "dev.local.learnharnessmobile",
+      "appleTeamId": "52B7323R6Q",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "LearnHarness connects to the LearnHarness desktop app on your Mac over your local network.",
         "NSAppTransportSecurity": {
