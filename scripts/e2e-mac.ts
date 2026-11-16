@@ -19,6 +19,15 @@
  * 5. After the answer: a short reply.
  * e2e/first-turn.yaml uses steps 1 to 3; e2e/teach-cycle.yaml uses all.
  *
+ * The scripted practice (issue 06, e2e/practice.yaml), for a session from
+ * "New practice":
+ * 1. Practitioner: a short text and the first problem (the turn ends).
+ * 2. After the thinking: conclude (solved), then the closing words.
+ * 3. After Next problem: the second problem. The flow dismisses it (no
+ *    model call).
+ * 4. After the next Next problem: the third problem. The Mac adds the
+ *    dismissed conclusion of the second one with that input.
+ *
  * LH_E2E_RICH=1 adds `RICH` to the teaching text of step 4: Markdown, code
  * fences in 3 languages, a table, math (also a formula that KaTeX cannot
  * draw) and 2 Mermaid charts (one with a parse error). Issue 05, manual checks.
@@ -72,6 +81,34 @@ export const LESSON = {
 		correctAnswer: "closer",
 	},
 	afterCheck: "Right. Next we look at the two bulges.",
+};
+
+export const PRACTICE = {
+	intro: "Here is your first problem.",
+	first: {
+		statement: "The tide rises $2$ m in $6$ hours. What is the mean rate in cm per hour?",
+		mode: "recall",
+		modelSolution: "$200$ cm in $6$ hours is about $33$ cm per hour.",
+	},
+	conclude: {
+		outcome: "solved",
+		verdict: "Correct conversion to centimeters and correct division.",
+		rung: null,
+		missClass: null,
+		retest: false,
+	},
+	closing: "Well done. Ask about it, or take the next problem.",
+	next: "A second one.",
+	second: {
+		statement: "Why are there two high tides each day, not one?",
+		mode: "composition",
+		modelSolution: "The Moon's uneven pull makes two bulges, and the Earth turns through both.",
+	},
+	third: {
+		statement: "Which body causes most of the tides: the Sun or the Moon?",
+		mode: "discrimination",
+		modelSolution: "The Moon: it is much closer, so its uneven pull is about twice the Sun's.",
+	},
 };
 
 /** Rich Markdown for the manual checks of issue 05 (LH_E2E_RICH=1). */
@@ -195,6 +232,21 @@ async function main() {
 					toolCalls: [{ name: "quiz", arguments: LESSON.check }],
 				},
 				{ text: LESSON.afterCheck },
+			],
+			practitioner: [
+				{
+					text: PRACTICE.intro,
+					chunkSize: 4,
+					chunkDelayMs: 40,
+					toolCalls: [{ name: "problem", arguments: PRACTICE.first }],
+				},
+				{ toolCalls: [{ name: "conclude", arguments: PRACTICE.conclude }] },
+				{ text: PRACTICE.closing },
+				{
+					text: PRACTICE.next,
+					toolCalls: [{ name: "problem", arguments: PRACTICE.second }],
+				},
+				{ toolCalls: [{ name: "problem", arguments: PRACTICE.third }] },
 			],
 		},
 	});

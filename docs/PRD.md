@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-15, ninth clear (issue 06 practice: slices A, B and C done; D and E next).
+Last update: 2026-11-15, issue 06 (practice) done: slices A to E.
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-15, ninth clear (issue 06 practice: slices A, B and C done;
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 06 (practice) slice D (Next problem button), then slice E (Maestro flow, Simulator check, screenshots). Slices A–C are done; see `docs/ISSUES.md`, issue 06 "State". The user's design choices for issue 06 are recorded in its slice list. Issue 05 still waits only for the user's real-lesson check.
+**Next step:** Issue 06 (practice) is done; see `docs/ISSUES.md`, issue 06 "State". Pick the next issue from `docs/ISSUES.md` with the user. Issue 05 still waits only for the user's real-lesson check.
 
 **Facts found during the work**
 
@@ -60,6 +60,7 @@ Last update: 2026-11-15, ninth clear (issue 06 practice: slices A, B and C done;
 - State at the clear (2026-11-15, seventh clear): last commit is the issue 18 docs commit after `2c0c7bb`. The Pro Max has the new dev build (fonts, icon, splash): no new build is needed for slice D, only Metro with `--clear`. Nothing runs (Metro and the test Mac are stopped). The Pro Max is booted and in light mode; the SE is shut down and has the OLD build (install the new `.app` with `xcrun simctl install` before an SE check). CI passed for `24381fb`; not checked for later commits.
 - State at the clear (2026-11-15, eighth clear): issue 18 is done (slice D `c8e4704`, slice E `a1307f9`, docs `b2d98aa` and `b1dc9b5`, app name `b47b5be`). CI passed up to `b1dc9b5`; `b47b5be` (only `app.json` and docs) was still running at the clear. The fork has no new commits since `c6e79ca`. Nothing runs now: Metro, the test Mac and the desktop dev server are stopped. Both Simulators have the new dev build (`LearnHarness.app`); the Pro Max is booted in dark mode, the SE is booted in dark mode. Both are paired with a stopped test Mac. The next task is the user's choice: issue 05 needs the user's real-lesson check; otherwise pick the next issue from `docs/ISSUES.md` with the user.
 - State at the clear (2026-11-15, ninth clear): issue 06 slices A (`aefab87`), B (`2def412`) and C (`b6a7516`) are done; Jest 494 pass. CI passed for `3c240c7` (`b47b5be` was cancelled by the newer push, not failed). The issue 06 commits were pushed at the clear; their CI is not checked yet. The fork has no new commits since `c6e79ca`. Nothing runs now (no Metro, no test Mac). Both Simulators have the dev build `LearnHarness.app` (no native change since). No Simulator check of issue 06 yet. Decisions 2026-11-15: a second "New practice" button on home (no switch); the dock caps the statement at 35% of the height and collapses to a bar; Dismiss in the dock with an iOS alert; metadata opens inside the conclude card.
+- State (2026-11-15, after issue 06): slices D (`bff1b1a`) and E are done. `npm run e2e:practice` passed on the SE and the Pro Max. Nothing runs now (Metro and the test Mac are stopped). Both Simulators are booted in dark mode, paired with a stopped test Mac, and have the current dev build. CI passed for `1fc767d`.
 - Jest under the full suite's load: a session-screen test file needs `jest.setTimeout(20_000)`. With the 5 s default, the first screen (the rich renderer loads) times out, and its held stream breaks the next tests in that file.
 - Side-by-side screenshots of the desktop: the test Mac's server needs the desktop secret header, so open a copy of its data folder with the fork's `npm run dev` (`LH_DATA_DIR`, `LH_AUTH_FILE`) in the built-in browser. Stop the test Mac first: both use the `.next/dev` lock.
 - Deep links into the dev build (`learnharnessmobile:///settings`) show an "Open in" system alert on each `openurl`, and the alerts queue up. Tap through the app instead.

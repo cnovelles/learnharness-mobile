@@ -291,7 +291,7 @@ New native modules: `react-native-svg`, `react-native-webview`, `expo-clipboard`
 
 Acceptance: golden-fixture sessions render without errors; each error state above has a Jest test; Maestro screenshots of the scripted lesson; the user checks one real lesson on the Simulator.
 
-## 06 Practice on the phone `doing`
+## 06 Practice on the phone `done`
 
 Blocked by: 04.
 
@@ -314,14 +314,17 @@ Blocked by: 04.
 - B. Transcript rows: problem card, thinking row, conclude card with outcome chip, verdict, model solution and metadata, the dismissed line, the Next problem line. Golden transcript test. Metadata: a tap on "METADATA" opens the rows inside the card, a second tap closes them (user decision 2026-11-15, option A).
 - C. Practice dock: statement, thinking field, Submit thinking, Dismiss with a confirm, the waiting states. A long statement scrolls inside the dock at a maximum of about 35% of the screen height. A chevron collapses the dock to a slim "PROBLEM · statement…" bar; a tap on the bar opens it again, and the thinking text stays (user decision 2026-11-15, option A). Dismiss: a quiet "Dismiss" text button in the PROBLEM row opens an iOS alert (Cancel / Dismiss) (user decision 2026-11-15, option A).
 - D. Next problem button in the practice pause: a wide green "NEXT PROBLEM →" button over the composer (user decision 2026-11-15, option B). The composer stays, so a question about the last problem is also one tap. The rule is the desktop's `nextReady`; the button waits while the Mac compacts. Done.
-- E. Fake Mac practice script, Maestro flow `e2e/practice.yaml` (pose, thinking, conclude, Next problem, second problem, dismiss), screenshots on the SE and the Pro Max.
+- E. Fake Mac practice script, Maestro flow `e2e/practice.yaml` (pose, thinking, conclude, Next problem, second problem, dismiss), screenshots on the SE and the Pro Max. Done.
 
-### State (2026-11-15, ninth clear)
+### State (2026-11-15, after slices D and E)
 
-- Done: slice A (`aefab87`), slice B (`2def412`), slice C (`b6a7516`). Jest 494 pass; format, lint and typecheck are clean. No Simulator check yet for A, B or C (no native change, so no new dev build is needed: Metro with `--clear` is enough).
-- Code: `src/lib/practice.ts` (row data, `nodeNames` for the metadata targets), `src/components/practice-cards.tsx`, `src/components/practice-dock.tsx`, `use-session.ts` (`problem`, `submitThinking`, `unsentThinking`, `dismissProblem`), `user-error.ts` (practice refusals), `new-session.tsx` (`?kind=practice`), `session-list.tsx` (two buttons). Tests: `tests/app-practice.test.tsx`, `tests/practice.test.tsx`, `tests/helpers/practice-record.ts`; the fake Mac knows `kind`, `thinking`, `next`, `dismiss-problem`, `createAnswer` and `networkFailNextChat`.
-- The problem card stays in the transcript while the dock shows the problem (desktop parity: the card is the record).
-- Next: slice D (Next problem button: `{ type: "next" }` in the practice pause; the rule is the desktop's `nextReady` in fork `components/chat.tsx`, needs `record.kind`), then slice E (practitioner script in `scripts/e2e-mac.ts`, `e2e/practice.yaml`, Simulator check and screenshots on the SE and the Pro Max). The fake provider already has the `practitioner` role.
+- Done: slices A (`aefab87`), B (`2def412`), C (`b6a7516`), D (`bff1b1a`) and E (the slice E commit). Jest 505 pass; format, lint and typecheck are clean.
+- Slice D: `nextReady` and `sendNext` in `use-session.ts` (a refused or lost `next` is unsent, so Try again sends it again or reads the session); `NextProblemButton` in `src/app/session/[id].tsx`.
+- Slice E: the practitioner script in `scripts/e2e-mac.ts` (`PRACTICE`: pose, conclude, closing words, a second problem, a third problem). `e2e/practice.yaml` (`npm run e2e:practice`) passed on the SE and on the Pro Max. Contact sheets: `e2e/screenshots/practice/se.png` and `promax.png` (the folder is not in git).
+- Found in the Simulator check and fixed: the header showed the phase ("PROBING") in a practice session. It now shows the desktop's "PRACTICE" tag with a dumbbell.
+- Desktop parity, not a bug: "Problem dismissed." shows only after the next input. The Mac adds the dismissed conclusion with that input (fork `view.ts`, `problem-dismissed` is UI-only). The flow checks it after the next Next problem.
+- Maestro note: on the first Pro Max run the pairing text did not reach the field (no request was sent, so the code stayed unused). The second run with the same test Mac passed.
+- No native change: the dev builds on both Simulators are still current.
 
 ### Error states
 

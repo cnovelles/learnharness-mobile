@@ -315,6 +315,27 @@ function practiceInPause(): string {
 }
 
 describe("slice D: Next problem in the practice pause", () => {
+	it("after a dismissal, the next input brings the dismissed line (the Mac adds it then)", async () => {
+		const id = practiceWithProblem();
+		alertPress("Dismiss");
+		mac.turns.push((chatId) => {
+			const chat = mac.chats.get(chatId)!;
+			// The Mac's synthesized conclusion rides the next input, before its marker.
+			const at = chat.messages.length - 1;
+			chat.messages.splice(
+				at,
+				0,
+				...(conclude("call_c9", { outcome: "dismissed" }, "") as Rec[]).slice(0, 2),
+			);
+			return pose("call_p2") as Rec[];
+		});
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		await fireEvent.press(await screen.findByTestId("dismiss-problem"));
+		await fireEvent.press(await screen.findByTestId("next-problem"));
+		expect(await screen.findByText("Problem dismissed.")).toBeTruthy();
+		expect(mac.inputs).toEqual([{ type: "next" }]);
+	});
+
 	it("the pause shows Next problem over the composer; it sends next and the new problem opens the dock", async () => {
 		const id = practiceInPause();
 		mac.turns.push(() => pose("call_p2", { ...PROBLEM, statement: "Second problem." }) as Rec[]);
@@ -338,6 +359,12 @@ describe("slice D: Next problem in the practice pause", () => {
 		expect(mac.inputs).toEqual([{ type: "text", text: "Why two roots?" }]);
 		// After the answer the pause goes on.
 		expect(await screen.findByTestId("next-problem")).toBeTruthy();
+	});
+
+	it("the header shows PRACTICE, not a phase", async () => {
+		const id = practiceInPause();
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByTestId("session-phase")).toHaveTextContent("PRACTICE");
 	});
 
 	it("no Next problem in a teaching session", async () => {

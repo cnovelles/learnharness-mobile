@@ -197,17 +197,38 @@ function NextProblemButton({
 	);
 }
 
-/** The header title: the session title and the phase under it (the desktop PhaseChip). */
-function HeaderTitle({ title, phase }: { title: string; phase: Phase3 }) {
+/**
+ * The header title: the session title and the phase under it (the desktop
+ * PhaseChip). A practice session has no phases: the desktop shows a quiet
+ * "Practice" tag with a dumbbell instead.
+ */
+function HeaderTitle({
+	title,
+	phase,
+	practice,
+}: {
+	title: string;
+	phase: Phase3;
+	practice: boolean;
+}) {
 	const c = usePalette();
 	return (
 		<View style={styles.headerTitle}>
 			<Text style={[styles.headerName, { color: c.text }]} numberOfLines={1}>
 				{title}
 			</Text>
-			<Text style={[LABEL, { color: c.muted }]} testID="session-phase">
-				{PHASE_LABEL[phase].toUpperCase()}
-			</Text>
+			{practice ? (
+				<View style={styles.practiceTag}>
+					<Icon name="dumbbell" size={11} color={c.muted} />
+					<Text style={[LABEL, { color: c.muted }]} testID="session-phase">
+						PRACTICE
+					</Text>
+				</View>
+			) : (
+				<Text style={[LABEL, { color: c.muted }]} testID="session-phase">
+					{PHASE_LABEL[phase].toUpperCase()}
+				</Text>
+			)}
 		</View>
 	);
 }
@@ -268,10 +289,12 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	const headerOptions = useMemo(
 		() => ({
 			title: record.title,
-			headerTitle: () => <HeaderTitle title={record.title} phase={phase} />,
+			headerTitle: () => (
+				<HeaderTitle title={record.title} phase={phase} practice={record.kind === "practice"} />
+			),
 			headerRight: hasPlan ? () => <PlanChip onPress={openPlan} /> : undefined,
 		}),
-		[record.title, phase, hasPlan, openPlan],
+		[record.title, record.kind, phase, hasPlan, openPlan],
 	);
 	const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 	// Math and Mermaid islands start their WebView only near the screen.
@@ -483,6 +506,7 @@ const styles = StyleSheet.create({
 	row: { flexDirection: "row", gap: SPACE.md },
 	bottom: { paddingHorizontal: SPACE.lg, paddingBottom: SPACE.sm, gap: SPACE.sm },
 	headerTitle: { alignItems: "center", maxWidth: 200 },
+	practiceTag: { flexDirection: "row", alignItems: "center", gap: SPACE.xs },
 	/** Header A (user decision 2026-11-15): the title font at 17 pt in the bar. */
 	headerName: { fontSize: 17, lineHeight: 22, fontFamily: FONT.title, fontWeight: "700" },
 	planChip: {
