@@ -58,6 +58,8 @@ export class FakeMac {
 	steerAnswer: { status: number; body: Rec } | null = null;
 	abortAnswer: { status: number; body: Rec } | null = null;
 	dismissAnswer: { status: number; body: Rec } | null = null;
+	/** While set, dismiss requests wait for this promise (a slow dismissal). */
+	dismissGate: Promise<void> | null = null;
 	/** The next POST /api/chat fails like a lost network (fetch rejects); the Mac gets nothing. */
 	networkFailNextChat = false;
 	/** The answer for the next POST /api/chats (a refused new session). */
@@ -201,6 +203,7 @@ export class FakeMac {
 		const dismiss = p.match(/^\/api\/chats\/([^/]+)\/dismiss$/);
 		if (dismiss && method === "POST") {
 			const input = (JSON.parse(String(init?.body)) as { input: Rec }).input;
+			if (this.dismissGate) await this.dismissGate;
 			this.dismissals.push(input);
 			if (this.dismissAnswer) {
 				const { status, body } = this.dismissAnswer;

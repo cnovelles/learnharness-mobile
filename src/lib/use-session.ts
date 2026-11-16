@@ -47,6 +47,8 @@
  * - Next problem (slice D): `nextReady` is the desktop's practice pause.
  *   `sendNext` sends `{ type: "next" }`; a refused or lost one is unsent,
  *   so Try again sends it again (or reads the session for a gate refusal).
+ *   While a dismissal is on its way (`dismissing`), Next problem waits: the
+ *   Mac must save the dismissal before it accepts `next`.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
@@ -148,6 +150,12 @@ export interface SessionControls {
 	nextReady: boolean;
 	/** Ask for the next problem (`{ type: "next" }`). Resolves when the Mac accepts it. */
 	sendNext(): Promise<boolean>;
+	/**
+	 * A dismissal is on its way to the Mac. The phone already shows the
+	 * pause (SessionModel adds the marker first), but a `next` now could
+	 * reach the Mac before the dismissal, and the Mac refuses it.
+	 */
+	dismissing: boolean;
 	/** The question that waits for the learner, when no turn runs. */
 	pending: ReturnType<typeof pendingQuestionOf>;
 	/** A question call with bad input, when no turn runs and no question waits. */
@@ -224,6 +232,7 @@ export function useSessionModel(
 	const [compacting, setCompacting] = useState(record.compacting);
 	/** Errors that are not SessionModel's: a failed abort, a failed sync. */
 	const [notice, setNotice] = useState<SessionBanner | null>(null);
+	const [dismissing, setDismissing] = useState(false);
 
 	const hooks = useMemo<SessionEventHooks>(
 		() => ({
@@ -481,9 +490,14 @@ export function useSessionModel(
 	const dismissProblem = useCallback(async () => {
 		const active = activeProblemOf(model.getState().nativeMessages);
 		if (!active) return;
-		await model.dismissProblem(active.toolCallId);
-		// A failed dismissal leaves its marker on the phone only: read the record again.
-		if (model.getState().error) await syncSession(model, { onSnapshot: hooks.onSnapshot });
+		setDismissing(true);
+		try {
+			await model.dismissProblem(active.toolCallId);
+			// A failed dismissal leaves its marker on the phone only: read the record again.
+			if (model.getState().error) await syncSession(model, { onSnapshot: hooks.onSnapshot });
+		} finally {
+			setDismissing(false);
+		}
 	}, [model, hooks]);
 
 	return {
@@ -494,6 +508,7 @@ export function useSessionModel(
 		dismissProblem,
 		nextReady,
 		sendNext,
+		dismissing,
 		pending,
 		malformed,
 		sendText,

@@ -336,6 +336,26 @@ describe("slice D: Next problem in the practice pause", () => {
 		expect(mac.inputs).toEqual([{ type: "next" }]);
 	});
 
+	it("error state: Next problem waits until the Mac accepts the dismissal", async () => {
+		const id = practiceWithProblem();
+		alertPress("Dismiss");
+		let accept!: () => void;
+		mac.dismissGate = new Promise<void>((r) => (accept = r));
+		mac.turns.push(() => pose("call_p2") as Rec[]);
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		await fireEvent.press(await screen.findByTestId("dismiss-problem"));
+		// The dismissal is still on its way: a next now would reach the Mac first.
+		const next = await screen.findByTestId("next-problem");
+		expect(next).toBeDisabled();
+		await fireEvent.press(next);
+		expect(mac.inputs).toEqual([]);
+		await act(async () => accept());
+		await waitFor(() => expect(screen.getByTestId("next-problem")).not.toBeDisabled());
+		await fireEvent.press(screen.getByTestId("next-problem"));
+		expect(await screen.findByTestId("practice-dock")).toBeTruthy();
+		expect(mac.inputs).toEqual([{ type: "next" }]);
+	});
+
 	it("the pause shows Next problem over the composer; it sends next and the new problem opens the dock", async () => {
 		const id = practiceInPause();
 		mac.turns.push(() => pose("call_p2", { ...PROBLEM, statement: "Second problem." }) as Rec[]);

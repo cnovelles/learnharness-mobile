@@ -151,8 +151,8 @@ function Composer({
  * button; on the phone both stay, so a question about the last problem
  * and the next problem are each one tap. The green is the app's
  * correct-answer color, with the page color for the text (the desktop's
- * `bg-success text-background`). While the Mac compacts, it waits (the
- * screen's compacting line says why).
+ * `bg-success text-background`). It waits while the Mac compacts (the
+ * screen's compacting line says why) and while a dismissal is on its way.
  */
 function NextProblemButton({
 	onPress,
@@ -449,7 +449,10 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						/>
 					) : null}
 					{session.nextReady && !session.problem ? (
-						<NextProblemButton onPress={session.sendNext} waiting={compacting} />
+						<NextProblemButton
+							onPress={session.sendNext}
+							waiting={compacting || session.dismissing}
+						/>
 					) : null}
 					{session.problem ? null : running ||
 					  (!pending && (state.status === "ready" || session.unsentText !== null)) ? (
