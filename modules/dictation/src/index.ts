@@ -18,6 +18,7 @@ export interface NativeDictation {
 	install(language: string): Promise<void>;
 	start(id: string, language: string): Promise<void>;
 	startFile(id: string, language: string, path: string): Promise<void>;
+	startDeepgram(id: string, language: string, token: string): Promise<void>;
 	stop(): Promise<void>;
 	cancel(): Promise<void>;
 	addListener(

@@ -68,9 +68,11 @@
     "e2e:rich": "sh scripts/e2e-test.sh e2e/rich-lesson.yaml",
     "e2e:practice": "sh scripts/e2e-test.sh e2e/practice.yaml",
     "e2e:dictation": "sh scripts/e2e-test.sh e2e/dictation.yaml",
+    "e2e:dictation-settings": "sh scripts/e2e-test.sh e2e/dictation-settings.yaml",
     "islands": "node scripts/island-pages/build.cjs",
     "hermes:run": "sh scripts/hermes-run/run.sh",
-    "test:native-dictation": "sh modules/dictation/tests/run-engine-test.sh"
+    "test:native-dictation": "sh modules/dictation/tests/run-engine-test.sh",
+    "test:native-deepgram": "sh modules/dictation/tests/run-deepgram-test.sh"
   },
   "private": true,
   "jest": {

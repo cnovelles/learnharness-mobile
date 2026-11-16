@@ -75,3 +75,42 @@ test("the pinned policy is safe only while app code has no other way to the netw
 		expect.arrayContaining(["fetch", "XMLHttpRequest", "WebSocket", "EventSource"]),
 	);
 });
+
+test("native network code is only in the two audited files", () => {
+	// docs/TRANSPORT-SECURITY.md: the pinned session to the Mac, and the
+	// Deepgram socket (issue 07). A new native path needs an audit first.
+	const allowed = new Set([
+		"modules/pinned-fetch/ios/PinnedSession.swift",
+		"modules/dictation/ios/DeepgramRun.swift",
+	]);
+	const root = path.join(__dirname, "..");
+	const network = /URLSession\(|URLSession\.shared|NWConnection|CFStreamCreate|nw_connection/;
+	const found: string[] = [];
+	for (const module of fs.readdirSync(path.join(root, "modules"))) {
+		const ios = path.join(root, "modules", module, "ios");
+		if (!fs.existsSync(ios)) continue;
+		for (const file of fs.readdirSync(ios)) {
+			if (!file.endsWith(".swift")) continue;
+			const rel = `modules/${module}/ios/${file}`;
+			if (network.test(fs.readFileSync(path.join(ios, file), "utf8"))) found.push(rel);
+		}
+	}
+	expect(found.sort()).toEqual([...allowed].sort());
+});
+
+test("the Deepgram socket goes only to Deepgram's host, with the system's certificate check", () => {
+	const source = fs.readFileSync(
+		path.join(__dirname, "..", "modules/dictation/ios/DeepgramRun.swift"),
+		"utf8",
+	);
+	expect(source).toContain('public static let host = "api.deepgram.com"');
+	expect(source).toContain('parts.scheme = "wss"');
+	// A challenge for another host is refused; Deepgram's gets the default (system) trust.
+	expect(source).toMatch(
+		/protectionSpace\.host == allowedHost[\s\S]*cancelAuthenticationChallenge/,
+	);
+	expect(source).toContain(".performDefaultHandling");
+	// The app's only public way in takes a language, not a URL.
+	expect(source).toMatch(/public convenience init\(\s*language: String, token: String/);
+	expect(source).not.toMatch(/public (convenience )?init\(\s*url:/);
+});

@@ -75,6 +75,15 @@ export const DICTATION_MESSAGES = {
 	noSpeech: userMessage("No speech heard."),
 	microphoneFailed: userMessage("The microphone did not start. Try again."),
 	failed: userMessage("Dictation stopped. Try again."),
+	deepgramNoKey: userMessage(
+		"Dictation with Deepgram needs a Deepgram key on the Mac. Add it in the Mac's Settings, under Keys.",
+	),
+	deepgramMacUnreachable: userMessage(
+		"Dictation with Deepgram needs the Mac, and the Mac is not reachable. Use the iPhone engine in Settings.",
+	),
+	deepgramNoAnswer: userMessage("Deepgram did not answer. Try again."),
+	deepgramLost: userMessage("Dictation stopped: the connection to Deepgram was lost."),
+	deepgramLanguage: userMessage("Deepgram does not know the dictation language set on the Mac."),
 } as const;
 
 /** The engine codes that have their own message. Other codes get `failed`. */
@@ -84,6 +93,12 @@ export function dictationProblem(code: string): DictationProblem | null {
 	if (code === "no-engine" || code === "model-not-installed")
 		return { text: DICTATION_MESSAGES.noLanguage };
 	if (code.startsWith("microphone")) return { text: DICTATION_MESSAGES.microphoneFailed };
+	if (code === "deepgram-no-key") return { text: DICTATION_MESSAGES.deepgramNoKey };
+	if (code === "mac-unreachable") return { text: DICTATION_MESSAGES.deepgramMacUnreachable };
+	if (code === "deepgram-grant" || code === "deepgram-refused")
+		return { text: DICTATION_MESSAGES.deepgramNoAnswer };
+	if (code === "deepgram-lost") return { text: DICTATION_MESSAGES.deepgramLost };
+	if (code === "deepgram-language") return { text: DICTATION_MESSAGES.deepgramLanguage };
 	return { text: DICTATION_MESSAGES.failed };
 }
 
@@ -115,8 +130,8 @@ const IDLE: DictationSnapshot = {
 
 export interface DictationOptions {
 	engine: () => DictationEngine;
-	/** The language code for the next run ("en", "es", …). */
-	language: () => Promise<string>;
+	/** The language code for the next run ("en", "es", "multi", …) for this engine. */
+	language: (engine: DictationEngine) => Promise<string>;
 	newId?: () => string;
 	setTimer?: (fn: () => void, ms: number) => unknown;
 	clearTimer?: (timer: unknown) => void;
@@ -172,6 +187,8 @@ export function createDictation(options: DictationOptions) {
 		} else if (text) {
 			if (target) target(text);
 			else orphan = appendDictation(orphan ?? "", text);
+			// A lost connection keeps the text so far, and says why the run ended early.
+			if (end.error === "deepgram-lost") problem = dictationProblem(end.error);
 		} else if (end.error) {
 			problem = dictationProblem(end.error);
 		} else if (end.reason !== "interrupted") {
@@ -202,7 +219,7 @@ export function createDictation(options: DictationOptions) {
 		let language: string;
 		let model: ModelStatus;
 		try {
-			language = await options.language();
+			language = await options.language(current);
 			model = await current.model(language);
 		} catch (error) {
 			if (stale()) return;

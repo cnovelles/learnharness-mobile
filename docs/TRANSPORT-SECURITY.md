@@ -21,7 +21,7 @@ Evidence (2026-11-16): the Simulator log showed `ATS failed system trust` for th
 
 - `plugins/with-transport-security.js` writes the whole `NSAppTransportSecurity` dictionary. `app.json` picks the policy: `["./plugins/with-transport-security", { "policy": "pinned" }]`.
 - Do not add `NSAppTransportSecurity` to `ios.infoPlist` in `app.json`. iOS ignores `NSAllowsArbitraryLoads` when `NSAllowsLocalNetworking`, `NSAllowsArbitraryLoadsInWebContent`, `NSAllowsArbitraryLoadsForMedia` or `NSExceptionDomains` is also present.
-- `tests/transport-security.test.ts` checks the policy, the `app.json` entry and the lint guard.
+- `tests/transport-security.test.ts` checks the policy, the `app.json` entry, the lint guard, and the native network files.
 
 ## Guards (ATS no longer catches mistakes)
 
@@ -29,6 +29,17 @@ Evidence (2026-11-16): the Simulator log showed `ATS failed system trust` for th
 - WebView islands: a CSP with `default-src 'none'` and no network source, only `about:blank` loads (`allowIslandLoad`), no new windows.
 - Markdown: remote images are blocked. Links open in Safari (outside the app), only `http`, `https` and `mailto`.
 - The pairing parser accepts only `https` addresses and needs the pin.
+
+## Deepgram (issue 07, 2026-11-16)
+
+Dictation with Deepgram adds one network path that does not go to the Mac.
+
+- Path: the phone asks the Mac for a token (`GET /api/stt/token`, through the pinned session). The Mac keeps the Deepgram key and makes a grant with a 300 s TTL. The key never reaches the phone.
+- The socket: `modules/dictation/ios/DeepgramRun.swift` opens `wss://api.deepgram.com/v1/listen` with the desktop's parameters (the same URL as the fork's `deepgramListenUrl`; `npm run test:native-deepgram` compares them). Only the language comes from JS, and it must look like a language code. The token goes in the WebSocket subprotocol (`bearer`), as on the desktop.
+- Trust: the system's certificate check (`performDefaultHandling`). ATS is off ("pinned" policy), but ATS off does not turn off the system's certificate check for a URLSession task. Checked 2026-11-16 on macOS with `NSAllowsArbitraryLoads` in the Info.plist: `performDefaultHandling` refused `self-signed.badssl.com` (error -1202) and accepted `badssl.com`. A challenge for any other host is refused.
+- What leaves the phone: the microphone audio while a Deepgram run is on, and the token. Nothing else. The run starts only when the user taps the mic with Deepgram chosen in Settings.
+- Guards: `tests/transport-security.test.ts` allows native network code only in `PinnedSession.swift` and `DeepgramRun.swift`, and checks the fixed host, the `wss` scheme and the certificate handling. `modules/dictation/tests/run-deepgram-test.sh` tests the run against a local server (audio before the socket opens, a refused token, a lost connection).
+- The on-device engine sends nothing. iOS itself downloads the speech model (AssetInventory); the app does not open that connection.
 
 ## Other policies
 

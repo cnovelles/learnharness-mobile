@@ -9,5 +9,5 @@ out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 say -o "$out/tides.aiff" "The moon pulls harder on the near side of the earth. That makes two bulges."
 afconvert -f WAVE -d LEI16@16000 -c 1 "$out/tides.aiff" "$out/tides.wav"
-swiftc -O -o "$out/engine" "$here/../ios/DictationEngine.swift" "$here/engine/main.swift"
+swiftc -O -o "$out/engine" "$here/../ios/DictationEngine.swift" "$here/../ios/MicrophoneCapture.swift" "$here/engine/main.swift"
 "$out/engine" "$out/tides.wav"

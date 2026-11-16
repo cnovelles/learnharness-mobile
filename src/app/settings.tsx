@@ -1,6 +1,6 @@
 /**
- * Settings: the paired Mac, the address in use, "Forget this Mac", and the
- * hidden developer section (feature flags). Tap "Version" 7 times to open
+ * Settings: the paired Mac, the address in use, "Forget this Mac", the
+ * Dictation section (issue 07), and the hidden developer section (feature flags). Tap "Version" 7 times to open
  * the developer section on this phone. Development builds always show it.
  */
 import Constants from "expo-constants";
@@ -18,6 +18,7 @@ import {
 	TYPE,
 	usePalette,
 } from "@/components/ui";
+import { DictationSection } from "@/components/dictation-settings";
 import { useConnection } from "@/lib/connection-context";
 import { MODES } from "@/lib/feature-flags";
 import { useFlags } from "@/lib/flags-context";
@@ -129,6 +130,7 @@ export default function SettingsScreen() {
 				<Row label="Paired" value={formatDate(connection.pairedAt)} />
 				<Button title="Forget this Mac" kind="danger" onPress={confirmForget} testID="forget" />
 			</Section>
+			<DictationSection />
 			{showDeveloper ? <DeveloperSection /> : null}
 			<Pressable onPress={tapVersion} testID="version" accessibilityRole="text">
 				<Text style={[styles.hint, { color: c.muted }]}>

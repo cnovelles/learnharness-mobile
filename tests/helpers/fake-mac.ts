@@ -138,6 +138,11 @@ export class FakeMac {
 		});
 	}
 
+	/** The Mac's dictation language (`GET /api/settings`). */
+	dictationLanguage = "en";
+	/** The Deepgram token; null answers 503 (no key on the Mac). */
+	sttToken: string | null = null;
+
 	handle = async (url: string, init?: RequestInit): Promise<Response> => {
 		const u = new URL(url);
 		expect(u.origin).toBe(MAC);
@@ -145,6 +150,13 @@ export class FakeMac {
 		const method = (init?.method ?? "GET").toUpperCase();
 		const p = u.pathname;
 		if (p === "/phone/v1/ping") return this.json({ ok: true });
+		// Dictation (issue 07): the Mac's language, and the Deepgram token (503: no key).
+		if (p === "/api/settings" && method === "GET")
+			return this.json({ settings: { dictation: { language: this.dictationLanguage } } });
+		if (p === "/api/stt/token" && method === "GET")
+			return this.sttToken
+				? this.json({ token: this.sttToken })
+				: this.json({ message: "No DEEPGRAM_API_KEY" }, 503);
 		if (p === "/api/events") {
 			const body = new ReadableStream<Uint8Array>({
 				start: (c) => void this.listeners.push(c),

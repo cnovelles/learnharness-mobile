@@ -7,6 +7,9 @@
 //   speechEnd   {id, error?, reason?} the run ended; reason "interrupted"
 //                                    when iOS took the audio (a call, Siri)
 //   speechInstallProgress {language, progress}
+//
+// Two engines: on the device (DictationEngine.swift, iOS 26) and Deepgram
+// (DeepgramRun.swift, any iOS). One run at a time for both.
 import AVFoundation
 import ExpoModulesCore
 import Speech
@@ -25,6 +28,8 @@ public final class DictationModule: Module {
   private var runId: String?
   private var lastLevel = Date.distantPast
   private var interruption: NSObjectProtocol?
+  private var deepgram: (run: DeepgramRun, id: String)?
+  private var deepgramCanceled = false
 
   public func definition() -> ModuleDefinition {
     Name("Dictation")
@@ -79,14 +84,18 @@ public final class DictationModule: Module {
       #endif
     }
 
+    // Deepgram (issue 07 slice E): any iOS. `token` is the Mac's short-lived
+    // grant. DeepgramRun.swift fixes the host to api.deepgram.com.
+    AsyncFunction("startDeepgram") { (id: String, language: String, token: String) async throws in
+      try await self.startDeepgram(id: id, language: language, token: token)
+    }
+
     AsyncFunction("stop") { () async in
-      guard #available(iOS 26.0, *) else { return }
-      await self.stopRun(keep: true, reason: nil)
+      await self.stopAny(keep: true, reason: nil)
     }
 
     AsyncFunction("cancel") { () async in
-      guard #available(iOS 26.0, *) else { return }
-      await self.cancelRun()
+      await self.stopAny(keep: false, reason: "canceled")
     }
   }
 
@@ -109,7 +118,69 @@ public final class DictationModule: Module {
 
   private static func code(_ error: Error) -> String {
     if let e = error as? DictationEngineError { return e.description }
+    if let e = error as? DeepgramError { return e.description }
     return "engine: \((error as NSError).domain) \((error as NSError).code)"
+  }
+
+  private func busy() -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return run != nil || deepgram != nil
+  }
+
+  private func startDeepgram(id: String, language: String, token: String) async throws {
+    if busy() { throw DictationEngineException("already-running") }
+    let callbacks = DictationCallbacks(
+      level: { [weak self] level in self?.level(id: id, level: level) },
+      text: { [weak self] text in self?.sendEvent("speechText", ["id": id, "text": text]) })
+    let newRun: DeepgramRun
+    do {
+      newRun = try DeepgramRun(language: language, token: token, callbacks: callbacks) { [weak self] error in
+        guard let self else { return }
+        let canceled = self.lock.withLock { () -> Bool in
+          let canceled = self.deepgramCanceled
+          if self.deepgram?.id == id { self.deepgram = nil }
+          self.deepgramCanceled = false
+          return canceled
+        }
+        self.deactivateSession()
+        var body: [String: Any] = ["id": id]
+        if canceled { body["reason"] = "canceled" } else if let error { body["error"] = Self.code(error) }
+        self.sendEvent("speechEnd", body)
+      }
+    } catch {
+      throw DictationEngineException(Self.code(error))
+    }
+    lock.withLock {
+      deepgram = (newRun, id)
+      deepgramCanceled = false
+    }
+    do {
+      let session = AVAudioSession.sharedInstance()
+      try session.setCategory(.record, mode: .measurement, options: [.duckOthers])
+      try session.setActive(true)
+      watchInterruptions()
+      try await newRun.start()
+    } catch {
+      lock.withLock { deepgram = nil }
+      deactivateSession()
+      throw DictationEngineException(Self.code(error))
+    }
+  }
+
+  /// Stops the run that is on, of either engine.
+  private func stopAny(keep: Bool, reason: String?) async {
+    let active = lock.withLock { () -> DeepgramRun? in
+      guard let deepgram else { return nil }
+      if !keep { deepgramCanceled = true }
+      return deepgram.run
+    }
+    if let active {
+      // The end comes through the run's onEnd.
+      if keep { active.stop() } else { active.cancel() }
+      return
+    }
+    if #available(iOS 26.0, *) { await stopRun(keep: keep, reason: reason) }
   }
 
   @available(iOS 26.0, *)
@@ -122,7 +193,7 @@ public final class DictationModule: Module {
 
   @available(iOS 26.0, *)
   private func startRun(id: String, language: String, file: URL?) async throws {
-    if current() != nil { throw DictationEngineException("already-running") }
+    if busy() { throw DictationEngineException("already-running") }
     let callbacks = DictationCallbacks(
       level: { [weak self] level in self?.level(id: id, level: level) },
       text: { [weak self] text in self?.sendEvent("speechText", ["id": id, "text": text]) })
@@ -179,7 +250,7 @@ public final class DictationModule: Module {
 
   @available(iOS 26.0, *)
   private func cancelRun() async {
-    await stopRun(keep: false, reason: "canceled")
+    await stopAny(keep: false, reason: "canceled")
   }
 
   private func clear(id: String) {
@@ -208,9 +279,7 @@ public final class DictationModule: Module {
       guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
         AVAudioSession.InterruptionType(rawValue: raw) == .began
       else { return }
-      if #available(iOS 26.0, *) {
-        Task { await self?.stopRun(keep: true, reason: "interrupted") }
-      }
+      Task { await self?.stopAny(keep: true, reason: "interrupted") }
     }
   }
 

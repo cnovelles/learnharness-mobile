@@ -145,7 +145,7 @@ public final class DictationRun: @unchecked Sendable {
   private let callbacks: DictationCallbacks
   private var analyzer: SpeechAnalyzer?
   private var reader: Task<Void, Error>?
-  private var audio: AVAudioEngine?
+  private let microphone = MicrophoneCapture()
   private var input: AsyncStream<AnalyzerInput>.Continuation?
   private var modules: [any SpeechModule] = []
 
@@ -203,51 +203,17 @@ public final class DictationRun: @unchecked Sendable {
 
   /// Starts to listen to the microphone. The caller sets up the audio session first (iOS).
   public func startMicrophone(language: String) async throws {
-    guard audio == nil else { throw DictationEngineError.alreadyRunning }
+    guard !microphone.running else { throw DictationEngineError.alreadyRunning }
     let analyzer = try await prepare(language: language)
-    let engine = AVAudioEngine()
-    let node = engine.inputNode
-    let micFormat = node.outputFormat(forBus: 0)
-    guard micFormat.sampleRate > 0 else { throw DictationEngineError.microphone("no input") }
-    guard let target = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: modules, considering: micFormat)
-    else { throw DictationEngineError.noAudioFormat }
-    let converter = micFormat == target ? nil : AVAudioConverter(from: micFormat, to: target)
-
     var continuation: AsyncStream<AnalyzerInput>.Continuation!
     let stream = AsyncStream<AnalyzerInput> { continuation = $0 }
     input = continuation
-    let level = callbacks.level
     let feed = continuation!
-    node.installTap(onBus: 0, bufferSize: 1024, format: micFormat) { buffer, _ in
-      level(rms(buffer))
-      if let converter {
-        let ratio = target.sampleRate / micFormat.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 16
-        guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
-        var given = false
-        var error: NSError?
-        converter.convert(to: out, error: &error) { _, status in
-          if given {
-            status.pointee = .noDataNow
-            return nil
-          }
-          given = true
-          status.pointee = .haveData
-          return buffer
-        }
-        if error == nil, out.frameLength > 0 { feed.yield(AnalyzerInput(buffer: out)) }
-      } else {
-        feed.yield(AnalyzerInput(buffer: buffer))
-      }
-    }
-    engine.prepare()
-    do {
-      try engine.start()
-    } catch {
-      node.removeTap(onBus: 0)
-      throw DictationEngineError.microphone(error.localizedDescription)
-    }
-    audio = engine
+    let modules = self.modules
+    try await microphone.start(
+      target: { mic in await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: modules, considering: mic) },
+      level: callbacks.level,
+      onBuffer: { feed.yield(AnalyzerInput(buffer: $0)) })
     try await analyzer.start(inputSequence: stream)
   }
 
@@ -270,11 +236,7 @@ public final class DictationRun: @unchecked Sendable {
   }
 
   private func stopMicrophone() {
-    if let engine = audio {
-      engine.inputNode.removeTap(onBus: 0)
-      engine.stop()
-    }
-    audio = nil
+    microphone.stop()
     input?.finish()
     input = nil
   }
