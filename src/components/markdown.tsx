@@ -9,7 +9,7 @@
  *   sharp corners, no label (the desktop's `MarkdownBlockquote`).
  * - Inline code: a mono font on a colored band. Native nested text cannot
  *   take padding or rounded corners (issue 05, "Accepted limit").
- * - Code fences: a mono block with line numbers that scrolls sideways, in
+ * - Code fences: a mono block with line numbers; long lines wrap, in
  *   the desktop's Shiki colors (src/lib/code-highlight.ts). A fence that is
  *   still open while the reply streams, an unknown language, a large block
  *   or a highlighter failure show the same block with no colors.
@@ -29,11 +29,12 @@
  * shows as plain text, and the rest of the transcript still shows.
  */
 import type { Definition, Nodes, PhrasingContent, Root, RootContent, Table } from "mdast";
-import { Component, Fragment, useMemo, useRef, useState, type ReactNode } from "react";
+import { Component, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View, useColorScheme, type TextStyle } from "react-native";
 
 import { CODE_COLORS, highlightCode, type CodeScheme, type CodeToken } from "@/lib/code-highlight";
 import { tableMarkdown } from "@/lib/copy-source";
+import { fitColumns } from "@/lib/table-fit";
 import {
 	alertContent,
 	blockedImageText,
@@ -48,6 +49,7 @@ import { CopyLabel, CopyTarget, useCopy } from "./copy";
 import { FORMULA_ERROR, MathIsland, MermaidIsland, type IslandStyle } from "./islands";
 import { RevealSlot, useReportReady, useRevealScope } from "./reveal";
 import { ErrorText, FONT, usePalette, type Palette } from "./ui";
+import { EXPAND_INSET, ExpandButton, NativeZoomPane, ZoomViewer } from "./zoom-viewer";
 import { SPACE } from "./spacing";
 
 export { COPY_LABEL_MS } from "./copy";
@@ -383,28 +385,96 @@ function tokenStyle(token: CodeToken): TextStyle | undefined {
 	};
 }
 
-/** The colored lines of a block, as nested text in one text node. */
-function ColoredCode({ lines }: { lines: CodeToken[][] }) {
-	return lines.map((line, i) => (
-		<Fragment key={i}>
-			{i > 0 ? "\n" : null}
-			{line.map((token, j) => {
-				const style = tokenStyle(token);
-				return style ? (
-					<Text key={j} style={style}>
-						{token.content}
+/** One colored line: nested text in one text node. */
+function ColoredLine({ tokens }: { tokens: readonly CodeToken[] }) {
+	return tokens.map((token, j) => {
+		const style = tokenStyle(token);
+		return style ? (
+			<Text key={j} style={style}>
+				{token.content}
+			</Text>
+		) : (
+			token.content
+		);
+	});
+}
+
+/** The code text style: 13 pt mono on a 20 pt line. */
+export const CODE_TEXT = { fontFamily: MONO, fontSize: 13, lineHeight: 20 } as const;
+
+/**
+ * The rows of a code block, one for each source line: the line number and
+ * the text. With `wrap`, a long line continues under itself and the number
+ * shows only on its first part (wide content, decision 1). Without `wrap`
+ * (the full-screen viewer), each line stays on one line.
+ */
+export function CodeLines({
+	lines,
+	colored,
+	start,
+	numbered,
+	wrap,
+	fg,
+	muted,
+	scale = 1,
+	firstLineInset = 0,
+}: {
+	lines: readonly string[];
+	colored: readonly (readonly CodeToken[])[] | null;
+	start: number;
+	numbered: boolean;
+	wrap: boolean;
+	fg: string;
+	muted: string;
+	/** The text scale (the viewer draws again at each zoom). */
+	scale?: number;
+	/** Room at the end of the first line for the expand button. */
+	firstLineInset?: number;
+}) {
+	const code = {
+		fontFamily: CODE_TEXT.fontFamily,
+		fontSize: CODE_TEXT.fontSize * scale,
+		lineHeight: CODE_TEXT.lineHeight * scale,
+	};
+	// The number column is as wide as the largest number.
+	const digits = String(start + lines.length - 1).length;
+	const numberWidth = Math.max(18, digits * 8) * scale;
+	return (
+		<View testID="md-code-text">
+			{lines.map((line, i) => (
+				<View
+					key={i}
+					style={[
+						styles.codeRow,
+						i === 0 && firstLineInset ? { paddingRight: firstLineInset } : null,
+					]}
+				>
+					{numbered ? (
+						<Text
+							style={[code, styles.lineNumber, { color: muted, width: numberWidth }]}
+							testID="md-code-number"
+						>
+							{String(start + i)}
+						</Text>
+					) : null}
+					<Text
+						style={[code, { color: fg }, wrap ? styles.codeWrap : null]}
+						numberOfLines={wrap ? undefined : 1}
+						ellipsizeMode="clip"
+						testID="md-code-line"
+					>
+						{/* An empty line keeps its height. */}
+						{colored?.[i] ? <ColoredLine tokens={colored[i]!} /> : line || " "}
 					</Text>
-				) : (
-					token.content
-				);
-			})}
-		</Fragment>
-	));
+				</View>
+			))}
+		</View>
+	);
 }
 
 /** A code fence: line numbers (unless the meta has `noLineNumbers`, and from
- *  `startLine=N`), no wrap, a sideways scroll for long lines, and the syntax
- *  colors of the light or dark mode. */
+ *  `startLine=N`), long lines that wrap, and the syntax colors of the light
+ *  or dark mode. */
 function CodeBlock({
 	value,
 	lang,
@@ -419,7 +489,7 @@ function CodeBlock({
 	ctx: Ctx;
 }) {
 	const { c, scheme } = ctx;
-	const lines = value.split("\n");
+	const lines = useMemo(() => value.split("\n"), [value]);
 	const startMatch = /startLine=(\d+)/.exec(meta);
 	const start = startMatch ? Math.max(1, Number.parseInt(startMatch[1]!, 10)) : 1;
 	const numbered = !/\bnoLineNumbers\b/.test(meta);
@@ -430,59 +500,100 @@ function CodeBlock({
 	);
 	const colors = CODE_COLORS[scheme];
 	const { copy, state } = useCopy(() => value);
-	const code = { fontFamily: MONO, fontSize: 13, lineHeight: 20 };
+	const [viewing, setViewing] = useState(false);
+	const tokens = colored?.lines ?? null;
+	// The viewer: each line on one line, drawn again at each zoom.
+	const renderAt = useCallback(
+		(scale: number) => (
+			<View style={[styles.viewerCode, { padding: SPACE.lg * scale }]}>
+				<CodeLines
+					lines={lines}
+					colored={tokens}
+					start={start}
+					numbered={numbered}
+					wrap={false}
+					fg={colors.fg}
+					muted={c.muted}
+					scale={scale}
+				/>
+			</View>
+		),
+		[lines, tokens, start, numbered, colors.fg, c.muted],
+	);
 	return (
 		<View
 			style={[styles.code, { backgroundColor: c.codeBg, borderColor: c.line }]}
 			testID={colored ? "md-code-colored" : "md-code"}
 		>
-			{numbered ? (
-				<Text
-					style={[code, styles.lineNumbers, { color: c.muted }]}
-					onLongPress={copy}
-					testID="md-code-lines"
-				>
-					{lines.map((_, i) => String(start + i)).join("\n")}
-				</Text>
+			<CopyTarget onCopy={copy} what="code">
+				<CodeLines
+					lines={lines}
+					colored={tokens}
+					start={start}
+					numbered={numbered}
+					wrap
+					fg={colors.fg}
+					muted={c.muted}
+					firstLineInset={open ? 0 : EXPAND_INSET}
+				/>
+			</CopyTarget>
+			{/* W1: no button while the fence streams. */}
+			{open ? null : <ExpandButton onPress={() => setViewing(true)} what="code" />}
+			{viewing ? (
+				<ZoomViewer visible kind="CODE" onClose={() => setViewing(false)} onCopy={copy}>
+					{(fitKey) => (
+						<View style={[styles.viewerBg, { backgroundColor: c.codeBg }]}>
+							<NativeZoomPane
+								contentWidth={codeWidth(lines, start, numbered)}
+								fitKey={fitKey}
+								render={renderAt}
+								label={`Code, ${lines.length} lines`}
+							/>
+						</View>
+					)}
+				</ZoomViewer>
 			) : null}
-			<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.codeScroll}>
-				<CopyTarget onCopy={copy} what="code">
-					<Text style={[code, { color: colors.fg }]} testID="md-code-text">
-						{colored ? <ColoredCode lines={colored.lines} /> : value}
-					</Text>
-				</CopyTarget>
-			</ScrollView>
 			<CopyLabel state={state} c={ctx.c} />
 		</View>
 	);
 }
 
-/** The widest column. Longer cell text wraps at its words. */
+/** The mono font's advance: JetBrains Mono is 600 units on a 1000 em. */
+const MONO_ADVANCE = 0.6;
+
+/** The width of a code block with no wrap at scale 1: the padding, the
+ *  number column and the longest line (a tab counts as 4 characters). */
+export function codeWidth(lines: readonly string[], start: number, numbered: boolean): number {
+	const longest = lines.reduce((n, line) => Math.max(n, line.replace(/\t/g, "    ").length), 0);
+	const digits = String(start + lines.length - 1).length;
+	const numbers = numbered ? Math.max(18, digits * 8) + SPACE.md : 0;
+	return Math.ceil(2 * SPACE.lg + numbers + longest * CODE_TEXT.fontSize * MONO_ADVANCE) + 2;
+}
+
+/** The widest column at the natural size. Longer cell text wraps at its words. */
 export const TABLE_MAX_COL = 240;
 const TABLE_MIN_COL = 32;
 /** The right padding of a cell (styles.cell). */
 const CELL_PAD = SPACE.md;
+/** The smallest table text: 13 pt for 16 pt text (wide content, decision 2). */
+export const TABLE_MIN_FONT_SCALE = 13 / 16;
 
-const clampColumn = (textWidth: number) =>
-	Math.min(TABLE_MAX_COL, Math.max(TABLE_MIN_COL, Math.ceil(textWidth) + CELL_PAD));
-
-/** A first guess of the column widths from the length of the shown text.
- *  The table uses it only until the cells are measured. */
+/** A first guess of the one-line text width of each column, from the length
+ *  of the shown text. The table uses it only until the cells are measured. */
 function estimateWidths(node: Table, fontSize: number): number[] {
 	const widths: number[] = [];
 	for (const row of node.children)
 		row.children.forEach((cell, i) => {
 			widths[i] = Math.max(widths[i] ?? 0, shownText(cell).length * fontSize * 0.55);
 		});
-	return widths.map(clampColumn);
+	return widths;
 }
 
 /**
- * The column widths from the measured cells: each column is as wide as its
- * widest cell on one line, up to TABLE_MAX_COL. A hidden copy of the cells
- * on a wide layer gives the one-line widths (onLayout). A guess from the
- * text length showed "[Image blocked: moon]" letter by letter in a narrow
- * column (Simulator, slice D).
+ * The one-line text width of each column: its widest cell, measured on a
+ * hidden wide layer (onLayout). A guess from the text length showed
+ * "[Image blocked: moon]" letter by letter in a narrow column (Simulator,
+ * slice D). The table fits these widths to its block (`fitColumns`).
  */
 function useColumnWidths(node: Table, fontSize: number) {
 	const key = useMemo(() => tableMarkdown(node), [node]);
@@ -501,27 +612,123 @@ function useColumnWidths(node: Table, fontSize: number) {
 			const col = Number(at.split(":")[1]);
 			widths[col] = Math.max(widths[col] ?? 0, w);
 		}
-		const next = widths.map((w) => clampColumn(w ?? 0));
+		const next = Array.from(widths, (w) => Math.ceil(w ?? 0));
 		setMeasured((old) =>
 			old?.key === key && old.widths.every((w, j) => w === next[j]) ? old : { key, widths: next },
 		);
 	};
+	const ready = total === 0 || measured?.key === key;
 	// The table is drawn when its cells are measured (the reveal waits for it).
-	useReportReady(total === 0 || measured?.key === key);
-	return { widths: measured?.key === key ? measured.widths : estimate, onCell };
+	useReportReady(ready);
+	return { textWidths: ready && measured ? measured.widths : estimate, measured: ready, onCell };
 }
 
-function TableBlock({ node, ctx }: { node: Table; ctx: Ctx }) {
+function scaled(style: TextStyle, scale: number): TextStyle {
+	if (scale === 1) return style;
+	const size = fontSizeOf(style) * scale;
+	return { ...style, fontSize: size, lineHeight: Math.round(lineHeightOf(style) * scale) };
+}
+
+function cellAlign(node: Table, i: number): TextStyle["textAlign"] {
+	const a = node.align?.[i];
+	return a === "center" ? "center" : a === "right" ? "right" : "left";
+}
+
+/** The rows of a table at the given column widths and text scale. */
+function TableRows({
+	node,
+	ctx,
+	widths,
+	fontScale,
+	ids = true,
+}: {
+	node: Table;
+	ctx: Ctx;
+	widths: readonly number[];
+	fontScale: number;
+	/** Test ids on the cells (the block, not the viewer). */
+	ids?: boolean;
+}) {
 	const { c, base } = ctx;
-	const { widths, onCell } = useColumnWidths(node, fontSizeOf(base));
+	return node.children.map((row, r) => (
+		<View
+			key={r}
+			style={[
+				styles.tableRow,
+				{
+					borderColor: c.line,
+					borderBottomWidth: r === 0 ? 1.5 : StyleSheet.hairlineWidth,
+				},
+			]}
+		>
+			{row.children.map((cell, i) => (
+				<View
+					key={i}
+					style={[
+						styles.cell,
+						{
+							width: widths[i],
+							paddingVertical: SPACE.sm * fontScale,
+							paddingRight: CELL_PAD * fontScale,
+						},
+					]}
+					testID={ids ? `md-table-cell-${r}-${i}` : undefined}
+				>
+					<Text
+						style={[
+							scaled(base, fontScale),
+							r === 0 ? styles.strong : null,
+							{ textAlign: cellAlign(node, i) },
+						]}
+						testID={ids ? `md-table-text-${r}-${i}` : undefined}
+					>
+						{inlines(cell.children, ctx)}
+					</Text>
+				</View>
+			))}
+		</View>
+	));
+}
+
+const TABLE_FIT = {
+	pad: CELL_PAD,
+	maxCol: TABLE_MAX_COL,
+	minCol: TABLE_MIN_COL,
+	minFontScale: TABLE_MIN_FONT_SCALE,
+};
+
+/** A table that fits the width of its block (wide content, decision 2): the
+ *  text shrinks to 13 pt at the smallest, then the wide columns wrap. A table
+ *  that had to shrink or wrap gets the expand button (W2: not before the
+ *  cells are measured). */
+function TableBlock({ node, ctx }: { node: Table; ctx: Ctx }) {
+	const { base } = ctx;
+	const { textWidths, measured, onCell } = useColumnWidths(node, fontSizeOf(base));
+	const [width, setWidth] = useState(0);
+	const fit = useMemo(() => fitColumns(textWidths, width, TABLE_FIT), [textWidths, width]);
+	// The natural size, for the viewer.
+	const natural = useMemo(() => fitColumns(textWidths, 0, TABLE_FIT).widths, [textWidths]);
 	const { copy, state } = useCopy(() => tableMarkdown(node));
-	const align = (i: number): TextStyle["textAlign"] => {
-		const a = node.align?.[i];
-		return a === "center" ? "center" : a === "right" ? "right" : "left";
-	};
-	const cellText = (r: number) => [base, r === 0 ? styles.strong : null];
+	const [viewing, setViewing] = useState(false);
+	const renderAt = useCallback(
+		(scale: number) => (
+			<View style={{ padding: SPACE.lg * scale }}>
+				<TableRows
+					node={node}
+					ctx={ctx}
+					widths={natural.map((w) => w * scale)}
+					fontScale={scale}
+					ids={false}
+				/>
+			</View>
+		),
+		[node, ctx, natural],
+	);
 	return (
-		<View>
+		<View
+			onLayout={(e) => setWidth(Math.floor(e.nativeEvent.layout.width))}
+			testID="md-table-block"
+		>
 			{/* The hidden measure layer: each cell on one line, never seen or read. */}
 			<View
 				style={styles.measure}
@@ -533,7 +740,7 @@ function TableBlock({ node, ctx }: { node: Table; ctx: Ctx }) {
 					row.children.map((cell, i) => (
 						<View key={`${r}:${i}`} style={styles.measureRow}>
 							<Text
-								style={cellText(r)}
+								style={[base, r === 0 ? styles.strong : null]}
 								onLayout={(e) => onCell(r, i, e.nativeEvent.layout.width)}
 								testID={`md-table-measure-${r}-${i}`}
 							>
@@ -543,40 +750,31 @@ function TableBlock({ node, ctx }: { node: Table; ctx: Ctx }) {
 					)),
 				)}
 			</View>
-			<ScrollView
-				horizontal
-				showsHorizontalScrollIndicator={false}
-				// A narrow table sits in the center, as the charts do; a wide one scrolls.
-				contentContainerStyle={styles.tableCenter}
+			{/* A narrow table sits in the center, as the charts do. The page and
+			    the table never scroll sideways (error state 15, W10). */}
+			<View
+				style={[styles.tableCenter, fit.fitted && measured ? { paddingTop: EXPAND_INSET } : null]}
 				testID="md-table"
 			>
 				<CopyTarget onCopy={copy} what="table">
-					{node.children.map((row, r) => (
-						<View
-							key={r}
-							style={[
-								styles.tableRow,
-								{
-									borderColor: c.line,
-									borderBottomWidth: r === 0 ? 1.5 : StyleSheet.hairlineWidth,
-								},
-							]}
-						>
-							{row.children.map((cell, i) => (
-								<View
-									key={i}
-									style={[styles.cell, { width: widths[i] }]}
-									testID={`md-table-cell-${r}-${i}`}
-								>
-									<Text style={[cellText(r), { textAlign: align(i) }]}>
-										{inlines(cell.children, ctx)}
-									</Text>
-								</View>
-							))}
-						</View>
-					))}
+					<TableRows node={node} ctx={ctx} widths={fit.widths} fontScale={fit.fontScale} />
 				</CopyTarget>
-			</ScrollView>
+			</View>
+			{fit.fitted && measured ? (
+				<ExpandButton onPress={() => setViewing(true)} what="table" />
+			) : null}
+			{viewing ? (
+				<ZoomViewer visible kind="TABLE" onClose={() => setViewing(false)} onCopy={copy}>
+					{(fitKey) => (
+						<NativeZoomPane
+							contentWidth={natural.reduce((a, b) => a + b, 0) + 2 * SPACE.lg}
+							fitKey={fitKey}
+							render={renderAt}
+							label={`Table, ${node.children.length} rows`}
+						/>
+					)}
+				</ZoomViewer>
+			) : null}
 			<CopyLabel state={state} c={ctx.c} />
 		</View>
 	);
@@ -684,7 +882,6 @@ const styles = StyleSheet.create({
 	itemBody: { flex: 1 },
 	/** The desktop code block: one quiet tint with a 1 pt line, rounded-xl. */
 	code: {
-		flexDirection: "row",
 		borderRadius: 12,
 		borderWidth: 1,
 		paddingVertical: SPACE.lg,
@@ -698,10 +895,13 @@ const styles = StyleSheet.create({
 		paddingHorizontal: SPACE.xs,
 		transform: [{ translateY: 3 }],
 	},
-	lineNumbers: { textAlign: "right", marginRight: SPACE.md, minWidth: 18 },
-	codeScroll: { flex: 1 },
+	codeRow: { flexDirection: "row" },
+	lineNumber: { textAlign: "right", marginRight: SPACE.md },
+	codeWrap: { flex: 1, flexShrink: 1 },
+	viewerCode: { alignSelf: "flex-start" },
+	viewerBg: { flex: 1 },
 	tableRow: { flexDirection: "row" },
-	tableCenter: { flexGrow: 1, justifyContent: "center" },
+	tableCenter: { alignItems: "center" },
 	cell: { paddingVertical: SPACE.sm, paddingRight: CELL_PAD },
 	// Wide enough that no cell wraps; absolute, so it takes no space.
 	measure: { position: "absolute", top: 0, left: 0, width: 10000, opacity: 0 },

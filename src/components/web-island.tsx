@@ -65,6 +65,9 @@ export type WebIslandProps = {
 	onMessage?: (message: IslandMessage) => void;
 	/** The island cannot load: show the fallback. */
 	onFail: () => void;
+	/** The full-screen viewer: fill the space, scroll and zoom in the page,
+	 *  and wait for no height. */
+	fill?: boolean;
 	testID?: string;
 };
 
@@ -79,6 +82,7 @@ export function WebIsland({
 	onHeight,
 	onMessage,
 	onFail,
+	fill = false,
 	testID,
 }: WebIslandProps) {
 	const [height, setHeight] = useState<number | null>(initialHeight);
@@ -101,10 +105,10 @@ export function WebIsland({
 		sent.current = load.data;
 		gotHeight.current = false;
 		const timer = setTimeout(() => {
-			if (!gotHeight.current) setNoHeight(true);
+			if (!gotHeight.current && !fill) setNoHeight(true);
 		}, HEIGHT_WAIT_MS);
 		return () => clearTimeout(timer);
-	}, [load]);
+	}, [load, fill]);
 
 	const post = () => {
 		if (live && loaded.current && sent.current !== data) {
@@ -139,10 +143,10 @@ export function WebIsland({
 
 	const valid = height !== null && !noHeight;
 	const shown = valid ? Math.min(Math.max(height, 1), maxHeight) : Math.max(minHeight, height ?? 0);
-	const scroll = !valid || height > maxHeight;
+	const scroll = fill || !valid || height > maxHeight;
 
 	return (
-		<View style={{ height: shown }} testID={testID}>
+		<View style={fill ? styles.fill : { height: shown }} testID={testID}>
 			<WebView
 				key={load.n}
 				ref={webview}
@@ -167,9 +171,9 @@ export function WebIsland({
 				incognito
 				cacheEnabled={false}
 				scrollEnabled={scroll}
-				bounces={false}
+				bounces={fill}
 				overScrollMode="never"
-				showsVerticalScrollIndicator={scroll}
+				showsVerticalScrollIndicator={scroll && !fill}
 				showsHorizontalScrollIndicator={false}
 				automaticallyAdjustContentInsets={false}
 				contentInsetAdjustmentBehavior="never"
@@ -182,4 +186,5 @@ export function WebIsland({
 
 const styles = StyleSheet.create({
 	webview: { flex: 1, backgroundColor: "transparent" },
+	fill: { flex: 1 },
 });

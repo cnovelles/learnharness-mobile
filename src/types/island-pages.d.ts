@@ -10,4 +10,8 @@ declare module "lh-island-pages" {
 	export const MERMAID_HTML: string;
 	/** mermaid.min.js and the Mermaid page script, for `injectedJavaScript`. */
 	export const MERMAID_SCRIPT: string;
+	/** The math page for the full-screen viewer (pinch zoom up to 4). */
+	export const MATH_VIEWER_HTML: string;
+	/** The Mermaid page for the full-screen viewer (pinch zoom up to 4). */
+	export const MERMAID_VIEWER_HTML: string;
 }

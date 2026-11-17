@@ -5,7 +5,7 @@
  * each test makes its own window.)
  */
 import { JSDOM } from "jsdom";
-import { MATH_HTML, MERMAID_HTML } from "lh-island-pages";
+import { MATH_HTML, MATH_VIEWER_HTML, MERMAID_HTML, MERMAID_VIEWER_HTML } from "lh-island-pages";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { pageScript } = require("../scripts/island-pages/build.cjs") as {
@@ -119,6 +119,65 @@ describe("math page script", () => {
 	});
 });
 
+describe("wide content: the viewer pages and the wide formula (slice D)", () => {
+	it("the viewer pages allow WebKit's pinch zoom up to 4; the islands do not", () => {
+		for (const html of [MATH_VIEWER_HTML, MERMAID_VIEWER_HTML]) {
+			expect(html).toContain("maximum-scale=4, user-scalable=yes");
+		}
+		for (const html of [MATH_HTML, MERMAID_HTML]) expect(html).toContain("user-scalable=no");
+	});
+
+	it("reports a display formula that is wider than the island", () => {
+		const html = '<span class="katex-display">x</span>';
+		// The script runs right away, so the size goes on the prototype first.
+		const sent: Sent[] = [];
+		const dom = new JSDOM(MATH_HTML, { runScripts: "outside-only", pretendToBeVisual: true });
+		const proto = dom.window.HTMLElement.prototype;
+		Object.defineProperty(proto, "scrollWidth", { get: () => 600, configurable: true });
+		Object.defineProperty(proto, "clientWidth", { get: () => 343, configurable: true });
+		const page = dom.window as unknown as Record<string, unknown>;
+		page.ReactNativeWebView = { postMessage: (m: string) => sent.push(JSON.parse(m)) };
+		page.__lhIslandData = { html };
+		dom.window.eval(pageScript("math-runtime.js"));
+		expect(sent).toContainEqual({ type: "wide", wide: true });
+	});
+
+	it("in the viewer, the formula fits the screen, and the page reports no height", () => {
+		const sent: Sent[] = [];
+		const dom = new JSDOM(MATH_VIEWER_HTML, {
+			runScripts: "outside-only",
+			pretendToBeVisual: true,
+		});
+		const proto = dom.window.HTMLElement.prototype;
+		// Twice as wide as the screen, and short.
+		const wide = dom.window.innerWidth * 2;
+		Object.defineProperty(proto, "scrollWidth", { get: () => wide, configurable: true });
+		Object.defineProperty(proto, "scrollHeight", { get: () => 10, configurable: true });
+		const page = dom.window as unknown as Record<string, unknown>;
+		page.ReactNativeWebView = { postMessage: (m: string) => sent.push(JSON.parse(m)) };
+		page.__lhIslandData = { html: "<p>x</p>", viewer: true };
+		dom.window.eval(pageScript("math-runtime.js"));
+		expect(sent).toContainEqual({ type: "rendered" });
+		expect(sent.some((m) => m.type === "height")).toBe(false);
+		expect(dom.window.document.getElementById("root")!.style.zoom).toBe("0.5");
+	});
+
+	it("in the viewer, a Mermaid chart fits the screen and reports no height", async () => {
+		pendingMermaid = {
+			initialize: () => {},
+			render: async () => ({ svg: '<svg style="max-width: 900px;"></svg>' }),
+		};
+		const sent = load(MERMAID_VIEWER_HTML, pageScript("mermaid-runtime.js"), {
+			source: "graph TD; A-->B",
+			theme: "dark",
+			viewer: true,
+		});
+		await flush();
+		expect(sent).toContainEqual({ type: "rendered" });
+		expect(sent.some((m) => m.type === "height")).toBe(false);
+	});
+});
+
 describe("Mermaid page script", () => {
 	const fakeMermaid = (render: () => Promise<{ svg: string }>) => {
 		const calls: unknown[] = [];
@@ -143,8 +202,11 @@ describe("Mermaid page script", () => {
 			startOnLoad: false,
 		});
 		const svg = document.querySelector("#root svg") as unknown as { style: CSSStyleDeclaration };
-		expect(svg.style.width).toBe("400px");
-		expect(svg.style.maxWidth).toBe("none");
+		// Wide content, decision 3: the chart fits the island, never wider
+		// than its natural size.
+		expect(svg.style.width).toBe("100%");
+		expect(svg.style.maxWidth).toBe("400px");
+		expect(svg.style.height).toBe("auto");
 		expect(sent).toContainEqual({ type: "rendered" });
 	});
 

@@ -9,7 +9,9 @@
  * page does not load again for each new word.
  *
  * Messages to the app: {type:"height", height}, {type:"link", index},
- * {type:"longpress"}, {type:"error", kind:"data"}.
+ * {type:"longpress"}, {type:"wide", wide} (a display formula is wider than
+ * the island), {type:"error", kind:"data"}. In the full-screen viewer
+ * (`data.viewer`): {type:"rendered"} and no height.
  */
 var root = document.getElementById("root");
 
@@ -35,10 +37,18 @@ function onAppMessage(event) {
 	}
 }
 
-if (!apply(readData())) {
+var first = readData();
+if (!apply(first)) {
 	send({ type: "error", kind: "data" });
+} else if (first.viewer) {
+	// The full-screen viewer: the formula fits the screen; no height.
+	fitToScreen(root);
+	send({ type: "rendered" });
 } else {
 	watchHeight(root);
+	// A display formula wider than the island gets the expand button.
+	var displays = root.querySelectorAll(".katex-display");
+	for (var i = 0; i < displays.length; i++) reportWide(displays[i]);
 	watchLongPress();
 	window.addEventListener("message", onAppMessage);
 	document.addEventListener("message", onAppMessage);

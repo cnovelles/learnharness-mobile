@@ -9,6 +9,8 @@ describe("parseIslandMessage", () => {
 		expect(msg({ type: "link", index: 2 })).toEqual({ type: "link", index: 2 });
 		expect(msg({ type: "longpress" })).toEqual({ type: "longpress" });
 		expect(msg({ type: "rendered" })).toEqual({ type: "rendered" });
+		expect(msg({ type: "wide", wide: true })).toEqual({ type: "wide", wide: true });
+		expect(msg({ type: "wide", wide: "yes" })).toBeNull();
 		expect(msg({ type: "error", kind: "parse" })).toEqual({ type: "error", kind: "parse" });
 	});
 

@@ -13,11 +13,19 @@
  * Error states: 8 (math), 9 (Mermaid), 10 and 11 (WebIsland), 16 (a mode
  * change sends new colors to a math island and draws a chart again).
  */
-import { MATH_HTML, MATH_SCRIPT, MERMAID_HTML, MERMAID_SCRIPT } from "lh-island-pages";
+import {
+	MATH_HTML,
+	MATH_SCRIPT,
+	MATH_VIEWER_HTML,
+	MERMAID_HTML,
+	MERMAID_SCRIPT,
+	MERMAID_VIEWER_HTML,
+} from "lh-island-pages";
 import { useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { MathIsland as MathIslandData } from "@/lib/math-html";
+import type { UserMessage } from "@/lib/user-error";
 import { openLink } from "@/lib/open-link";
 import { userMessage } from "@/lib/user-error";
 import { copyActions, CopyLabel, useCopy } from "./copy";
@@ -25,6 +33,7 @@ import { useNearScreenState } from "./island-viewport";
 import { useReportReady } from "./reveal";
 import { Button, ErrorText, Spinner, type Palette } from "./ui";
 import { WebIsland } from "./web-island";
+import { ExpandButton, ZoomViewer } from "./zoom-viewer";
 import { SPACE } from "./spacing";
 
 export const FORMULA_ERROR = userMessage("The phone cannot show this formula.");
@@ -50,6 +59,61 @@ export type IslandStyle = {
 	lineHeight: number;
 };
 
+/**
+ * The WebView pane of the full-screen viewer (issue 05, wide content, slice
+ * D): the island page with WebKit's own pinch zoom. Fit loads the page again
+ * at the fit. W4: a page that cannot load or draw shows `error`.
+ */
+function WebViewerPane({
+	html,
+	script,
+	data,
+	fitKey,
+	error,
+	c,
+}: {
+	html: string;
+	script: string;
+	data: object;
+	fitKey: number;
+	error: UserMessage;
+	c: Palette;
+}) {
+	const [failed, setFailed] = useState(false);
+	const [drawn, setDrawn] = useState(false);
+	if (failed) {
+		return (
+			<View style={styles.viewerError} testID="zoom-error">
+				<ErrorText>{error}</ErrorText>
+			</View>
+		);
+	}
+	return (
+		<View style={styles.fill}>
+			<WebIsland
+				key={fitKey}
+				html={html}
+				script={script}
+				data={data}
+				fill
+				minHeight={0}
+				maxHeight={0}
+				onMessage={(message) => {
+					if (message.type === "rendered") setDrawn(true);
+					else if (message.type === "error") setFailed(true);
+				}}
+				onFail={() => setFailed(true)}
+				testID="zoom-web"
+			/>
+			{drawn ? null : (
+				<View pointerEvents="none" style={styles.mermaidSpinner}>
+					<ActivityIndicator color={c.muted} />
+				</View>
+			)}
+		</View>
+	);
+}
+
 /** A paragraph with inline math, or a display formula. */
 export function MathIsland({
 	island,
@@ -70,6 +134,10 @@ export function MathIsland({
 	const [loadFailed, setLoadFailed] = useState(false);
 	const [height, setHeight] = useState<number | null>(null);
 	const loaded = height !== null;
+	// A display formula wider than the island: the expand button.
+	const [wide, setWide] = useState(false);
+	// W9: the viewer keeps the data it opened with.
+	const [viewing, setViewing] = useState<object | null>(null);
 	// The reveal waits for the first height. A far island loads later.
 	useReportReady(loadFailed || loaded || nearState === "far");
 	const { copy, state } = useCopy(() => island.copy);
@@ -126,6 +194,7 @@ export function MathIsland({
 							onHeight={setHeight}
 							onMessage={(message) => {
 								if (message.type === "longpress") copy();
+								else if (message.type === "wide") setWide(message.wide);
 								else if (message.type === "link") {
 									const url = island.links[message.index];
 									if (url) openLink(url);
@@ -146,6 +215,23 @@ export function MathIsland({
 			{body}
 			{loadFailed || island.failed ? (
 				<ErrorText testID="md-math-error">{FORMULA_ERROR}</ErrorText>
+			) : null}
+			{wide && loaded && !loadFailed ? (
+				<ExpandButton onPress={() => setViewing(data)} what="formula" />
+			) : null}
+			{viewing ? (
+				<ZoomViewer visible kind="MATH" onClose={() => setViewing(null)} onCopy={copy}>
+					{(fitKey) => (
+						<WebViewerPane
+							html={MATH_VIEWER_HTML}
+							script={MATH_SCRIPT}
+							data={{ ...viewing, viewer: true }}
+							fitKey={fitKey}
+							error={FORMULA_ERROR}
+							c={c}
+						/>
+					)}
+				</ZoomViewer>
 			) : null}
 			<CopyLabel state={state} c={c} />
 		</View>
@@ -173,6 +259,7 @@ export function MermaidIsland({
 	const [attempt, setAttempt] = useState(0);
 	const [showSource, setShowSource] = useState(false);
 	const [height, setHeight] = useState<number | null>(null);
+	const [viewing, setViewing] = useState(false);
 	const { copy, state } = useCopy(() => source);
 	const data = useMemo(
 		() => ({ source, theme: scheme, fontSize: MERMAID_FONT_SIZE }),
@@ -264,6 +351,22 @@ export function MermaidIsland({
 					<ActivityIndicator color={c.muted} />
 				</View>
 			) : null}
+			{/* W1: a streaming fence has no button; it shows only when drawn. */}
+			{phase === "drawn" ? <ExpandButton onPress={() => setViewing(true)} what="diagram" /> : null}
+			{viewing ? (
+				<ZoomViewer visible kind="MERMAID" onClose={() => setViewing(false)} onCopy={copy}>
+					{(fitKey) => (
+						<WebViewerPane
+							html={MERMAID_VIEWER_HTML}
+							script={MERMAID_SCRIPT}
+							data={{ ...data, viewer: true }}
+							fitKey={fitKey}
+							error={DIAGRAM_ERROR}
+							c={c}
+						/>
+					)}
+				</ZoomViewer>
+			) : null}
 			<CopyLabel state={state} c={c} />
 		</View>
 	);
@@ -295,5 +398,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	row: { flexDirection: "row", gap: SPACE.sm, flexWrap: "wrap" },
+	fill: { flex: 1 },
+	viewerError: { flex: 1, alignItems: "center", justifyContent: "center", padding: SPACE.lg },
 	source: { fontFamily: MONO, fontSize: 13, lineHeight: 20 },
 });

@@ -179,6 +179,11 @@ Blocked by: 03.
   - The lesson plan: the desktop draws the plan as a graph with arrows (prerequisites). The phone has only the list in the Plan sheet.
 - Visual (SVG) and demo artifacts moved to issue 19 (user decision 2026-11-14).
 - User feedback 2026-11-16 (real iPhone): code blocks, Mermaid charts, graphs and tables often need a sideways scroll. The user wants them to fit the screen width, shrunk if necessary, with a way to zoom into a part. Mockups first (options for fit and for zoom), then build.
+- Wide-content decisions (user, 2026-11-16, from mockups at the SE width; A for all four):
+  1. Code: wrap long lines at the normal text size. A wrapped line continues under itself; the line number shows only on its first part. No sideways scroll.
+  2. Tables: fit the width. The text shrinks a little (to 13 pt at the smallest), then the words in each cell wrap. Not cards.
+  3. Mermaid charts and plan graphs: always fit the width, with no minimum text size. Zoom gives the detail.
+  4. Zoom: a corner button (expand icon) on each wide block opens a full-screen viewer: pinch, drag, double-tap to zoom in or back to fit, sharp text at each zoom, landscape allowed. Code opens in the viewer with no wrap. Not a tap or a long press on the block (a tap on the Plan block opens the Plan sheet; a long press copies).
 
 **How the desktop renders (read 2026-11-14).**
 
@@ -300,6 +305,40 @@ Acceptance: golden-fixture sessions render without errors; each error state abov
 - A formula that is not drawn yet shows a quiet box with the size of its text, never the TeX source. The source shows only for a formula that cannot load or that KaTeX cannot draw (error state 8).
 - Tests: `tests/reveal-gate.test.ts`, `tests/reveal.test.tsx`; the screen tests set the limit to 0 (Jest has no layout). Simulator: `npm run e2e:rich` passed on the Pro Max and the SE; a frame series of a session open shows the top-to-bottom growth with no jumps.
 
+### Wide content: fit and zoom (2026-11-16)
+
+User decisions: see "Wide-content decisions" at the top of this issue (A for all four).
+
+Slices:
+
+- **A. Fit.** Code: one row for each source line (the number and the wrapped text), no sideways scroll. Tables: `fitColumns` (pure, `src/lib/table-fit.ts`): the measured one-line widths; when they are wider than the block, the text shrinks to 13 pt at the smallest, then narrow columns keep their width and the wide columns share the rest (their words wrap). Mermaid: the chart takes the island width (`width: 100%`, never wider than its natural size). Plan block: always fit (no 10 pt floor in the transcript; the Plan sheet keeps its floor).
+- **B. Viewer shell.** `ExpandButton` (top right of a code block, a table that was shrunk or wrapped, a drawn Mermaid chart, a plan block, a display formula wider than the block). `ZoomViewer`: a full-screen modal with Close, the block kind, Fit and Copy.
+- **C. Native zoom** (code with no wrap, tables at their natural widths, the plan graph): the zoom math of the Plan sheet moves to `src/lib/zoom-viewport.ts` (fit is the floor, zoom up to 4, drag stops at the edges, pinch keeps the point under the fingers) plus double-tap (zoom to 2.5 at the point, or back to the fit). Code and tables draw again at the new text size when a pinch ends (sharp text); during the pinch a transform shows the change. The plan graph keeps the viewBox zoom.
+- **D. Web zoom** (Mermaid and math): the island page in a viewer variant with WebKit's own pinch zoom (`user-scalable=yes`, up to 4). WebKit draws the vector again at each zoom (sharp). Check double-tap on the Simulator.
+- **E. Landscape in the viewer.** `expo-screen-orientation`: the app stays in portrait; the viewer unlocks while it is open. `app.json` orientation `default`. Native change: new dev builds on both Simulators and a new Release build.
+- **F. Acceptance.** Jest for each slice and each error state; `e2e/wide-content.yaml` (Maestro) screenshots of the fitted blocks and the viewer on the SE and the Pro Max; the user checks on the iPhone.
+
+Error states (each has a message or a clear behavior, and a test):
+
+- W1. A fence that is still open (streaming): the code wraps as it grows; no expand button until the fence closes. A streaming Mermaid fence has no button.
+- W2. The table is not measured yet: the first guess of the widths, fitted the same way; no button until the measure comes.
+- W3. A word longer than its column: it breaks inside the word (iOS does this); the table never scrolls sideways.
+- W4. The viewer's island cannot load or draw: "The phone cannot draw this diagram." (or "… show this formula.") in the viewer, with Close.
+- W5. The plan layout fails: the text card, no button (as error state 14).
+- W6. Very large code (over the highlight limit): plain text in the block and the viewer; the viewer still zooms.
+- W7. The screen turns while zoomed: the viewer goes back to the fit for the new size.
+- W8. The orientation lock fails (the module throws): the viewer stays in portrait and still works. The error goes to the console, never to the screen.
+- W9. The block changes while the viewer is open (a new streamed text): the viewer keeps the content it opened with.
+- W10. The page never scrolls sideways (error state 15 stays true, now with no scroll inside the blocks either).
+
+State (2026-11-16):
+
+- A to E done in code. `src/lib/table-fit.ts`, `src/lib/zoom-viewport.ts` (moved from `plan-graph.ts`, which re-exports it; plus `doubleTapViewport`), `src/components/zoom-viewer.tsx` (`ExpandButton` with test id `md-expand-<kind>`, `ZoomViewer`, `NativeZoomPane`), `src/components/viewer-orientation.tsx`. `CodeLines` in `markdown.tsx` (one row for each line; `codeWidth` uses the JetBrains Mono advance 0.6 em). `TableRows` is shared by the block and the viewer. The island pages have viewer variants (`MATH_VIEWER_HTML`, `MERMAID_VIEWER_HTML`, viewport `maximum-scale=4, user-scalable=yes`; `fitToScreen` in `common.js`); the math page sends `{type:"wide"}` for a display formula wider than the island. `WebIsland` has a `fill` mode.
+- Native change: `expo-screen-orientation` (plugin `initialOrientation: PORTRAIT_UP`), `app.json` orientation `default`, `ios.requireFullScreen: true`. The prebuild gives the four orientations in Info.plist; the ATS "pinned" policy, the mic and local-network keys stay.
+- The rich lesson (`LH_E2E_RICH=1`) now has a 4-column table and a wider Mermaid chart. New flow: `e2e/wide-content.yaml` (`npm run e2e:wide`).
+- Builds: the new dev build is on both Simulators (2026-11-17). Not done: F (`npm run e2e:wide` on both Simulators, never run yet; `setOrientation` and `doubleTapOn` on the WebView are not tried yet), the Release build for the iPhone, the user check. Not checked by hand: WebKit double-tap and pinch in the Mermaid and math viewer, the sharp text after a pinch in the native pane.
+- Tests: `tests/table-fit.test.ts`, `tests/zoom-viewer.test.tsx` (W1, W2, W4, W5, W7, W8, W9), page-script tests in `tests/island-runtime.test.ts`, `tests/helpers/code-text.ts` (code rows and a scroll-view count). Jest 601.
+
 ## 06 Practice on the phone `done`
 
 Blocked by: 04.
@@ -418,7 +457,7 @@ Blocked by: 04.
 - Tests: Jest 575 (`tests/dictation*.test.ts`, `tests/app-dictation.test.tsx` with the fake Mac's `/api/settings` and `/api/stt/token`), `npm run test:native-dictation`, `npm run test:native-deepgram`. In a full parallel Jest run, `app-pairing`, `golden-transcript` and `markdown` can fail from load on this Intel Mac; they pass with `--runInBand`.
 - F: done (2026-11-16). `npm run e2e:dictation` and `npm run e2e:dictation-settings` pass on the Pro Max and the SE. The first SE run failed at pairing (the known first-launch problem: Maestro typed the pairing text before the field was ready); it passed with a new `e2e:mac`. The new Release build (bundle 12:27) is on the iPhone (over Wi-Fi). The user's check on the iPhone passed: the on-device mic in a real lesson gives the text, and the run does not stop when the user scrolls.
 - Not done: the Deepgram check on the iPhone. The user has no Deepgram key yet (user decision 2026-11-16: later). When the user has a key: put it on the Mac (Settings, Keys), select "Deepgram" in the phone's Settings, and speak the same sentence. To read the phone's logs after a failure: `sudo log collect --device-udid 00008110-001430DE3A29801E --last 10m --output <dir>`, then `log show --predicate 'category == "dictation"'` on the archive (needs the user's Mac password).
-- Next: the wide-content mockups for issue 05 (user wish 2026-11-16). The Deepgram check waits for the user's key.
+- Next: issue 05 wide content (built; see its "State"). The Deepgram check waits for the user's key.
 - User remarks 2026-11-16: the keyboard mic stops when the user scrolls; the app's mic must not (it stops only on Stop, the background, or an iOS interruption). Check this on the iPhone. The user finds the iOS keyboard dictation poor and wants to compare Deepgram (and asked about Speechify; its engine is not known).
 
 ## 08 Graph list, cost and context `todo`

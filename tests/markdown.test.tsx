@@ -14,6 +14,7 @@ import { Transcript } from "@/components/transcript";
 import * as highlight from "@/lib/code-highlight";
 import { tableMarkdown } from "@/lib/copy-source";
 import * as md from "@/lib/markdown";
+import { codeNumbers, codeText, scrollViewCount } from "./helpers/code-text";
 import { islandData, resetWebviews, sendFromPage, webviews } from "./helpers/fake-webview";
 
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
@@ -77,10 +78,10 @@ describe("Markdown blocks and inline text", () => {
 
 	it("draws a code fence with line numbers, from startLine, or without numbers", async () => {
 		await show("```js startLine=5\nlet a = 1;\nlet b = 2;\n```");
-		expect(screen.getByTestId("md-code-lines")).toHaveTextContent("5\n6");
-		expect(screen.getByTestId("md-code-text")).toHaveTextContent("let a = 1;\nlet b = 2;");
+		expect(codeNumbers(screen)).toBe("5\n6");
+		expect(codeText(screen)).toBe("let a = 1;\nlet b = 2;");
 		await show("```js noLineNumbers\nx\n```");
-		expect(screen.queryByTestId("md-code-lines")).toBeNull();
+		expect(screen.queryByTestId("md-code-number")).toBeNull();
 	});
 
 	it("draws math with KaTeX in islands (slice C), with no dollar signs", async () => {
@@ -141,10 +142,39 @@ describe("Markdown blocks and inline text", () => {
 		expect(width(0, 0)).toBe(44 + 12);
 		expect(width(1, 0)).toBe(44 + 12);
 		expect(width(2, 1)).toBe(240);
-		// A narrow table sits in the center; a wide one scrolls from the left edge.
-		expect(
-			StyleSheet.flatten(screen.getByTestId("md-table").props.contentContainerStyle),
-		).toMatchObject({ flexGrow: 1, justifyContent: "center" });
+		// A narrow table sits in the center, with no sideways scroll.
+		expect(StyleSheet.flatten(screen.getByTestId("md-table").props.style)).toMatchObject({
+			alignItems: "center",
+		});
+		expect(scrollViewCount(screen.root)).toBe(0);
+	});
+
+	it("W3. W10. fits a wide table to its block: smaller text, then wrapped columns", async () => {
+		await show("| Side | Note |\n| --- | --- |\n| Near | Faces the Moon all day long |");
+		const measured: Record<string, number> = { "0-0": 40, "0-1": 40, "1-0": 40, "1-1": 400 };
+		await act(async () => {
+			for (const [at, w] of Object.entries(measured))
+				fireEvent(
+					screen.getByTestId(`md-table-measure-${at}`, { includeHiddenElements: true }),
+					"layout",
+					{ nativeEvent: { layout: { x: 0, y: 0, width: w, height: 20 } } },
+				);
+			fireEvent(screen.getByTestId("md-table-block"), "layout", {
+				nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 100 } },
+			});
+		});
+		const width = (i: number) =>
+			StyleSheet.flatten(screen.getByTestId(`md-table-cell-1-${i}`).props.style)?.width as number;
+		expect(width(0) + width(1)).toBeLessThanOrEqual(200);
+		// "Near" keeps its width; the note wraps in the rest.
+		expect(width(0)).toBe(Math.ceil(40 * (13 / 16)) + 12);
+		const text = StyleSheet.flatten(screen.getByTestId("md-table-text-1-1").props.style);
+		expect(text.fontSize).toBe(13);
+		// The hidden measure layer keeps the base size.
+		const measure = StyleSheet.flatten(
+			screen.getByTestId("md-table-measure-1-1", { includeHiddenElements: true }).props.style,
+		);
+		expect(measure.fontSize).toBe(16);
 	});
 
 	it("draws a footnote reference and its text", async () => {
@@ -160,7 +190,7 @@ describe("Markdown error states", () => {
 		expect(screen.getByText("The bol")).toBeTruthy();
 		expect(screen.queryByText(/\*\*/)).toBeNull();
 		await show("```python\nprint(1)");
-		expect(screen.getByTestId("md-code-text")).toHaveTextContent("print(1)");
+		expect(codeText(screen)).toBe("print(1)");
 		expect(screen.queryByText(/```/)).toBeNull();
 	});
 
@@ -232,12 +262,19 @@ describe("Markdown error states", () => {
 		expect(screen.getByText("A <b>bold</b> word.")).toBeTruthy();
 	});
 
-	it("15. puts long code lines in a sideways scroll, not the page", async () => {
-		await show(`\`\`\`\n${"x".repeat(400)}\n\`\`\``);
-		const text = screen.getByTestId("md-code-text");
-		let node = text.parent;
-		while (node && node.type !== "RCTScrollView") node = node.parent;
-		expect(node?.props.horizontal).toBe(true);
+	it("15. W10. wraps long code lines at the normal size, with no sideways scroll", async () => {
+		await show(`\`\`\`\n${"x".repeat(400)}\nshort\n\`\`\``);
+		const [long] = screen.getAllByTestId("md-code-line");
+		// One row for each source line: the number shows once, the text wraps.
+		expect(codeNumbers(screen)).toBe("1\n2");
+		expect(long!.props.numberOfLines).toBeUndefined();
+		expect(StyleSheet.flatten(long!.props.style)).toMatchObject({ fontSize: 13, flex: 1 });
+		expect(scrollViewCount(screen.root)).toBe(0);
+	});
+
+	it("keeps an empty code line one line high", async () => {
+		await show("```\na\n\nb\n```");
+		expect(codeText(screen)).toBe("a\n \nb");
 	});
 });
 
@@ -248,8 +285,8 @@ describe("code blocks (slice B)", () => {
 		expect(tokenColor("const")).toBe("#D73A49");
 		expect(tokenColor("// done")).toBe("#6A737D");
 		expect(blockColor("md-code-colored")).toBe("#edece8");
-		expect(screen.getByTestId("md-code-lines")).toHaveTextContent("1\n2");
-		expect(screen.getByTestId("md-code-text")).toHaveTextContent("const total = 1;\n// done");
+		expect(codeNumbers(screen)).toBe("1\n2");
+		expect(codeText(screen)).toBe("const total = 1;\n// done");
 	});
 
 	it("16. draws the colors again when the mode changes to dark", async () => {
@@ -266,7 +303,7 @@ describe("code blocks (slice B)", () => {
 		const spy = jest.spyOn(highlight, "highlightCode");
 		const view = await show("Look:\n\n```js\nconst a = 1;");
 		expect(screen.getByTestId("md-code")).toBeTruthy();
-		expect(screen.getByTestId("md-code-text")).toHaveTextContent("const a = 1;");
+		expect(codeText(screen)).toBe("const a = 1;");
 		expect(screen.queryByText(/```/)).toBeNull();
 		expect(spy).not.toHaveBeenCalled();
 		await view.rerender(<Markdown text={"Look:\n\n```js\nconst a = 1;\n```"} style={BASE} />);
@@ -276,8 +313,8 @@ describe("code blocks (slice B)", () => {
 	it("3. shows an unknown language as a plain block with line numbers", async () => {
 		await show("```klingon\nqapla'\nbatlh\n```");
 		expect(screen.getByTestId("md-code")).toBeTruthy();
-		expect(screen.getByTestId("md-code-lines")).toHaveTextContent("1\n2");
-		expect(screen.getByTestId("md-code-text")).toHaveTextContent("qapla'\nbatlh");
+		expect(codeNumbers(screen)).toBe("1\n2");
+		expect(codeText(screen)).toBe("qapla'\nbatlh");
 	});
 
 	it("4. shows a plain block when the highlighter fails or the block is too large", async () => {
@@ -286,7 +323,7 @@ describe("code blocks (slice B)", () => {
 		jest.spyOn(highlight, "highlightCode").mockReturnValue(null);
 		await show("```js\nlet a = 1;\n```");
 		expect(screen.getByTestId("md-code")).toBeTruthy();
-		expect(screen.getByTestId("md-code-text")).toHaveTextContent("let a = 1;");
+		expect(codeText(screen)).toBe("let a = 1;");
 	});
 });
 
@@ -329,16 +366,20 @@ describe("long press to copy (slice B)", () => {
 		expect(setString).toHaveBeenLastCalledWith("\\sum_k k");
 	});
 
-	it("keeps each copy target inside its sideways scroll (a target around it stops the scroll on iOS)", async () => {
+	it("keeps the formula's copy target inside its sideways scroll (a target around it stops the scroll on iOS)", async () => {
 		await show("```js\nlet a = 1;\n```\n\n| A |\n| - |\n| 1 |\n\n$$\n\\frac{1}{\n$$");
 		const targets = screen.getAllByTestId("md-copy");
 		// Code, table, and the source of a formula that KaTeX cannot draw.
 		expect(targets).toHaveLength(3);
-		for (const target of targets) {
+		const scrollOf = (target: (typeof targets)[number]) => {
 			let node = target.parent;
 			while (node && node.type !== "RCTScrollView") node = node.parent;
-			expect(node?.props.horizontal).toBe(true);
-		}
+			return node;
+		};
+		// Code and tables fit their block: no scroll.
+		expect(scrollOf(targets[0]!)).toBeNull();
+		expect(scrollOf(targets[1]!)).toBeNull();
+		expect(scrollOf(targets[2]!)?.props.horizontal).toBe(true);
 	});
 
 	it("gives VoiceOver the same Copy action", async () => {

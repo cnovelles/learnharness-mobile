@@ -4,6 +4,9 @@
  * `mermaid.render` with `securityLevel: "strict"`, as on the desktop
  * (components/mermaid-render.ts).
  *
+ * In the full-screen viewer (`data.viewer`), the chart fits the screen in
+ * both directions and the page reports no height.
+ *
  * Messages to the app: {type:"height", height}, {type:"rendered"},
  * {type:"longpress"}, {type:"error", kind} with kind "data", "load" or
  * "parse". The message never has the error text.
@@ -31,14 +34,18 @@ if (!data || typeof data.source !== "string") {
 				root.innerHTML = result.svg;
 				var svg = root.querySelector("svg");
 				if (svg) {
-					// Natural width, never scaled down: a wide chart scrolls
-					// sideways (error state 15), and its text keeps its size.
+					// Fit the width (issue 05, wide content, decision 3): a wide
+					// chart shrinks to the island; a narrow one keeps its natural
+					// size. The full-screen viewer gives the detail.
 					var width = parseFloat(svg.style.maxWidth) || svg.getBoundingClientRect().width;
-					svg.style.maxWidth = "none";
-					svg.style.width = Math.ceil(width) + "px";
+					svg.style.maxWidth = Math.ceil(width) + "px";
+					svg.style.width = "100%";
+					svg.style.height = "auto";
 					svg.removeAttribute("width");
+					svg.removeAttribute("height");
 				}
-				watchHeight(root);
+				if (data.viewer) fitToScreen(root);
+				else watchHeight(root);
 				send({ type: "rendered" });
 			})
 			.catch(function () {

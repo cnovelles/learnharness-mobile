@@ -282,7 +282,7 @@ describe("PlanBlock (the transcript row)", () => {
 		}
 	});
 
-	it("keeps a wide graph at the minimum text size, wider than the screen", async () => {
+	it("W10. fits a wide graph to the width, under the minimum text size", async () => {
 		const wide = tree(
 			[
 				["root", "Start"],
@@ -295,7 +295,7 @@ describe("PlanBlock (the transcript row)", () => {
 		const data = graph(wide);
 		expect(data.view.w * MIN_SCALE).toBeGreaterThan(343);
 		const svg = screen.getByTestId("plan-svg-w");
-		expect(Number(svg.props.width ?? svg.props.bbWidth)).toBeCloseTo(data.view.w * MIN_SCALE);
+		expect(Number(svg.props.width ?? svg.props.bbWidth)).toBeCloseTo(343);
 	});
 });
 

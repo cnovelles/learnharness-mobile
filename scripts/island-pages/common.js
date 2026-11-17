@@ -81,3 +81,21 @@ function watchLongPress() {
 		passive,
 	);
 }
+
+/**
+ * The full-screen viewer (issue 05, wide content, slice D): shrink `el` so it
+ * fits the screen, in both directions. WebKit's pinch zoom gives the detail.
+ */
+function fitToScreen(el) {
+	var rect = el.getBoundingClientRect();
+	var w = Math.max(el.scrollWidth, rect.width);
+	var h = Math.max(el.scrollHeight, rect.height);
+	if (!(w > 0) || !(h > 0)) return;
+	var k = Math.min(1, window.innerWidth / w, window.innerHeight / h);
+	if (k < 1) el.style.zoom = String(k);
+}
+
+/** Sends {type:"wide", wide} when the content is wider than the page. */
+function reportWide(el) {
+	send({ type: "wide", wide: el.scrollWidth > el.clientWidth + 1 });
+}

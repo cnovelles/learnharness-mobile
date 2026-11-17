@@ -9,6 +9,7 @@
 import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
 import path from "node:path";
 
+import { codeText } from "./helpers/code-text";
 import { FakeMac, PROBE, type Rec, pairedConnection } from "./helpers/fake-mac";
 
 const mockKeychain = new Map<string, string>();
@@ -340,9 +341,7 @@ describe("teach-phase checks", () => {
 
 		const question = await screen.findByTestId("dock-question");
 		// The repaired fence draws as a code block (issue 05 slice A).
-		expect(within(question).getByTestId("md-code-text")).toHaveTextContent(
-			"console.log('1');\nconsole.log('2');",
-		);
+		expect(codeText(within(question))).toBe("console.log('1');\nconsole.log('2');");
 		expect(within(question).getByText("What prints first?")).toBeTruthy();
 		expect(screen.queryByText(/\\n/)).toBeNull();
 		expect(screen.getByTestId("dock-kind")).toHaveTextContent("PREDICTION");

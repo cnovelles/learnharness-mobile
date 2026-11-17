@@ -14,11 +14,10 @@
  *   zoom and drag. The SVG keeps the size of its frame and shows a window
  *   of the graph (its viewBox), so the text stays sharp at each zoom.
  */
-import { useId, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useMemo, useState } from "react";
 import { GestureDetector, usePanGesture, usePinchGesture } from "react-native-gesture-handler";
 import {
 	Pressable,
-	ScrollView,
 	StyleSheet,
 	Text,
 	View,
@@ -38,9 +37,11 @@ import Svg, {
 
 import type { StepStatus } from "@/lib/plan";
 import {
+	MAX_SCALE,
 	NODE_FONT,
 	canPan,
 	fitViewport,
+	fitScale,
 	graphScale,
 	graphStatus,
 	panViewport,
@@ -65,6 +66,7 @@ import {
 import { SPACE } from "./spacing";
 import { FONT, TYPE, usePalette, type Palette } from "./ui";
 import { useReportReady } from "./reveal";
+import { ExpandButton, NativeZoomPane, ZoomViewer } from "./zoom-viewer";
 
 /** The faint yellow of the current step (desktop `fill-yellow-400/25`). */
 const GLOW_COLOR = "#facc15";
@@ -245,27 +247,46 @@ export function PlanBlock({
 	const [width, onLayout] = useWidth();
 	// The reveal waits for the width: the graph's height comes from it.
 	useReportReady(!data || width > 0);
+	const [viewing, setViewing] = useState(false);
+	const renderAt = useCallback(
+		(k: number) => (data ? <PlanGraph data={data} scale={k} /> : null),
+		[data],
+	);
+	// W5: a layout that fails shows the text card, with no button.
 	if (!data) return <>{fallback}</>;
 	// Hidden until the width is known, so the graph does not jump.
-	const scale = graphScale(data.view.w, width);
+	// Always fit the width: no sideways scroll (wide content, decision 3).
+	const scale = fitScale(data.view.w, width);
 	return (
-		<View onLayout={onLayout} style={{ opacity: width > 0 ? 1 : 0 }} testID={`plan-block-${id}`}>
-			<ScrollView
-				horizontal
-				showsHorizontalScrollIndicator={false}
-				contentContainerStyle={styles.center}
+		<View
+			onLayout={onLayout}
+			style={[styles.center, { opacity: width > 0 ? 1 : 0 }]}
+			testID={`plan-block-${id}`}
+		>
+			<Pressable
+				onPress={onOpen}
+				accessibilityRole="button"
+				accessibilityLabel={label}
+				testID={`plan-${id}`}
 			>
-				{/* The press target sits inside the scroll view, so a sideways
-				    drag still scrolls (issue 05 slice B). */}
-				<Pressable
-					onPress={onOpen}
-					accessibilityRole="button"
-					accessibilityLabel={label}
-					testID={`plan-${id}`}
-				>
-					<PlanGraph data={data} scale={scale} testID={`plan-svg-${id}`} />
-				</Pressable>
-			</ScrollView>
+				<PlanGraph data={data} scale={scale} testID={`plan-svg-${id}`} />
+			</Pressable>
+			<ExpandButton onPress={() => setViewing(true)} what="plan" testID={`plan-expand-${id}`} />
+			{viewing ? (
+				<ZoomViewer visible kind="PLAN" onClose={() => setViewing(false)}>
+					{(fitKey) => (
+						<NativeZoomPane
+							contentWidth={data.view.w}
+							contentHeight={data.view.h}
+							maxBase={MAX_SCALE}
+							fitHeight
+							fitKey={fitKey}
+							render={renderAt}
+							label={label}
+						/>
+					)}
+				</ZoomViewer>
+			) : null}
 		</View>
 	);
 }

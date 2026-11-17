@@ -31,6 +31,19 @@ const CSP =
 
 const VIEWPORT = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
 
+/** The full-screen viewer (issue 05, wide content, slice D): WebKit's own
+ *  pinch zoom, up to 4. WebKit draws the vector content again at each zoom. */
+const VIEWER_VIEWPORT =
+	"width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=4, user-scalable=yes";
+
+/** In the viewer, the content sits in the middle of the screen and the page
+ *  can scroll; the page script fits it to the screen (`fitToScreen`). */
+const VIEWER_CSS = `
+html, body { height: 100%; }
+body { overflow: auto; display: flex; align-items: center; justify-content: center; }
+#root, .katex-display { overflow: visible; }
+`;
+
 const MATH_CSS = `
 html, body { margin: 0; padding: 0; background: transparent; -webkit-text-size-adjust: 100%;
 	-webkit-user-select: none; -webkit-touch-callout: none; }
@@ -55,11 +68,11 @@ body { overflow: hidden; }
 #root svg { display: block; margin: 0 auto; }
 `;
 
-function shell(css) {
+function shell(css, viewport = VIEWPORT) {
 	return (
 		'<!DOCTYPE html><html><head><meta charset="utf-8">' +
 		`<meta http-equiv="Content-Security-Policy" content="${CSP}">` +
-		`<meta name="viewport" content="${VIEWPORT}">` +
+		`<meta name="viewport" content="${viewport}">` +
 		`<style>${css}</style></head><body><div id="root"></div></body></html>`
 	);
 }
@@ -136,6 +149,8 @@ function buildIslandPages(forkRoot = forkRootDefault()) {
 		MATH_HTML: shell(katexCss(katexDir) + MATH_CSS),
 		MATH_SCRIPT: pageScript("math-runtime.js"),
 		MERMAID_HTML: shell(MERMAID_CSS),
+		MATH_VIEWER_HTML: shell(katexCss(katexDir) + MATH_CSS + VIEWER_CSS, VIEWER_VIEWPORT),
+		MERMAID_VIEWER_HTML: shell(MERMAID_CSS + VIEWER_CSS, VIEWER_VIEWPORT),
 		MERMAID_SCRIPT: asciiOnly(`${mermaid}\n;${pageScript("mermaid-runtime.js")}`),
 	};
 	fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -151,7 +166,7 @@ function buildIslandPages(forkRoot = forkRootDefault()) {
 	return OUT;
 }
 
-module.exports = { buildIslandPages, pageScript, OUT, CSP };
+module.exports = { buildIslandPages, pageScript, OUT, CSP, VIEWER_VIEWPORT };
 
 if (require.main === module) {
 	console.log(buildIslandPages());

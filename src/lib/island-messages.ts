@@ -15,6 +15,7 @@ export type IslandMessage =
 	| { type: "link"; index: number }
 	| { type: "longpress" }
 	| { type: "rendered" }
+	| { type: "wide"; wide: boolean }
 	| { type: "error"; kind: IslandErrorKind };
 
 const ERROR_KINDS: readonly string[] = ["data", "load", "parse"];
@@ -46,6 +47,8 @@ export function parseIslandMessage(raw: unknown): IslandMessage | null {
 			return { type: "longpress" };
 		case "rendered":
 			return { type: "rendered" };
+		case "wide":
+			return typeof message.wide === "boolean" ? { type: "wide", wide: message.wide } : null;
 		case "error":
 			return typeof message.kind === "string" && ERROR_KINDS.includes(message.kind)
 				? { type: "error", kind: message.kind as IslandErrorKind }
