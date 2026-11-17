@@ -50,6 +50,7 @@ import { FORMULA_ERROR, MathIsland, MermaidIsland, type IslandStyle } from "./is
 import { RevealSlot, useReportReady, useRevealScope } from "./reveal";
 import { ErrorText, FONT, usePalette, type Palette } from "./ui";
 import { EXPAND_INSET, ExpandButton, NativeZoomPane, ZoomViewer } from "./zoom-viewer";
+import { commentLines } from "@/lib/code-comments";
 import { SPACE } from "./spacing";
 
 export { COPY_LABEL_MS } from "./copy";
@@ -418,6 +419,8 @@ export function CodeLines({
 	muted,
 	scale = 1,
 	firstLineInset = 0,
+	wrapRows,
+	rowWidth,
 }: {
 	lines: readonly string[];
 	colored: readonly (readonly CodeToken[])[] | null;
@@ -430,6 +433,10 @@ export function CodeLines({
 	scale?: number;
 	/** Room at the end of the first line for the expand button. */
 	firstLineInset?: number;
+	/** Without `wrap`: the rows that wrap anyway (comment lines in the
+	 *  viewer), `rowWidth` points wide. */
+	wrapRows?: readonly boolean[];
+	rowWidth?: number;
 }) {
 	const code = {
 		fontFamily: CODE_TEXT.fontFamily,
@@ -441,33 +448,39 @@ export function CodeLines({
 	const numberWidth = Math.max(18, digits * 8) * scale;
 	return (
 		<View testID="md-code-text">
-			{lines.map((line, i) => (
-				<View
-					key={i}
-					style={[
-						styles.codeRow,
-						i === 0 && firstLineInset ? { paddingRight: firstLineInset } : null,
-					]}
-				>
-					{numbered ? (
-						<Text
-							style={[code, styles.lineNumber, { color: muted, width: numberWidth }]}
-							testID="md-code-number"
-						>
-							{String(start + i)}
-						</Text>
-					) : null}
-					<Text
-						style={[code, { color: fg }, wrap ? styles.codeWrap : null]}
-						numberOfLines={wrap ? undefined : 1}
-						ellipsizeMode="clip"
-						testID="md-code-line"
+			{lines.map((line, i) => {
+				const wrapRow = !wrap && !!wrapRows?.[i] && rowWidth !== undefined;
+				const wraps = wrap || wrapRow;
+				return (
+					<View
+						key={i}
+						style={[
+							styles.codeRow,
+							i === 0 && firstLineInset ? { paddingRight: firstLineInset } : null,
+							wrapRow ? { width: rowWidth } : null,
+						]}
+						testID="md-code-row"
 					>
-						{/* An empty line keeps its height. */}
-						{colored?.[i] ? <ColoredLine tokens={colored[i]!} /> : line || " "}
-					</Text>
-				</View>
-			))}
+						{numbered ? (
+							<Text
+								style={[code, styles.lineNumber, { color: muted, width: numberWidth }]}
+								testID="md-code-number"
+							>
+								{String(start + i)}
+							</Text>
+						) : null}
+						<Text
+							style={[code, { color: fg }, wraps ? styles.codeWrap : null]}
+							numberOfLines={wraps ? undefined : 1}
+							ellipsizeMode="clip"
+							testID="md-code-line"
+						>
+							{/* An empty line keeps its height. */}
+							{colored?.[i] ? <ColoredLine tokens={colored[i]!} /> : line || " "}
+						</Text>
+					</View>
+				);
+			})}
 		</View>
 	);
 }
@@ -502,9 +515,12 @@ function CodeBlock({
 	const { copy, state } = useCopy(() => value);
 	const [viewing, setViewing] = useState(false);
 	const tokens = colored?.lines ?? null;
-	// The viewer: each line on one line, drawn again at each zoom.
+	// The viewer: each code line on one line, drawn again at each zoom. A
+	// comment line wraps at the screen width of the fit (user choice
+	// 2026-11-17), so it reads with no drag.
+	const comments = useMemo(() => commentLines(lines, lang), [lines, lang]);
 	const renderAt = useCallback(
-		(scale: number) => (
+		(scale: number, screenWidth: number) => (
 			<View style={[styles.viewerCode, { padding: SPACE.lg * scale }]}>
 				<CodeLines
 					lines={lines}
@@ -515,10 +531,12 @@ function CodeBlock({
 					fg={colors.fg}
 					muted={c.muted}
 					scale={scale}
+					wrapRows={comments}
+					rowWidth={(screenWidth - 2 * SPACE.lg) * scale}
 				/>
 			</View>
 		),
-		[lines, tokens, start, numbered, colors.fg, c.muted],
+		[lines, tokens, start, numbered, colors.fg, c.muted, comments],
 	);
 	return (
 		<View
@@ -544,7 +562,9 @@ function CodeBlock({
 					{(fitKey) => (
 						<View style={[styles.viewerBg, { backgroundColor: c.codeBg }]}>
 							<NativeZoomPane
-								contentWidth={codeWidth(lines, start, numbered)}
+								contentWidth={codeWidth(lines, start, numbered, comments)}
+								minBase={CODE_VIEWER_MIN_SCALE}
+								fillWidth
 								fitKey={fitKey}
 								render={renderAt}
 								label={`Code, ${lines.length} lines`}
@@ -561,10 +581,23 @@ function CodeBlock({
 /** The mono font's advance: JetBrains Mono is 600 units on a 1000 em. */
 const MONO_ADVANCE = 0.6;
 
+/** The smallest code text in the viewer at the fit: 11 pt (user choice
+ *  2026-11-17, option B). A longer line goes past the edge. */
+export const CODE_VIEWER_MIN_SCALE = 11 / CODE_TEXT.fontSize;
+
 /** The width of a code block with no wrap at scale 1: the padding, the
- *  number column and the longest line (a tab counts as 4 characters). */
-export function codeWidth(lines: readonly string[], start: number, numbered: boolean): number {
-	const longest = lines.reduce((n, line) => Math.max(n, line.replace(/\t/g, "    ").length), 0);
+ *  number column and the longest line (a tab counts as 4 characters). The
+ *  lines marked in `skip` (comment lines, which wrap) do not count. */
+export function codeWidth(
+	lines: readonly string[],
+	start: number,
+	numbered: boolean,
+	skip?: readonly boolean[],
+): number {
+	const longest = lines.reduce(
+		(n, line, i) => (skip?.[i] ? n : Math.max(n, line.replace(/\t/g, "    ").length)),
+		0,
+	);
 	const digits = String(start + lines.length - 1).length;
 	const numbers = numbered ? Math.max(18, digits * 8) + SPACE.md : 0;
 	return Math.ceil(2 * SPACE.lg + numbers + longest * CODE_TEXT.fontSize * MONO_ADVANCE) + 2;

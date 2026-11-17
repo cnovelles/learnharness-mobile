@@ -244,15 +244,18 @@ function createZoomGesture(
 }
 
 /**
- * A native pane with pinch zoom, drag and double-tap. `render(scale)` draws
- * the content at `scale` points for each content unit (1 is its natural
- * size). The content is `contentWidth` units wide; its height is
- * `contentHeight`, or measured.
+ * A native pane with pinch zoom, drag and double-tap. `render(scale,
+ * screenWidth)` draws the content at `scale` points for each content unit
+ * (1 is its natural size); `screenWidth` is the frame width at the fit, in
+ * content units. The content is `contentWidth` units wide (at least the
+ * frame width with `fillWidth`); its height is `contentHeight`, or measured.
  */
 export function NativeZoomPane({
 	contentWidth,
 	contentHeight,
 	maxBase = 1,
+	minBase = 0,
+	fillWidth = false,
 	fitHeight = false,
 	fitKey,
 	render,
@@ -263,11 +266,17 @@ export function NativeZoomPane({
 	contentHeight?: number;
 	/** The largest scale at the fit (a narrow block does not grow past it). */
 	maxBase?: number;
+	/** The smallest scale at the fit: a wider block goes past the edge, and
+	 *  a drag moves it (code: 11 pt text). */
+	minBase?: number;
+	/** At the fit, the content is at least as wide as the frame (it does not
+	 *  center). */
+	fillWidth?: boolean;
 	/** Fit the height too (a chart shows whole at the fit). */
 	fitHeight?: boolean;
 	/** A new value goes back to the fit (the Fit button). */
 	fitKey: number;
-	render: (scale: number) => ReactNode;
+	render: (scale: number, screenWidth: number) => ReactNode;
 	/** The VoiceOver label of the pane. */
 	label: string;
 	testID?: string;
@@ -290,10 +299,11 @@ export function NativeZoomPane({
 	const ready = frame.w > 0 && contentWidth > 0 && height > 0;
 	let base = 1;
 	if (frame.w > 0 && contentWidth > 0) {
-		base = Math.min(maxBase, frame.w / contentWidth);
+		base = Math.max(Math.min(minBase, maxBase), Math.min(maxBase, frame.w / contentWidth));
 		if (fitHeight && frame.h > 0 && height > 0) base = Math.min(base, frame.h / height);
 	}
-	const view: Box = { x: 0, y: 0, w: contentWidth, h: height };
+	const width = fillWidth && frame.w > 0 ? Math.max(contentWidth, frame.w / base) : contentWidth;
+	const view: Box = { x: 0, y: 0, w: width, h: height };
 	const committed = ready ? (vp ?? fitViewport(view, frame, base)) : null;
 	const current = live ?? committed;
 	useLayoutEffect(() => {
@@ -302,7 +312,8 @@ export function NativeZoomPane({
 
 	// The content draws only at a committed scale.
 	const kc = base * (committed?.zoom ?? 1);
-	const drawn = useMemo(() => render(kc), [render, kc]);
+	const screenWidth = frame.w > 0 ? frame.w / base : width;
+	const drawn = useMemo(() => render(kc, screenWidth), [render, kc, screenWidth]);
 	const k = base * (current?.zoom ?? 1);
 	const pannable = !!(ready && current && canPan(view, frame, base, current));
 
@@ -373,7 +384,7 @@ export function NativeZoomPane({
 									style={[
 										styles.content,
 										{
-											width: contentWidth * kc,
+											width: width * kc,
 											left: current ? -(current.x - view.x) * k : 0,
 											top: current ? -(current.y - view.y) * k : 0,
 											opacity: ready ? 1 : 0,

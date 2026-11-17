@@ -11,7 +11,8 @@ import { useTapGesture } from "react-native-gesture-handler";
 import { StyleSheet, Text } from "react-native";
 
 import { DIAGRAM_ERROR } from "@/components/islands";
-import { codeWidth, Markdown } from "@/components/markdown";
+import { CODE_TEXT, CODE_VIEWER_MIN_SCALE, codeWidth, Markdown } from "@/components/markdown";
+import { SPACE } from "@/components/spacing";
 import { PlanBlock } from "@/components/plan-graph";
 import * as planGraphLib from "@/lib/plan-graph";
 import {
@@ -130,22 +131,28 @@ describe("code in the viewer", () => {
 		// Each line stays on one line in the viewer.
 		const lines = within(viewer).getAllByTestId("md-code-line");
 		expect(lines[0]!.props.numberOfLines).toBe(1);
-		// The fit: the code width fills the frame.
+		// The fit: the code shrinks to fill the frame, but not below 11 pt.
+		// The end comment stays on its code line, so the line goes past the
+		// edge and a drag moves it.
 		await layoutPane(300);
 		const natural = codeWidth([LONG, "short"], 1, true);
-		expect(contentWidth()).toBeCloseTo(300);
+		expect(300 / natural).toBeLessThan(CODE_VIEWER_MIN_SCALE);
+		expect(CODE_VIEWER_MIN_SCALE * CODE_TEXT.fontSize).toBeCloseTo(11);
+		expect(contentWidth()).toBeCloseTo(natural * CODE_VIEWER_MIN_SCALE);
+		const fontAt = () =>
+			StyleSheet.flatten(within(viewer).getAllByTestId("md-code-line")[0]!.props.style).fontSize;
+		expect(fontAt()).toBeCloseTo(11);
 		// VoiceOver zoom in: the content draws again, twice as large.
 		await act(async () => {
 			fireEvent(screen.getByTestId("zoom-pane"), "accessibilityAction", {
 				nativeEvent: { actionName: "increment" },
 			});
 		});
-		expect(contentWidth()).toBeCloseTo(600);
-		const text = StyleSheet.flatten(within(viewer).getAllByTestId("md-code-line")[0]!.props.style);
-		expect(text.fontSize).toBeCloseTo(13 * ((300 / natural) * 2));
+		expect(contentWidth()).toBeCloseTo(natural * CODE_VIEWER_MIN_SCALE * 2);
+		expect(fontAt()).toBeCloseTo(22);
 		// Fit goes back.
 		await press("zoom-fit");
-		expect(contentWidth()).toBeCloseTo(300);
+		expect(contentWidth()).toBeCloseTo(natural * CODE_VIEWER_MIN_SCALE);
 		await press("zoom-copy");
 		expect(setString).toHaveBeenLastCalledWith(`${LONG}\nshort`);
 		await press("zoom-close");
@@ -161,10 +168,51 @@ describe("code in the viewer", () => {
 				nativeEvent: { actionName: "increment" },
 			});
 		});
-		expect(contentWidth()).toBeCloseTo(600);
-		// Landscape: a wider frame, at the fit (a short block does not grow past 1).
+		expect(contentWidth()).toBeGreaterThan(codeWidth([LONG], 1, true) * CODE_VIEWER_MIN_SCALE);
+		// Landscape: a wider frame, at the fit. A short block does not grow past
+		// 1; the content fills the frame width.
 		await layoutPane(800, 300);
-		expect(contentWidth()).toBeCloseTo(Math.min(800, codeWidth([LONG], 1, true)));
+		expect(codeWidth([LONG], 1, true)).toBeLessThan(800);
+		expect(contentWidth()).toBeCloseTo(800);
+	});
+
+	it("wraps a comment line at the fit width; code and end comments stay on one line", async () => {
+		const comment = `// ${"Load the lesson from the Mac before the phone shows it. ".repeat(3).trim()}`;
+		const code = "const a = 1; // end";
+		await show(`\`\`\`ts\n${comment}\n${code}\n\`\`\``);
+		await press("md-expand-code");
+		await layoutPane(300);
+		// The comment does not count in the width: the short code fits at 13 pt,
+		// and the content fills the frame.
+		expect(codeWidth([comment, code], 1, true)).toBeGreaterThan(300);
+		expect(codeWidth([code], 1, true)).toBeLessThan(300);
+		expect(contentWidth()).toBeCloseTo(300);
+		const viewer = screen.getByTestId("zoom-viewer");
+		const [commentLine, codeLine] = within(viewer).getAllByTestId("md-code-line");
+		expect(commentLine!.props.numberOfLines).toBeUndefined();
+		expect(codeLine!.props.numberOfLines).toBe(1);
+		expect(StyleSheet.flatten(codeLine!.props.style).fontSize).toBeCloseTo(13);
+		// The comment row is the content width less the padding on each side.
+		const rows = within(viewer).getAllByTestId("md-code-row");
+		expect(StyleSheet.flatten(rows[0]!.props.style).width).toBeCloseTo(300 - 2 * SPACE.lg);
+		expect(StyleSheet.flatten(rows[1]!.props.style).width).toBeUndefined();
+	});
+
+	it("wraps a comment line at the screen width when a long code line goes past the edge", async () => {
+		const comment = "// Newton: the force falls with the square of the distance";
+		await show(`\`\`\`ts\n${comment}\n${LONG}\n\`\`\``);
+		await press("md-expand-code");
+		await layoutPane(300);
+		// The long code line sets the content width (past the edge at 11 pt).
+		expect(contentWidth()).toBeCloseTo(
+			codeWidth([comment, LONG], 1, true, [true, false]) * CODE_VIEWER_MIN_SCALE,
+		);
+		expect(contentWidth()).toBeGreaterThan(300);
+		// The comment row is the screen width less the padding, at the fit.
+		const rows = within(screen.getByTestId("zoom-viewer")).getAllByTestId("md-code-row");
+		expect(StyleSheet.flatten(rows[0]!.props.style).width).toBeCloseTo(
+			300 - 2 * SPACE.lg * CODE_VIEWER_MIN_SCALE,
+		);
 	});
 });
 
