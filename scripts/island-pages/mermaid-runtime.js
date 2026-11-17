@@ -5,7 +5,7 @@
  * (components/mermaid-render.ts).
  *
  * In the full-screen viewer (`data.viewer`), the chart fits the screen in
- * both directions and the page reports no height.
+ * both directions, a double-tap zooms it, and the page reports no height.
  *
  * Messages to the app: {type:"height", height}, {type:"rendered"},
  * {type:"longpress"}, {type:"error", kind} with kind "data", "load" or
@@ -38,14 +38,24 @@ if (!data || typeof data.source !== "string") {
 					// chart shrinks to the island; a narrow one keeps its natural
 					// size. The full-screen viewer gives the detail.
 					var width = parseFloat(svg.style.maxWidth) || svg.getBoundingClientRect().width;
-					svg.style.maxWidth = Math.ceil(width) + "px";
-					svg.style.width = "100%";
+					if (data.viewer) {
+						// The viewer: the natural width, and the fit makes it
+						// smaller. (A "100%" width in the centered page gave
+						// WebKit's default 300 px.)
+						svg.style.width = Math.ceil(width) + "px";
+						svg.style.maxWidth = "none";
+					} else {
+						svg.style.maxWidth = Math.ceil(width) + "px";
+						svg.style.width = "100%";
+					}
 					svg.style.height = "auto";
 					svg.removeAttribute("width");
 					svg.removeAttribute("height");
 				}
-				if (data.viewer) fitToScreen(root);
-				else watchHeight(root);
+				if (data.viewer) {
+					fitToScreen(root);
+					zoomOnDoubleTap(root, Number(data.doubleTapZoom), Number(data.doubleTapMs));
+				} else watchHeight(root);
 				send({ type: "rendered" });
 			})
 			.catch(function () {

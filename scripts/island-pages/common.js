@@ -95,6 +95,81 @@ function fitToScreen(el) {
 	if (k < 1) el.style.zoom = String(k);
 }
 
+/**
+ * The double-tap of a viewer page (issue 05, wide content). WebKit has no
+ * double-tap zoom on a width=device-width page, and its "dblclick" missed
+ * some slow double-taps. So the page uses the rule of the native panes: the
+ * second press comes at most `delayMs` after the first release, near the
+ * same point. It zooms with CSS zoom: `zoom` times the fit around the tapped
+ * point, then back to the fit. The CSS zoom draws the content again, so the
+ * text stays sharp.
+ */
+function zoomOnDoubleTap(el, zoom, delayMs) {
+	if (!(zoom > 1) || !(delayMs > 0)) return;
+	var fit = parseFloat(el.style.zoom) || 1;
+	var near = function (a, b) {
+		return Math.abs(a.x - b.x) <= 30 && Math.abs(a.y - b.y) <= 30;
+	};
+	var released = null;
+	var press = null;
+	var reset = function () {
+		released = null;
+		press = null;
+	};
+	document.addEventListener(
+		"touchstart",
+		function (e) {
+			// A pinch is not a tap.
+			if (e.touches.length !== 1) return reset();
+			var t = e.touches[0];
+			var at = { x: t.clientX, y: t.clientY };
+			press = {
+				x: at.x,
+				y: at.y,
+				second: !!released && Date.now() - released.at <= delayMs && near(at, released),
+			};
+		},
+		{ passive: true },
+	);
+	document.addEventListener(
+		"touchend",
+		function (e) {
+			if (!press || e.touches.length > 0 || e.changedTouches.length !== 1) return reset();
+			var t = e.changedTouches[0];
+			var at = { x: t.clientX, y: t.clientY };
+			// A drag is not a tap.
+			if (!near(at, press)) return reset();
+			if (!press.second) {
+				released = { at: Date.now(), x: at.x, y: at.y };
+				press = null;
+				return;
+			}
+			reset();
+			if (e.cancelable) e.preventDefault();
+			toggleZoom(at);
+		},
+		{ passive: false },
+	);
+	function toggleZoom(at) {
+		var current = parseFloat(el.style.zoom) || 1;
+		if (current > fit) {
+			el.style.zoom = String(fit);
+			window.scrollTo(0, 0);
+			return;
+		}
+		var before = el.getBoundingClientRect();
+		var px = (at.x - before.left) / current;
+		var py = (at.y - before.top) / current;
+		var to = fit * zoom;
+		el.style.zoom = String(to);
+		var after = el.getBoundingClientRect();
+		window.scrollTo(
+			window.scrollX + after.left + px * to - at.x,
+			window.scrollY + after.top + py * to - at.y,
+		);
+	}
+}
+
 /** Sends {type:"wide", wide} when the content is wider than the page. */
 function reportWide(el) {
 	send({ type: "wide", wide: el.scrollWidth > el.clientWidth + 1 });

@@ -175,6 +175,115 @@ describe("wide content: the viewer pages and the wide formula (slice D)", () => 
 		await flush();
 		expect(sent).toContainEqual({ type: "rendered" });
 		expect(sent.some((m) => m.type === "height")).toBe(false);
+		// The chart keeps its natural width (the fit then makes it smaller).
+		// With "100%" in a centered page, WebKit drew it at 300 px.
+		const svg = document.querySelector("#root svg") as unknown as { style: CSSStyleDeclaration };
+		expect(svg.style.width).toBe("900px");
+		expect(svg.style.maxWidth).toBe("none");
+	});
+
+	it("the viewer pages keep the content reachable when it is larger than the screen", () => {
+		for (const html of [MATH_VIEWER_HTML, MERMAID_VIEWER_HTML]) {
+			// margin: auto centers a small chart; a flex center would cut off
+			// the left side of a zoomed one.
+			expect(html).toContain("#root { margin: auto; }");
+			expect(html).not.toContain("justify-content: center");
+			// WebKit's own double-tap zoom stays off; the page does it.
+			expect(html).toContain("touch-action: manipulation");
+		}
+	});
+});
+
+describe("the viewer page double-tap (WebKit has no double-tap zoom at width=device-width)", () => {
+	const ZOOM = { doubleTapZoom: 2.5, doubleTapMs: 350 };
+
+	/** A math viewer page with content twice the screen width (fit 0.5). */
+	function viewer(data: object = ZOOM) {
+		const dom = new JSDOM(MATH_VIEWER_HTML, {
+			runScripts: "outside-only",
+			pretendToBeVisual: true,
+		});
+		const w = dom.window;
+		const proto = w.HTMLElement.prototype;
+		Object.defineProperty(proto, "scrollWidth", {
+			get: () => w.innerWidth * 2,
+			configurable: true,
+		});
+		Object.defineProperty(proto, "scrollHeight", { get: () => 10, configurable: true });
+		w.HTMLElement.prototype.getBoundingClientRect = () =>
+			({ left: 10, top: 20, width: 0, height: 0 }) as DOMRect;
+		const scrollTo = jest.fn();
+		w.scrollTo = scrollTo as unknown as typeof w.scrollTo;
+		const page = w as unknown as Record<string, unknown>;
+		page.ReactNativeWebView = { postMessage: () => {} };
+		page.__lhIslandData = { html: "<p>x</p>", viewer: true, ...data };
+		w.eval(pageScript("math-runtime.js"));
+		const now = jest.spyOn(w.Date, "now");
+		const root = w.document.getElementById("root")!;
+		const touch = (type: string, x: number, y: number, at: number, fingers = 1) => {
+			now.mockReturnValue(at);
+			const event = new w.Event(type, { cancelable: true }) as Event & {
+				touches: { clientX: number; clientY: number }[];
+				changedTouches: { clientX: number; clientY: number }[];
+			};
+			const point = { clientX: x, clientY: y };
+			event.touches = new Array(type === "touchend" ? fingers - 1 : fingers).fill(point);
+			event.changedTouches = [point];
+			w.document.dispatchEvent(event);
+			return event;
+		};
+		/** A tap of 100 ms: the press at `at`, the release 100 ms later. */
+		const tap = (x: number, y: number, at: number) => {
+			touch("touchstart", x, y, at);
+			return touch("touchend", x, y, at + 100);
+		};
+		return { root, touch, tap, scrollTo };
+	}
+
+	it("zooms in around the tapped point, then goes back to the fit", () => {
+		const { root, tap, scrollTo } = viewer();
+		expect(root.style.zoom).toBe("0.5");
+		tap(110, 220, 1000);
+		// Maestro's gap: 253 ms from the release to the next press.
+		expect(tap(112, 221, 1353).defaultPrevented).toBe(true);
+		expect(root.style.zoom).toBe("1.25");
+		// The content point under the finger stays under it. x: it was at
+		// (112 - 10) / 0.5 = 204, now at 10 + 204 * 1.25 = 265, so scroll 153.
+		// y: (221 - 20) / 0.5 = 402, then 20 + 402 * 1.25 - 221 = 301.5.
+		expect(scrollTo).toHaveBeenLastCalledWith(153, 301.5);
+		tap(50, 50, 5000);
+		tap(50, 50, 5300);
+		expect(root.style.zoom).toBe("0.5");
+		expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
+	});
+
+	it("ignores slow taps, taps far apart, a drag and a pinch", () => {
+		const { root, touch, tap } = viewer();
+		// 400 ms from the release to the next press.
+		tap(100, 100, 1000);
+		tap(100, 100, 1500);
+		expect(root.style.zoom).toBe("0.5");
+		tap(100, 100, 3000);
+		tap(200, 100, 3200);
+		expect(root.style.zoom).toBe("0.5");
+		// A drag: the finger lifts far from where it started.
+		tap(100, 100, 5000);
+		touch("touchstart", 100, 100, 5200);
+		touch("touchend", 100, 180, 5300);
+		expect(root.style.zoom).toBe("0.5");
+		// A pinch: two fingers.
+		tap(100, 100, 7000);
+		touch("touchstart", 100, 100, 7200, 2);
+		touch("touchend", 100, 100, 7300, 2);
+		touch("touchend", 100, 100, 7310, 1);
+		expect(root.style.zoom).toBe("0.5");
+	});
+
+	it("does nothing with no zoom in the data", () => {
+		const { root, tap } = viewer({});
+		tap(100, 100, 1000);
+		tap(100, 100, 1200);
+		expect(root.style.zoom).toBe("0.5");
 	});
 });
 

@@ -105,6 +105,10 @@ export function canPan(view: Box, frame: Size, base: number, vp: GraphViewport):
 /** The zoom of a double-tap from the fit. */
 export const DOUBLE_TAP_ZOOM = 2.5;
 
+/** The longest wait for the second tap of a double-tap. The gesture handler
+ *  waits only 200 ms on iOS: a slow double-tap (and Maestro's, 253 ms) failed. */
+export const DOUBLE_TAP_MAX_DELAY_MS = 350;
+
 /** A double-tap at `at` (a point in the frame): from the fit, zoom in to
  *  `DOUBLE_TAP_ZOOM` around that point; when zoomed in, back to the fit. */
 export function doubleTapViewport(

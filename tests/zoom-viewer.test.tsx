@@ -7,13 +7,19 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react-n
 import * as Clipboard from "expo-clipboard";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { MATH_VIEWER_HTML, MERMAID_VIEWER_HTML } from "lh-island-pages";
+import { useTapGesture } from "react-native-gesture-handler";
 import { StyleSheet, Text } from "react-native";
 
 import { DIAGRAM_ERROR } from "@/components/islands";
 import { codeWidth, Markdown } from "@/components/markdown";
 import { PlanBlock } from "@/components/plan-graph";
 import * as planGraphLib from "@/lib/plan-graph";
-import { DOUBLE_TAP_ZOOM, doubleTapViewport, fitViewport } from "@/lib/zoom-viewport";
+import {
+	DOUBLE_TAP_MAX_DELAY_MS,
+	DOUBLE_TAP_ZOOM,
+	doubleTapViewport,
+	fitViewport,
+} from "@/lib/zoom-viewport";
 import type { PlanTree } from "@/lib/shared";
 import {
 	islandData,
@@ -24,6 +30,11 @@ import {
 } from "./helpers/fake-webview";
 
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
+// The real tap hook, with its config recorded.
+jest.mock("react-native-gesture-handler", () => {
+	const actual = jest.requireActual("react-native-gesture-handler");
+	return { ...actual, useTapGesture: jest.fn((config) => actual.useTapGesture(config)) };
+});
 jest.mock("expo-screen-orientation", () => ({
 	lockAsync: jest.fn(() => Promise.resolve()),
 	OrientationLock: { DEFAULT: 0, PORTRAIT_UP: 3 },
@@ -89,6 +100,17 @@ describe("doubleTapViewport", () => {
 		const k1 = base * DOUBLE_TAP_ZOOM;
 		expect(zoomed.x + 150 / k1).toBeCloseTo(fit.x + 150 / k0);
 		expect(doubleTapViewport(view, frame, base, zoomed, { x: 0, y: 0 })).toEqual(fit);
+	});
+});
+
+describe("the double-tap gesture", () => {
+	it("waits long enough for a slow second tap (the iOS handler default is 200 ms)", async () => {
+		await show(`\`\`\`ts\n${LONG}\n\`\`\``);
+		await press("md-expand-code");
+		const config = jest.mocked(useTapGesture).mock.calls.at(-1)![0];
+		expect(config).toMatchObject({ numberOfTaps: 2, maxDelay: DOUBLE_TAP_MAX_DELAY_MS });
+		// Maestro's two taps are 253 ms apart.
+		expect(DOUBLE_TAP_MAX_DELAY_MS).toBeGreaterThanOrEqual(300);
 	});
 });
 
@@ -211,7 +233,13 @@ describe("Mermaid in the viewer", () => {
 			(w) => w.props.source && (w.props.source as { html: string }).html === MERMAID_VIEWER_HTML,
 		);
 		expect(viewerPage).toBeTruthy();
-		expect(islandData(viewerPage!)).toMatchObject({ source: "graph TD; A-->B", viewer: true });
+		expect(islandData(viewerPage!)).toMatchObject({
+			source: "graph TD; A-->B",
+			viewer: true,
+			// The page zooms on a double-tap like the native panes.
+			doubleTapZoom: DOUBLE_TAP_ZOOM,
+			doubleTapMs: DOUBLE_TAP_MAX_DELAY_MS,
+		});
 	});
 
 	it("W4. shows the error in the viewer when the page cannot draw", async () => {

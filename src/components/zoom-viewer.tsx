@@ -25,6 +25,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
 	canPan,
+	DOUBLE_TAP_MAX_DELAY_MS,
 	doubleTapViewport,
 	fitViewport,
 	panViewport,
@@ -326,6 +327,7 @@ export function NativeZoomPane({
 		runOnJS: true,
 		disableReanimated: true,
 		numberOfTaps: 2,
+		maxDelay: DOUBLE_TAP_MAX_DELAY_MS,
 		onActivate: g.doubleTap,
 	});
 

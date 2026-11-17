@@ -43,6 +43,7 @@ if (!apply(first)) {
 } else if (first.viewer) {
 	// The full-screen viewer: the formula fits the screen; no height.
 	fitToScreen(root);
+	zoomOnDoubleTap(root, Number(first.doubleTapZoom), Number(first.doubleTapMs));
 	send({ type: "rendered" });
 } else {
 	watchHeight(root);

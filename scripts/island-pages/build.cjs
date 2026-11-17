@@ -40,7 +40,8 @@ const VIEWER_VIEWPORT =
  *  can scroll; the page script fits it to the screen (`fitToScreen`). */
 const VIEWER_CSS = `
 html, body { height: 100%; }
-body { overflow: auto; display: flex; align-items: center; justify-content: center; }
+body { overflow: auto; display: flex; touch-action: manipulation; }
+#root { margin: auto; }
 #root, .katex-display { overflow: visible; }
 `;
 

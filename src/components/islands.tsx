@@ -28,6 +28,7 @@ import type { MathIsland as MathIslandData } from "@/lib/math-html";
 import type { UserMessage } from "@/lib/user-error";
 import { openLink } from "@/lib/open-link";
 import { userMessage } from "@/lib/user-error";
+import { DOUBLE_TAP_MAX_DELAY_MS, DOUBLE_TAP_ZOOM } from "@/lib/zoom-viewport";
 import { copyActions, CopyLabel, useCopy } from "./copy";
 import { useNearScreenState } from "./island-viewport";
 import { useReportReady } from "./reveal";
@@ -94,7 +95,13 @@ function WebViewerPane({
 				key={fitKey}
 				html={html}
 				script={script}
-				data={data}
+				data={{
+					...data,
+					viewer: true,
+					// The page zooms on a double-tap like the native panes.
+					doubleTapZoom: DOUBLE_TAP_ZOOM,
+					doubleTapMs: DOUBLE_TAP_MAX_DELAY_MS,
+				}}
 				fill
 				minHeight={0}
 				maxHeight={0}
@@ -225,7 +232,7 @@ export function MathIsland({
 						<WebViewerPane
 							html={MATH_VIEWER_HTML}
 							script={MATH_SCRIPT}
-							data={{ ...viewing, viewer: true }}
+							data={viewing}
 							fitKey={fitKey}
 							error={FORMULA_ERROR}
 							c={c}
@@ -359,7 +366,7 @@ export function MermaidIsland({
 						<WebViewerPane
 							html={MERMAID_VIEWER_HTML}
 							script={MERMAID_SCRIPT}
-							data={{ ...data, viewer: true }}
+							data={data}
 							fitKey={fitKey}
 							error={DIAGRAM_ERROR}
 							c={c}
