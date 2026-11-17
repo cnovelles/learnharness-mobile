@@ -1,0 +1,28 @@
+# A long session opens at its last message, not at the top. It needs:
+#   1. The test Mac with the golden data: LH_E2E_GOLDEN=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:open-long
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+- tapOn: "test session, no probing.*"
+# The last teacher text shows with no scroll by the learner.
+- extendedWaitUntil:
+    visible: ".*PDF extraction remains untested.*"
+    timeout: 30000
+- takeScreenshot: e2e/screenshots/open-long-session

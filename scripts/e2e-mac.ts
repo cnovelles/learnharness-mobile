@@ -34,6 +34,11 @@
  * It also makes the prober send a probe_done that the Mac refuses, then a
  * rich assessment with 3 strands (slice D).
  *
+ * LH_E2E_GOLDEN=1 copies the fork's golden data (tests/fixtures/golden-data:
+ * chats and graph) into the data folder: a long recorded teach session, a
+ * practice session and a real graph. For the session open position and
+ * the issue 08 screens.
+ *
  * LH_E2E_GATEWAY_HOST=<IPv4> makes the gateway listen on that address and
  * puts only that address in the pairing text (default 127.0.0.1). Use the
  * Mac's Tailscale address (100.x) to check the phone's App Transport
@@ -265,6 +270,13 @@ async function main() {
 	});
 	if (server.dataDir.includes("Application Support"))
 		throw new Error("refusing the real data folder");
+	if (process.env.LH_E2E_GOLDEN === "1") {
+		// The fork's recorded data: a long teach session (95 messages, one
+		// compaction), a practice session and the graph ledgers.
+		const golden = path.join(FORK, "tests/fixtures/golden-data");
+		for (const dir of ["chats", "graph"])
+			fs.cpSync(path.join(golden, dir), path.join(server.dataDir, dir), { recursive: true });
+	}
 
 	const json = { ...DESKTOP, "content-type": "application/json" };
 	const get = await fetch(`${server.url}/api/custom-provider`, { headers: DESKTOP });

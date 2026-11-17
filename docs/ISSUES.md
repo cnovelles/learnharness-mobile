@@ -488,7 +488,19 @@ Blocked by: 03.
 - The gateway allows `GET /api/graph`, `/status`, `/sources`, `/costs` and `/api/models`. It refuses all graph writes (delete node or source, rename, folders, positions, render settings, import). Issue 08 is read only.
 - Golden fixtures: `../learnharness/tests/fixtures/golden-data/` (2 chats, about 282 node lines, 160 chain lines, 4 notes sources with 8 extraction runs). The fork's test checks only counts and shapes. Many nodes come from chats that are not in the fixture: their source is `missing` and shows as "unlabeled". No expected graph, cost or context values exist yet.
 
-### Design choices (mockups shown 2026-11-17, waiting for the user)
+### Decisions (user, 2026-11-17, after the mockups)
+
+The app gets a tab bar (issue 20). Issue 08 now lives in the **Graph tab**. The choices below were asked first; the answers:
+
+- 1 is replaced by the tab bar (issue 20).
+- 2B: two-line chain rows with search and a sort menu (the Chains screen opens from the Graph tab).
+- 3A: one stats line under the composer and a stats sheet. Usage also goes in Settings.
+- 4A: the cost chip and the run rows (on the Graph tab).
+- 5: TeX as text in the list, math in an opened chain.
+- 6 changed: the Graph tab shows the connectivity graph canvas, as the desktop (with Search, Chains, the cost chip). The canvas needs its own design step: mockups and a tech choice (for example Skia with gesture handler, or the desktop canvas code in a WebView) before code.
+- Slice A (fork: chain rows and stats helpers into `src/core`) runs in the side session `fork-chain-rows` (`local_162677a1`, started 2026-11-17).
+
+### Design choices as first asked (2026-11-17)
 
 1. Where the knowledge view lives: A, a "Your knowledge" section on home (counts and a Chains row; recommended), or B, a tab bar (Sessions, Knowledge).
 2. Chain rows on a 375 pt screen: A, the desktop columns, or B, two-line rows (name, then "41 props · 2026-11-10") with search and a sort menu (recommended).
@@ -521,6 +533,53 @@ Blocked by: 03.
 - **D. Session stats.** The line and the sheet from choice 3: `pricing` from the record, `measuredContextTokens`, the limit from `/api/models`; update after each turn and after a compaction. Golden test with the fork's recorded teach chat (25 turns, 1 compaction).
 - **E. Pipeline cost (if 4A).** The cost chip, the cost sheet and the run rows; refresh on the `activity-changed` event.
 - **F. Checks.** `npm run test:integration` against the fork server on a copy of the golden data (the phone values equal the desktop helper values); a Maestro flow on both Simulators (Pro Max and SE); screenshots for the user.
+
+## 20 Tab bar, Teach and Practice tabs, folders `todo`
+
+User request 2026-11-17 (screenshots of the "Hello Interview" app as the reference; keep our colors, no theme change now). Plan: `~/.claude/plans/twinkly-swinging-snowglobe.md`.
+
+### Decisions (user, 2026-11-17, from mockups)
+
+- A bottom tab bar with 3 tabs: **Teach**, **Practice**, **Graph**. No fourth tab. Settings is a gear at the top of each tab; usage goes in Settings.
+- A tap on a session opens it full screen with no tab bar; back returns to the tab.
+- Teach tab: a "Continue learning" card (the newest teach session, plan step "3 of 7", "Your turn" badge, Continue). Then the sessions grouped by the **desktop folders** (the Chains table folders from `GET /api/graph/sources`), and a "Not in a folder" group. The row number is the **concepts learned** (propositions whose birth session, `provenance[0].chatId`, is that session).
+- Folders change from the phone with a **long press** (option A): on a session, "Move to folder…" (a sheet: the folders, Not in a folder, New folder…) and "Rename"; the "…" on a folder header gives Rename, New subfolder, Delete (only when empty).
+- Practice tab: a "Continue practice" card, then the sessions **by time** (Today, This week, Earlier) with the problem count on each row. The desktop keeps practice sessions out of the folders.
+- "+" in each tab header opens New session with the right kind.
+
+### Facts
+
+- `GET /api/chats` gives `ChatListItem` (title, dates, kind, messageCount, phase, `pendingQuestion`, `pendingProblem`, busy, compacting). It has no problem count: load the practice records for the visible rows and cache by `updatedAt`.
+- The folder route: `POST /api/graph/sources` with `OrganizationAction` (`create-folder`, `rename-folder`, `rename-source`, `move`, `delete-folder`; fork `src/core/source-organization.ts`). It changes only the folder list and the display names, never a session. The server checks the input (`SourceOrganizationInputError`, `canMoveFolder`, empty folder delete). `DELETE /api/graph/sources` deletes sources: it stays refused.
+- The gateway refuses `POST /api/graph/sources` now. Opening it lowers a security floor: audit first (`docs/TRANSPORT-SECURITY.md`), one place for phone writes in `electron/phone-access.cjs` (a `PHONE_WRITES` table with a body guard: JSON, at most 4 KB, the 5 actions), fork tests.
+
+### Slices
+
+- A. Tab shell: `(tabs)` group (`teach`, `practice`, `graph`), the root Stack keeps `session/[id]`, `new-session`, `settings`, `pair` over the tabs. Read the SDK 58 router docs first (native or JS tabs).
+- B. Teach tab: `src/lib/teach-shelf.ts` (pure), the continue card, folder groups, concept counts.
+- C. Practice tab: `src/lib/practice-shelf.ts` (pure), time groups, problem counts.
+- D. Folder changes: fork gateway write (audit, guard, tests, push to `fork`), phone long press menu, Move sheet, folder menu, refresh on `sources-changed`.
+- E. Checks: Maestro flows updated for the tabs, a folder move flow with `LH_E2E_GOLDEN=1`, both Simulators, screenshots light and dark.
+
+### Error states
+
+| State                                                                                   | Message and behavior                                                                            |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1. The sources call fails                                                               | All sessions under "Not in a folder"; a quiet note "Folders could not be loaded."               |
+| 2. The graph call fails                                                                 | No numbers on the rows.                                                                         |
+| 3. The chats call fails                                                                 | The connection banner or "Your sessions could not be loaded. Pull to try again."                |
+| 4. A tab is empty                                                                       | "Start a session to begin learning." and the "+" button.                                        |
+| 5. The Mac refuses the folder route (older fork build)                                  | "Update LearnHarness on your Mac to change folders."                                            |
+| 6. The Mac refuses a folder change (400: bad name, a cycle, a folder that is not empty) | The server's case as a message from `describeError` (never raw text). The list stays as it was. |
+| 7. The network fails during a folder change                                             | "Not saved. Check the connection to your Mac." The list stays as it was.                        |
+
+## Session open position (bug, 2026-11-17) `doing`
+
+- The user's report: a session opens at the top, not at the last message. The user thinks a touch during the load stopped the scroll to the end.
+- Likely cause (not confirmed on the Simulator yet): `createEndFollow` (`src/components/island-viewport.tsx`) starts with `following = true`, but a drag during the top-to-bottom reveal (up to 1.5 s for each front block) sets it to false. Each `scrollToEnd` is animated, so a long session crawls down.
+- User decision: **open at the end, and a "↓ Latest" button** when the learner is not at the end and content is below. A tap scrolls to the end and turns the follow on.
+- Fix plan: an "opening" phase in `createEndFollow` (pure, testable): until the first reveal is done, `scrollToEnd({ animated: false })` on each size change, and a touch does not end the follow. Unit tests and a screen test for the button.
+- E2E: `LH_E2E_GOLDEN=1 npm run e2e:mac` copies the fork's golden data (a 95-message teach session) into the test Mac; `npm run e2e:open-long` (`e2e/open-long-session.yaml`) opens it and waits for the last teacher text. The first run (2026-11-17) failed at "Connected · Test Mac" (likely the known first launch after Metro `--clear`; not checked). Run it again with a new `e2e:mac` before the fix, to see the bug, then after.
 
 ## 09 Local store and outbox `todo`
 

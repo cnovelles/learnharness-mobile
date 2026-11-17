@@ -68,6 +68,7 @@
     "e2e:teach": "sh scripts/e2e-test.sh e2e/teach-cycle.yaml",
     "e2e:rich": "sh scripts/e2e-test.sh e2e/rich-lesson.yaml",
     "e2e:wide": "sh scripts/e2e-test.sh e2e/wide-content.yaml",
+    "e2e:open-long": "sh scripts/e2e-test.sh e2e/open-long-session.yaml",
     "e2e:practice": "sh scripts/e2e-test.sh e2e/practice.yaml",
     "e2e:dictation": "sh scripts/e2e-test.sh e2e/dictation.yaml",
     "e2e:dictation-settings": "sh scripts/e2e-test.sh e2e/dictation-settings.yaml",
