@@ -167,7 +167,7 @@ Found for later: rich rendering (issue 05: Markdown, code blocks, the probe asse
 
 Acceptance: the Maestro E2E passes; each error state above has a Jest test; the user checks one real teach cycle on the Simulator. All three are done.
 
-## 05 Rich rendering `doing`
+## 05 Rich rendering `done`
 
 Blocked by: 03.
 
@@ -265,7 +265,7 @@ Accepted limit: inline code in native text gets only a color and a background (n
     - Flow facts: Maestro reads a text selector as a regex that must match the whole text (write `.*Image blocked: moon.*`, not `[Image blocked: moon]`). Maestro counts an element under the composer as visible, so a tap on it can hit the composer: move the target into the top half of the screen first.
     - Seen on the SE: the Mermaid chart is wider than the screen; it keeps its text size and scrolls sideways inside its island (checked by hand), as designed (error state 15).
     - CI: the first session screen test in `tests/app-session.test.tsx` took more than 5 s on the CI runner (about 1 s on the Mac), because it loads the whole rich renderer. The file now has a 20 s limit.
-    - Open: the user checks one real lesson on the Simulator. Claude cannot do it alone: a real lesson needs a model sign-in or an API key, and no key or local model is on this Mac (checked 2026-11-15).
+    - Done (2026-11-17): the user checked real lessons on the iPhone (Release build with `8c452a0`): the rich blocks and the wide content viewers. Claude cannot run a real lesson alone: it needs a model sign-in or an API key, and no key or local model is on this Mac (checked 2026-11-15).
 
 New native modules: `react-native-svg`, `react-native-webview`, `expo-clipboard`. Add them with `npx expo install`. They need a new dev build.
 
@@ -346,7 +346,8 @@ State (2026-11-16):
   - Simulator: `npm run e2e:wide` passes on the SE and the Pro Max with this change. On the SE the comment wraps in two rows and the code goes past the edge at 11 pt. One SE run of three missed Maestro's double-tap (the screenshot after it did not change); the other two zoomed. Check the double-tap by hand on the iPhone.
 - Release build with `8c452a0` installed on the iPhone over Wi-Fi (2026-11-17).
 - User check on the iPhone (2026-11-17): "the zoom feature works well". The user first saw no sideways drag at the fit, then said it is probably not a bug. On the SE Simulator a drag at the fit moves a long code line with no zoom (new step `08b-code-drag` in `e2e/wide-content.yaml`, `9c68e0b`). On the iPhone 13 Pro Max (428 pt) the code of that lesson probably fit at 11 pt, so nothing was past the edge.
-- Not done: the user confirms the rest on the iPhone (a drag on a code line longer than the screen, the Mermaid and math viewers, landscape, Copy). Then mark issue 05 wide content done.
+- User check on the iPhone, part 2 (2026-11-17): all pass. A drag at the fit moves a code line longer than the screen. The Mermaid and math viewers zoom, drag and go back with Fit. A turn while zoomed goes back to the fit for the new size, and the page never scrolls sideways. Copy gives the full code with no line numbers.
+- Wide content is done (2026-11-17), and with it issue 05.
 - Tests: `tests/table-fit.test.ts`, `tests/zoom-viewer.test.tsx` (W1, W2, W4, W5, W7, W8, W9, the double-tap delay, the viewer data, the 11 pt floor and the comment wrap), `tests/code-comments.test.ts`, page-script tests in `tests/island-runtime.test.ts` (also the page double-tap and the viewer CSS), `tests/helpers/code-text.ts`. Jest 617.
 
 ## 06 Practice on the phone `done`
@@ -467,7 +468,7 @@ Blocked by: 04.
 - Tests: Jest 575 (`tests/dictation*.test.ts`, `tests/app-dictation.test.tsx` with the fake Mac's `/api/settings` and `/api/stt/token`), `npm run test:native-dictation`, `npm run test:native-deepgram`. In a full parallel Jest run, `app-pairing`, `golden-transcript` and `markdown` can fail from load on this Intel Mac; they pass with `--runInBand`.
 - F: done (2026-11-16). `npm run e2e:dictation` and `npm run e2e:dictation-settings` pass on the Pro Max and the SE. The first SE run failed at pairing (the known first-launch problem: Maestro typed the pairing text before the field was ready); it passed with a new `e2e:mac`. The new Release build (bundle 12:27) is on the iPhone (over Wi-Fi). The user's check on the iPhone passed: the on-device mic in a real lesson gives the text, and the run does not stop when the user scrolls.
 - Not done: the Deepgram check on the iPhone. The user has no Deepgram key yet (user decision 2026-11-16: later). When the user has a key: put it on the Mac (Settings, Keys), select "Deepgram" in the phone's Settings, and speak the same sentence. To read the phone's logs after a failure: `sudo log collect --device-udid 00008110-001430DE3A29801E --last 10m --output <dir>`, then `log show --predicate 'category == "dictation"'` on the archive (needs the user's Mac password).
-- Next: issue 05 wide content (built; see its "State"). The Deepgram check waits for the user's key.
+- Next: the Deepgram check waits for the user's key. Issue 05 is done (2026-11-17).
 - User remarks 2026-11-16: the keyboard mic stops when the user scrolls; the app's mic must not (it stops only on Stop, the background, or an iOS interruption). Check this on the iPhone. The user finds the iOS keyboard dictation poor and wants to compare Deepgram (and asked about Speechify; its engine is not known).
 
 ## 08 Graph list, cost and context `todo`
