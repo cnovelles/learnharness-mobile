@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-17 (issue 05 done: the user's iPhone check of the wide content passed; issue 07 done except the Deepgram check; the phone repo is AGPL-3.0-only).
+Last update: 2026-11-17 (issue 08 started: facts, error states and slices in `docs/ISSUES.md`; 6 design choices wait for the user).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-17 (issue 05 done: the user's iPhone check of the wide cont
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Pick the next issue with the user from `docs/ISSUES.md` (open: 08 graph list, cost and context; 09 local store and outbox; 10 sync; 11 mode switch and Settings; 12 mode 3 engine; 13 export; 14 cloud host; 16 ChatGPT sign-in test; 19 visual and demo artifacts). Issue 05 is done (2026-11-17). The iPhone has the Release build with `8c452a0`; its free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
+**Next step:** Issue 08 (graph list, cost and context, the user's choice on 2026-11-17). Get the user's answers to the 6 design choices in `docs/ISSUES.md` issue 08 (mockups were shown), then build slice A (fork: pure chain rows in `src/core`). Other open issues: 09, 10, 11, 12, 13, 14, 16, 19. The iPhone has the Release build with `8c452a0`; its free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
 
 **Facts found during the work**
 
@@ -63,6 +63,7 @@ Last update: 2026-11-17 (issue 05 done: the user's iPhone check of the wide cont
 - State (2026-11-15, after issue 06): slices D (`bff1b1a`) and E are done. `npm run e2e:practice` passed on the SE and the Pro Max. Nothing runs now (Metro and the test Mac are stopped). Both Simulators are booted in dark mode, paired with a stopped test Mac, and have the current dev build. CI passed for `1fc767d`.
 - Loading states (2026-11-15): the transcript reveals top to bottom with a 1.5 s limit for each block (user decision). See `docs/ISSUES.md`, issue 05, "Loading states". Also fixed after the user's check: Next problem waits until the Mac accepts a dismissal (`9816092`).
 - State at the clear (2026-11-15, tenth clear): issue 06 is done (`bff1b1a` slice D, `621bd5e` slice E, `9816092` the dismissal fix from the user's check). Transcript loading states are done (`46c37e6`, top-to-bottom reveal). CI passed for all four. Jest 519 pass (one full-suite run had 1 failure that did not repeat in 2 more runs; watch for a flaky test under load). The fork has no new commits since `c6e79ca`. Nothing runs now (Metro and the test Mac are stopped). Both Simulators have the current dev build (no native change) and are booted in dark mode; both are paired with a stopped test Mac, so a manual check needs a new `LH_E2E_RICH=1 npm run e2e:mac`, Metro with `--clear`, and pairing again (Settings > Forget this Mac, or `clearState` in a Maestro flow).
+- State 2026-11-17 (issue 08 plan): no code yet. Both repos are clean before this docs commit (phone `78b44ec`, fork `679599b`). Nothing runs. The desktop has no mastery level in the graph and no "graph list": the phone gets the chain table and the session stats line (see issue 08 Facts).
 - State 2026-11-17 (later): issue 05 done. The user's iPhone check passed (the long code line drag, the Mermaid and math viewers, landscape, Copy).
 - State 2026-11-17: issue 05 wide content A to F done: `npm run e2e:wide` passes on both Simulators after three fixes (the native double-tap delay, the Mermaid viewer width, a page double-tap for the WebKit viewers), and with the user's code viewer fit (option B: 11 pt floor, comment lines wrap, end comments stay). Jest 617 pass in band. The dev build on both Simulators has no native change since 2026-11-17. Nothing runs. The iPhone has the Release build with `8c452a0` (2026-11-17). License: the phone repo is AGPL-3.0-only (`aa96cbd`), because it imports LearnHarness code; the old LICENSE was the Expo template's MIT. App Store and AGPL can conflict (from memory, not checked); the user should ask a lawyer before a store launch. Compact after every logical step (user rule 2026-11-17). The fork's `next dev` sometimes stops at start with a Next.js security upgrade notice; start `e2e:mac` again (the upgrade was not run; it is the user's choice).
 - State after the twelfth clear (2026-11-16): the issue 07 E2E flows pass on both Simulators. The new Release build is on the iPhone (profile until 2026-11-23), and the on-device mic passed the user's check in a real lesson (scroll does not stop it). The Deepgram check waits for a key. Nothing runs (Metro and the test Mac are stopped).

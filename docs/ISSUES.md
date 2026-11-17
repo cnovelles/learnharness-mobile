@@ -471,12 +471,56 @@ Blocked by: 04.
 - Next: the Deepgram check waits for the user's key. Issue 05 is done (2026-11-17).
 - User remarks 2026-11-16: the keyboard mic stops when the user scrolls; the app's mic must not (it stops only on Stop, the background, or an iOS interruption). Check this on the iPhone. The user finds the iOS keyboard dictation poor and wants to compare Deepgram (and asked about Speechify; its engine is not known).
 
-## 08 Graph list, cost and context `todo`
+## 08 Graph list, cost and context `doing`
 
 Blocked by: 03.
 
 - Graph list and chain table from `GET /api/graph`; session cost and context use from the chat record.
   Acceptance: values match the desktop for the golden fixtures.
+
+### Facts (fork `679599b`, read 2026-11-17)
+
+- `GET /api/graph` returns `GraphSnapshot` (`src/core/contracts/graph.ts`): `propositions` (the chain table's list), `nodes` (also derived `arg_` nodes), `chains`, `sessions` (chat id to title), `fileSources`, `nodeSessions`, `clusters`, `positions`. There is no mastery or status level (removed upstream on 2026-09-27). The route comment about "understanding observations" is out of date.
+- The desktop has no "graph list". Home is the canvas graph (`components/graph-view.tsx`) or `MinimalHome` (counts only). The chain table (`components/chain-table.tsx`) is an overlay from a "Chains" button. It groups chains by source (the birth session of the conclusion, inside the user's folders from `GET /api/graph/sources`), then chain lines (`A ∧ B ⟹ C`, KaTeX), then the statements. Columns: Name, Props, Created. Sort by name ascending first; fuzzy search over name, aliases, statement and source; practice sources are hidden; empty text "No matching chains."; header "N chains · M nodes". Nothing in it opens a session.
+- The pure helpers are in the fork's `src/core` with no DOM or `node:` import: `chainsForSelection`, `formatChainLine` (`chains.ts`), `fuzzyScore` (`fuzzy.ts`), `sourceFileLabel` (`source-label.ts`), `chainSourceDirectory` (`source-organization.ts`). Import the files directly: the `@/src/core` barrel brings `node:crypto`. The sort, group and filter code is inside the component (`chain-table.tsx` lines 188 to 296), not in `src/core`.
+- Session stats: `components/stats-bar.tsx` under the composer, `38k / 200k · $0.0123`; a tap opens "Session stats" (context, total cost, cache hit rate, unpriced turns, one row for each turn). Cost: `GET /api/chats/:id` already has `pricing` (`SessionPricing`, `sessionCost(chat)`). The dollars come from the Pi model catalog on the Mac, so the phone shows `pricing` and does not compute it. Context: `measuredContextTokens` (`src/core/context-usage.ts`, React Native safe) over the messages; the limit from `GET /api/models` (`catalogLimits`, `contextLimitForModel`); Claude Code CLI models use `cliContextWindowOf` (`native-messages.ts`, many imports). The format helpers are in `components/stats-bar.tsx` and `components/usage-format.ts` (pure, but in `components/`).
+- Graph pipeline cost: `GET /api/graph/costs` (`GraphCostSummary`: extraction and audit dollars, recent runs). Runs in progress: `GET /api/graph/status` (queued, extracting, waiting, auditing, merging). The desktop refreshes them on the `activity-changed` event.
+- The gateway allows `GET /api/graph`, `/status`, `/sources`, `/costs` and `/api/models`. It refuses all graph writes (delete node or source, rename, folders, positions, render settings, import). Issue 08 is read only.
+- Golden fixtures: `../learnharness/tests/fixtures/golden-data/` (2 chats, about 282 node lines, 160 chain lines, 4 notes sources with 8 extraction runs). The fork's test checks only counts and shapes. Many nodes come from chats that are not in the fixture: their source is `missing` and shows as "unlabeled". No expected graph, cost or context values exist yet.
+
+### Design choices (mockups shown 2026-11-17, waiting for the user)
+
+1. Where the knowledge view lives: A, a "Your knowledge" section on home (counts and a Chains row; recommended), or B, a tab bar (Sessions, Knowledge).
+2. Chain rows on a 375 pt screen: A, the desktop columns, or B, two-line rows (name, then "41 props · 2026-11-10") with search and a sort menu (recommended).
+3. Session cost and context: A, one line under the composer and a stats sheet (recommended, as the desktop), or B, in the header under the phase.
+4. Graph pipeline cost and the runs in progress: A, a cost chip and run rows on the chain list (recommended), or B, Mac only.
+5. Math in chain names: draw TeX as text in the list and as math in an opened chain, or math islands in each row (many WebViews in a long list).
+6. The canvas graph: not in issue 08 (recommended: a later issue if the user wants it).
+
+### Error states
+
+| State                                                                           | Message and behavior                                                       |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 1. The Mac is not reachable when the list loads                                 | The connection banner; the last loaded list stays, with "Not up to date".  |
+| 2. The Mac refuses a graph route (403, an older fork build)                     | "Update LearnHarness on your Mac to see your knowledge."                   |
+| 3. The snapshot or sources body is not valid                                    | "Your knowledge could not be loaded. Pull to try again." No raw text.      |
+| 4. The graph is empty                                                           | "Start a session to begin learning." (the desktop text).                   |
+| 5. A search finds nothing                                                       | "No matching chains."                                                      |
+| 6. The sources call fails, the graph call works                                 | Group by session titles and file names (the desktop fallback); no folders. |
+| 7. A source is missing (its chat is gone)                                       | The row shows "unlabeled" and sorts last.                                  |
+| 8. No turn has a price                                                          | Cost shows "—", never "$0.0000".                                           |
+| 9. The model's context limit is not known (`/api/models` fails or has no entry) | Show only the tokens ("38k").                                              |
+| 10. No measured context (no usage yet, or a compaction marker last)             | Show "?" for the tokens.                                                   |
+| 11. The costs or status call fails                                              | Hide the cost chip and the run rows; the list still shows.                 |
+
+### Slices (plan, after the user's choices)
+
+- **A. Fork: pure chain rows.** Move the chain table's sort, group, filter and label code from `components/chain-table.tsx` into `src/core/chain-rows.ts`, and the stats format helpers into `src/core` (no behavior change; the desktop uses the new module). Fork tests for the module. Push to `fork` only.
+- **B. Phone data.** `src/lib/knowledge.ts`: fetch and check the snapshot, the sources, the costs and the status; the view model from the fork's `chain-rows.ts`. Golden test: the fork's golden data through `graphSnapshot` and the desktop row code, against the phone model (same counts, order, labels, dates).
+- **C. Phone screens.** The entry from choice 1 and the chain list from choice 2: search, sort, open and close a source and a chain, statements as Markdown. Every error state above with a test.
+- **D. Session stats.** The line and the sheet from choice 3: `pricing` from the record, `measuredContextTokens`, the limit from `/api/models`; update after each turn and after a compaction. Golden test with the fork's recorded teach chat (25 turns, 1 compaction).
+- **E. Pipeline cost (if 4A).** The cost chip, the cost sheet and the run rows; refresh on the `activity-changed` event.
+- **F. Checks.** `npm run test:integration` against the fork server on a copy of the golden data (the phone values equal the desktop helper values); a Maestro flow on both Simulators (Pro Max and SE); screenshots for the user.
 
 ## 09 Local store and outbox `todo`
 
