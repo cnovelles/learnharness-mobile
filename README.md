@@ -54,3 +54,9 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## License
+
+This app is a work based on [LearnHarness](https://github.com/amosblomqvist/learnharness) by Amos Blomqvist. It uses LearnHarness code (`src/lib/shared.ts` imports the fork through `@lh/`), and the fork has changes for phone access (`mobile/phone-access` in [cnovelles/learnharness](https://github.com/cnovelles/learnharness)).
+
+The license is the GNU Affero General Public License, version 3 only ([AGPL-3.0](LICENSE)), the same as LearnHarness.
