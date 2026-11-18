@@ -547,6 +547,14 @@ User request 2026-11-17 (screenshots of the "Hello Interview" app as the referen
 - Practice tab: a "Continue practice" card, then the sessions **by time** (Today, This week, Earlier) with the problem count on each row. The desktop keeps practice sessions out of the folders.
 - "+" in each tab header opens New session with the right kind.
 
+### Decisions (user, 2026-11-17, from the issue 20 mockups)
+
+- Mockups of six screens: the Teach tab, the long press menu on a session, the Move to folder sheet, the folder "…" menu, the Practice tab, the error and empty states.
+- Teach tab order: the desktop order (fork `renderLevel` in `components/source-folder-tree.tsx`, default sort by name, `DEFAULT_CHAIN_SORT`): at each level, folders and sessions mix, sorted by name; subfolders indent. Sessions with no folder go in a separate "Not in a folder" group after all folders (the user kept this; the desktop mixes them with the top-level folders).
+- The Graph tab shows the placeholder text "The graph comes in a later update." until issue 08. The tab bar keeps 3 tabs.
+- The folder menu's Delete on a folder that is not empty is grey; a tap says "Move the sessions out first." On an empty folder it is red and asks before the delete.
+- Move the fork's folder order (`renderLevel`, the sort and the visible folder filter) to the fork's `src/core` as pure code, so the phone imports it (as `src/core/chain-rows.ts`).
+
 ### Facts
 
 - `GET /api/chats` gives `ChatListItem` (title, dates, kind, messageCount, phase, `pendingQuestion`, `pendingProblem`, busy, compacting). It has no problem count: load the practice records for the visible rows and cache by `updatedAt`.
