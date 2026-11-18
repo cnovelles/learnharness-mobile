@@ -554,6 +554,8 @@ User request 2026-11-17 (screenshots of the "Hello Interview" app as the referen
 - The Graph tab shows the placeholder text "The graph comes in a later update." until issue 08. The tab bar keeps 3 tabs.
 - The folder menu's Delete on a folder that is not empty is grey; a tap says "Move the sessions out first." On an empty folder it is red and asks before the delete.
 - Move the fork's folder order (`renderLevel`, the sort and the visible folder filter) to the fork's `src/core` as pure code, so the phone imports it (as `src/core/chain-rows.ts`).
+- Style (user, after the second mockups): the inset grouped style of the reference app, in our colors. A section label over each group (the folder name, or Today / This week / Earlier). The rows of a group sit in one rounded card (`panel` color, `line` border, radius 14, dividers). A row: the title (prose font, 15 pt), then the count ("12 concepts", "4 problems") and a chevron on the right; one line only, plus a small mono second line only when something waits ("A question waits", "A problem waits"). Rows at least 44 pt high. The active tab uses `accent` in light mode and `text` in dark mode.
+- Subfolders: option A. Each subfolder is its own section, with the path in the label ("Databases › Postgres"), in the desktop order (depth first, by name). All sessions show on one screen (no folder screen). A folder with no sessions and no subfolders still shows its section with an empty-folder line, so its "…" menu stays reachable.
 
 ### Facts
 
