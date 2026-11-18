@@ -53,6 +53,7 @@ Last update: 2026-11-18 (issue 20 slice B is done; the end-to-end walkthrough re
 
 **Facts found during the work**
 
+- State 2026-11-18 (compact before the slice C build): the fork code for `problemCount` is read (facts in issue 20 Slices C); no code is changed in either repo. Nothing runs.
 - State 2026-11-18 (compact after the slice B checks): `e2e:practice` and `e2e:open-long` passed on the Pro Max after slice B (`open-long-session.yaml` now taps the row, not the continue card). Slice C decisions are in issue 20. Nothing runs (Metro and the test Mac are stopped). Both Simulators are booted with the dev build; the e2e-walkthrough session is done with them.
 - State 2026-11-18 (compact after issue 20 slice B): slice B is committed. Nothing runs (Metro and the test Mac are stopped). The Pro Max (light) and the SE (dark) are booted with the dev build (no native change). `e2e:practice` and `e2e:open-long` are not run after slice B yet.
 - State 2026-11-17 (compact after issue 20 slice A): the tab shell is committed. Jest 635 pass in band. `e2e:open-long` passed on the Pro Max, `e2e:practice` on the SE. Nothing runs (Metro and the test Mac are stopped). The Pro Max is in light mode, the SE in dark mode; both have the dev build (no native change). The iPhone still has the Release build of `fec7e97` (no tabs yet).
