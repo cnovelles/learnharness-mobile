@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-18 (issue 20 slice B is done: the Teach tab with folders, concept counts and the continue card).
+Last update: 2026-11-18 (issue 20 slice B checks are done; slice C decisions are recorded).
 
 **Done**
 
@@ -47,10 +47,11 @@ Last update: 2026-11-18 (issue 20 slice B is done: the Teach tab with folders, c
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Run `e2e:practice` (plain test Mac) and `e2e:open-long` (`LH_E2E_GOLDEN=1 LH_E2E_MATH=1`) once after slice B, then issue 20 slice C (Practice tab): show the user the mockup first. Slice B is done (`docs/ISSUES.md` issue 20 Slices). The session e2e-walkthrough (`local_ac81e124`) uses the Simulators after the slice B commit. Then slice D (folder writes, audit first), then issue 08 in the Graph tab. The bug "Choppy load of a large session" comes later. Commit subjects use Conventional Commits. The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
+**Next step:** Issue 20 slice C (Practice tab), with the user decisions in `docs/ISSUES.md` issue 20 Slices C: first the fork summary field (`problemCount` and the done count in `GET /api/chats`, fork tests, push to `fork`), then the phone (`src/lib/practice-shelf.ts`, the Practice tab, Jest, a Maestro flow on both Simulators). Then slice D (folder writes, audit first), then issue 08 in the Graph tab. The bug "Choppy load of a large session" comes later. Commit subjects use Conventional Commits. The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
 
 **Facts found during the work**
 
+- State 2026-11-18 (compact after the slice B checks): `e2e:practice` and `e2e:open-long` passed on the Pro Max after slice B (`open-long-session.yaml` now taps the row, not the continue card). Slice C decisions are in issue 20. Nothing runs (Metro and the test Mac are stopped). Both Simulators are booted with the dev build; the e2e-walkthrough session is done with them.
 - State 2026-11-18 (compact after issue 20 slice B): slice B is committed. Nothing runs (Metro and the test Mac are stopped). The Pro Max (light) and the SE (dark) are booted with the dev build (no native change). `e2e:practice` and `e2e:open-long` are not run after slice B yet.
 - State 2026-11-17 (compact after issue 20 slice A): the tab shell is committed. Jest 635 pass in band. `e2e:open-long` passed on the Pro Max, `e2e:practice` on the SE. Nothing runs (Metro and the test Mac are stopped). The Pro Max is in light mode, the SE in dark mode; both have the dev build (no native change). The iPhone still has the Release build of `fec7e97` (no tabs yet).
 

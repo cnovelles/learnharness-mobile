@@ -23,7 +23,12 @@ appId: dev.local.learnharnessmobile
 - extendedWaitUntil:
     visible: "Connected · Test Mac"
     timeout: 30000
-- tapOn: "test session, no probing.*"
+# Tap the row, not the title on the "Continue learning" card (plain text).
+# A row is one button: its label ends with the concept count.
+- extendedWaitUntil:
+    visible: "test session, no probing.*concepts.*"
+    timeout: 30000
+- tapOn: "test session, no probing.*concepts.*"
 # A short touch while the formulas draw and the view scrolls down.
 - extendedWaitUntil:
     visible: "TEACHING"
