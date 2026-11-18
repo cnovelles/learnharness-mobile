@@ -4,6 +4,7 @@
  *
  *   npm run perf:chart                         # all builds, the scenario session
  *   npm run perf:chart -- --title "<start>"    # the sessions whose title starts so
+ *   npm run perf:chart -- --all                # one row for each build and session
  *
  * It reads perf/results/*.json (npm run perf:collect writes them) and writes
  * perf/chart.html: one stacked bar of the median phases for each build, in
@@ -43,6 +44,8 @@ interface Row {
 	name: string;
 	first: string;
 	n: number;
+	/** All opens of the row, also the opens that did not reach the end. */
+	total: number;
 	phases: Record<PhaseId, number>;
 	medianTotal: number;
 	p95Total: number;
@@ -70,6 +73,7 @@ function row(name: string, opens: OpenRecord[]): Row | null {
 		name,
 		first: done.map((o) => o.at).sort()[0]!,
 		n: done.length,
+		total: opens.length,
 		phases,
 		medianTotal: median(totals),
 		p95Total: quantile(totals, 0.95) ?? 0,
@@ -78,19 +82,39 @@ function row(name: string, opens: OpenRecord[]): Row | null {
 	};
 }
 
+const short = (title: string) => (title.length > 40 ? `${title.slice(0, 40)}…` : title);
+
 function main() {
+	const all = process.argv.includes("--all");
 	const title = arg("--title") ?? SCENARIO;
 	const rows = readdirSync(DIR)
 		.filter((f) => f.endsWith(".json"))
 		.flatMap((f) => {
-			const opens = parseOpens(readFileSync(path.join(DIR, f), "utf8")).filter((o) =>
-				o.title.startsWith(title),
-			);
-			const r = row(f.replace(/\.json$/, ""), opens);
-			return r ? [r] : [];
+			const build = f.replace(/\.json$/, "");
+			const opens = parseOpens(readFileSync(path.join(DIR, f), "utf8"));
+			if (!all) {
+				const r = row(
+					build,
+					opens.filter((o) => o.title.startsWith(title)),
+				);
+				return r ? [r] : [];
+			}
+			const sessions = new Map<string, OpenRecord[]>();
+			for (const o of opens) sessions.set(o.chatId, [...(sessions.get(o.chatId) ?? []), o]);
+			return [...sessions.values()].flatMap((group) => {
+				const r = row(
+					`${build} · ${short(group[0]!.title)} (${group[0]!.messages} messages)`,
+					group,
+				);
+				return r ? [r] : [];
+			});
 		})
 		.sort((a, b) => a.first.localeCompare(b.first));
-	if (rows.length === 0) throw new Error(`No complete opens of "${title}" in ${DIR}.`);
+	if (rows.length === 0)
+		throw new Error(
+			all ? `No complete opens in ${DIR}.` : `No complete opens of "${title}" in ${DIR}.`,
+		);
+	const subject = all ? "Each build and session" : `Session “${esc(title)}”`;
 
 	const scale = Math.max(...rows.map((r) => r.p95Total));
 	const bars = rows
@@ -109,7 +133,7 @@ function main() {
 	const table = rows
 		.map(
 			(r) =>
-				`<tr><td>${esc(r.name)}</td><td>${r.n}</td>${PHASES.map((p) => `<td>${formatMs(r.phases[p.id])}</td>`).join("")}<td>${formatMs(r.medianTotal)}</td><td>${formatMs(r.p95Total)}</td><td>${formatMs(r.frozen)}</td><td>${r.islands}</td></tr>`,
+				`<tr><td>${esc(r.name)}</td><td>${r.n} of ${r.total}</td>${PHASES.map((p) => `<td>${formatMs(r.phases[p.id])}</td>`).join("")}<td>${formatMs(r.medianTotal)}</td><td>${formatMs(r.p95Total)}</td><td>${formatMs(r.frozen)}</td><td>${r.islands}</td></tr>`,
 		)
 		.join("\n");
 
@@ -143,20 +167,20 @@ th{color:var(--muted);font-weight:400}
 </style></head>
 <body><main>
 <h1>Session open timings</h1>
-<p>Session “${esc(title)}”. Median of each phase for each build; the line is the p95 of the total. Only opens that reached the end count.</p>
+<p>${subject}. Median of each phase; the line is the p95 of the total. Only opens that reached the end count in the times. An open that did not reach the end in 60 s is a timeout.</p>
 <div class="legend">${legend}<span><b style="background:var(--text);width:2px"></b>p95 total</span></div>
 <ul>
 ${bars}
 </ul>
 <div class="wrap"><table>
-<thead><tr><th>Build</th><th>Opens</th>${PHASES.map((p) => `<th>${esc(p.label)}</th>`).join("")}<th>Median</th><th>p95</th><th>Frozen</th><th>Islands</th></tr></thead>
+<thead><tr><th>Build</th><th>Reached the end</th>${PHASES.map((p) => `<th>${esc(p.label)}</th>`).join("")}<th>Median</th><th>p95</th><th>Frozen</th><th>Islands</th></tr></thead>
 <tbody>
 ${table}
 </tbody></table></div>
 </main></body></html>
 `;
 	writeFileSync(OUT, html);
-	console.log(`${path.relative(ROOT, OUT)}: ${rows.length} builds`);
+	console.log(`${path.relative(ROOT, OUT)}: ${rows.length} rows`);
 }
 
 try {
