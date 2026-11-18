@@ -51,10 +51,10 @@ it('"/" opens the Teach tab with the teach sessions only', async () => {
 
 it("the Practice tab lists the practice sessions only", async () => {
 	mac.add("How the tides work");
-	mac.add("Linear recurrences", [], "practice");
+	const id = mac.add("Linear recurrences", [], "practice");
 	await renderRouter(APP, { initialUrl: "/practice" });
 	const practice = await inTab("practice");
-	expect(await practice.findByText("Linear recurrences")).toBeTruthy();
+	expect(await practice.findByTestId(`session-${id}`)).toHaveTextContent(/Linear recurrences/);
 	expect(practice.queryByText("How the tides work")).toBeNull();
 	expect(screen).toHavePathname("/practice");
 });

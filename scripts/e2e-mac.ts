@@ -49,6 +49,12 @@
  * "Databases" (1), "Databases/Postgres" (the golden teach session), the
  * empty "Reading list", and one session with no folder.
  *
+ * LH_E2E_PRACTICE_SHELF=1 (with LH_E2E_GOLDEN=1) adds 2 practice sessions
+ * for the Practice tab (issue 20 slice C), copies of the golden practice
+ * session: "Linear recurrences" (today, the first problem waits: 1
+ * problem) and "Bayes rule practice" (3 days ago, 2 problems). The golden
+ * session itself (2 problems) is in Earlier.
+ *
  * LH_E2E_GATEWAY_HOST=<IPv4> makes the gateway listen on that address and
  * puts only that address in the pairing text (default 127.0.0.1). Use the
  * Mac's Tailscale address (100.x) to check the phone's App Transport
@@ -133,6 +139,46 @@ export const PRACTICE = {
 
 /** The golden teach session (95 messages, one compaction). */
 const GOLDEN_TEACH = "chat_mv27rrra_feff23b6.json";
+
+const GOLDEN_PRACTICE = "chat_mv293wv5_10656952.json";
+
+/** LH_E2E_PRACTICE_SHELF=1: 2 practice sessions, copies of the golden one, with new times. */
+function addPracticeShelf(chats: string) {
+	const golden = JSON.parse(fs.readFileSync(path.join(chats, GOLDEN_PRACTICE), "utf8")) as {
+		messages: { role: string; toolName?: string }[];
+	};
+	// The messages up to the first clean pose: one problem that waits.
+	const firstPose = golden.messages.findIndex(
+		(m) => m.role === "toolResult" && m.toolName === "problem",
+	);
+	const day = 24 * 3_600_000;
+	const copies = [
+		{
+			id: "chat_e2e_practice_today",
+			title: "Linear recurrences",
+			ago: 60_000,
+			messages: golden.messages.slice(0, firstPose + 1),
+		},
+		{
+			id: "chat_e2e_practice_week",
+			title: "Bayes rule practice",
+			ago: 3 * day,
+			messages: golden.messages,
+		},
+	];
+	for (const c of copies) {
+		const time = new Date(Date.now() - c.ago).toISOString();
+		const record = {
+			...golden,
+			id: c.id,
+			title: c.title,
+			createdAt: time,
+			updatedAt: time,
+			messages: c.messages,
+		};
+		fs.writeFileSync(path.join(chats, `${c.id}.json`), JSON.stringify(record));
+	}
+}
 
 /** LH_E2E_MATH=1: a display formula after the first text part of each teacher reply. */
 function addFormulas(file: string) {
@@ -309,6 +355,8 @@ async function main() {
 			fs.cpSync(path.join(golden, dir), path.join(server.dataDir, dir), { recursive: true });
 		if (process.env.LH_E2E_MATH === "1")
 			addFormulas(path.join(server.dataDir, "chats", GOLDEN_TEACH));
+		if (process.env.LH_E2E_PRACTICE_SHELF === "1")
+			addPracticeShelf(path.join(server.dataDir, "chats"));
 	}
 
 	const json = { ...DESKTOP, "content-type": "application/json" };

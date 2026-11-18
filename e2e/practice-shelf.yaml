@@ -1,0 +1,67 @@
+# The Practice tab (issue 20, slice C): the continue card, the sessions by
+# time (Today, This week, Earlier) with the problem counts. A row is one
+# button, so Maestro reads one label: "Bayes rule practice, 2 problems, Forward".
+# It needs:
+#   1. The test Mac with the golden data and the practice shelf:
+#      LH_E2E_GOLDEN=1 LH_E2E_PRACTICE_SHELF=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:practice-shelf
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+# Wait until the Teach tab has loaded. On the SE, a tab tap right after the
+# pairing sometimes did not change the tab: tap again if it did not.
+- extendedWaitUntil:
+    visible: "CONTINUE LEARNING"
+    timeout: 30000
+- repeat:
+    times: 3
+    while:
+      notVisible: "CONTINUE PRACTICE"
+    commands:
+      - tapOn: "Practice"
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "CONTINUE PRACTICE"
+    timeout: 30000
+- assertVisible:
+    id: "practice-continue-line"
+    text: "(?i)problem 1 · 0 done"
+- assertVisible:
+    id: "practice-continue-badge"
+    text: "A problem waits"
+- assertVisible: "TODAY"
+- assertVisible: "Linear recurrences, .*1 problem.*"
+- assertVisible: "THIS WEEK"
+- assertVisible: "Bayes rule practice, .*2 problems.*"
+- takeScreenshot: practice-shelf-top
+- scrollUntilVisible:
+    element: "test session. ask a few questions, .*2 problems.*"
+    direction: DOWN
+- assertVisible: "EARLIER"
+- takeScreenshot: practice-shelf-end
+- scrollUntilVisible:
+    element: "Linear recurrences, .*1 problem.*"
+    direction: UP
+- tapOn: "Linear recurrences, .*1 problem.*"
+# The first problem waits: the session opens with the problem dock.
+- extendedWaitUntil:
+    visible:
+      id: "practice-dock"
+    timeout: 30000
+- takeScreenshot: practice-shelf-session

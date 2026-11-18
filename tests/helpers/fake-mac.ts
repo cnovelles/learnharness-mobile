@@ -195,6 +195,7 @@ export class FakeMac {
 					phase: "probe",
 					pendingQuestion: false,
 					pendingProblem: false,
+					problemCount: 0,
 					busy: false,
 					compacting: false,
 					...this.listFields.get(id),

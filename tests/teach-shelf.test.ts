@@ -27,6 +27,7 @@ function chat(id: string, title: string, extra: Partial<ChatListItem> = {}): Cha
 		phase: "teach",
 		pendingQuestion: false,
 		pendingProblem: false,
+		problemCount: 0,
 		busy: false,
 		compacting: false,
 		...extra,

@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-18 (issue 20 slice B is done; the end-to-end walkthrough report is in `docs/reviews/`; new issue 21, performance).
+Last update: 2026-11-18 (issue 20 slice C, the Practice tab, is done; fork `e725d12` adds `problemCount`).
 
 **Done**
 
@@ -49,10 +49,11 @@ Last update: 2026-11-18 (issue 20 slice B is done; the end-to-end walkthrough re
 
 **Decision log:** `docs/DECISIONS.md` (D-001 to D-012, user request 2026-11-18): the problem, how it was found, the options, the choice, and the validation of each big decision for the phone and the fork. Add an entry for each new big decision (AGENTS.md "Decisions").
 
-**Next step:** Issue 20 slice C (Practice tab), with the user decisions in `docs/ISSUES.md` issue 20 Slices C: first the fork summary field (`problemCount` and the done count in `GET /api/chats`, fork tests, push to `fork`), then the phone (`src/lib/practice-shelf.ts`, the Practice tab, Jest, a Maestro flow on both Simulators). Then slice D (folder writes, audit first), then issue 08 in the Graph tab. New issue 21 (performance, from the walkthrough `docs/reviews/2026-11-18-e2e-walkthrough.md`): a WebView leak (High), an 8–12 s session open that is 83% JS render, a spinner that stops; prefetch saves little on the test rig. Ask the user whether issue 21 slices A and B come before slice C. The bug "Choppy load of a large session" is part of issue 21 slice D. Commit subjects use Conventional Commits. The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
+**Next step:** Issue 20 slice D (folder changes from the phone): audit first (`docs/TRANSPORT-SECURITY.md`), then the fork gateway write (`PHONE_WRITES` in `electron/phone-access.cjs`, tests, push to `fork`), then the phone long press menu, the Move sheet and the folder menu. Show the mockups again before the build. Ask the user whether issue 21 slices A and B (performance, from `docs/reviews/2026-11-18-e2e-walkthrough.md`) come before slice D. Then slice E, then issue 08 in the Graph tab. The bug "Choppy load of a large session" is part of issue 21 slice D. The user's Mac needs a new fork build (with `e725d12`) in `/Applications` for the Practice tab numbers: back up the real data first. Commit subjects use Conventional Commits. The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
 
 **Facts found during the work**
 
+- State 2026-11-18 (compact after issue 20 slice C): the Practice tab is committed (phone) and `problemCount` is in the fork (`e725d12`, pushed to `fork`). `e2e:practice-shelf` passed on both Simulators. Nothing runs (Metro and the test Mac are stopped). The Pro Max (light) and the SE (dark) are booted with the dev build (no native change).
 - State 2026-11-18 (compact before the slice C build): the fork code for `problemCount` is read (facts in issue 20 Slices C); no code is changed in either repo. Nothing runs.
 - State 2026-11-18 (compact after the slice B checks): `e2e:practice` and `e2e:open-long` passed on the Pro Max after slice B (`open-long-session.yaml` now taps the row, not the continue card). Slice C decisions are in issue 20. Nothing runs (Metro and the test Mac are stopped). Both Simulators are booted with the dev build; the e2e-walkthrough session is done with them.
 - State 2026-11-18 (compact after issue 20 slice B): slice B is committed. Nothing runs (Metro and the test Mac are stopped). The Pro Max (light) and the SE (dark) are booted with the dev build (no native change). `e2e:practice` and `e2e:open-long` are not run after slice B yet.
