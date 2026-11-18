@@ -40,6 +40,11 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
+## Decisions
+
+- Record each big decision (architecture, security, data, performance, or a change that the user sees on many screens) in `docs/DECISIONS.md`, for the phone and the desktop fork. Use its template: the problem, how we found it, the options, the decision and why, the change, and the validation with numbers before and after.
+- Write the entry when the decision is made. Add the numbers when the result is measured. Never delete an entry; a new decision replaces an old one with a new entry.
+
 ## Commits
 
 - Write each commit subject as a Conventional Commit, the same as upstream LearnHarness: `type(scope): summary`. Example: `fix(session): open a long session at its last message`.

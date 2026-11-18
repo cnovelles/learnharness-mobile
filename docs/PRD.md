@@ -47,6 +47,8 @@ Last update: 2026-11-18 (issue 20 slice B is done; the end-to-end walkthrough re
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
+**Decision log:** `docs/DECISIONS.md` (D-001 to D-012, user request 2026-11-18): the problem, how it was found, the options, the choice, and the validation of each big decision for the phone and the fork. Add an entry for each new big decision (AGENTS.md "Decisions").
+
 **Next step:** Issue 20 slice C (Practice tab), with the user decisions in `docs/ISSUES.md` issue 20 Slices C: first the fork summary field (`problemCount` and the done count in `GET /api/chats`, fork tests, push to `fork`), then the phone (`src/lib/practice-shelf.ts`, the Practice tab, Jest, a Maestro flow on both Simulators). Then slice D (folder writes, audit first), then issue 08 in the Graph tab. New issue 21 (performance, from the walkthrough `docs/reviews/2026-11-18-e2e-walkthrough.md`): a WebView leak (High), an 8–12 s session open that is 83% JS render, a spinner that stops; prefetch saves little on the test rig. Ask the user whether issue 21 slices A and B come before slice C. The bug "Choppy load of a large session" is part of issue 21 slice D. Commit subjects use Conventional Commits. The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
 
 **Facts found during the work**
