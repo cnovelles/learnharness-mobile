@@ -31,11 +31,11 @@ Status values: `proposed`, `accepted`, `done`, `reverted`, `replaced by D-NNN`.
 
 ## Measurement rules (for every performance decision)
 
-1. Fixed scenarios: the same golden data, the same device, the same build type (Release for the final number), and many runs of each scenario. Report the median and the p95.
+1. Fixed scenarios: the same golden data, the same device, the same build type (Release for the final number), and many runs of each scenario (`npm run e2e:perf-open` opens the golden session 5 times). Report the median and the p95.
 2. A baseline before the change, from the commit before it.
-3. One result file for each measured commit (planned in issue 21 slice A: `perf/results/<commit>.json`).
+3. One result file for each measured build: `npm run perf:collect` writes `perf/results/<commit>-<type>-<device>.json` (issue 21 slice A).
 4. When possible, a feature flag selects the old or the new code in the same build, so only the code changes.
-5. A chart for each step: before and after, and over the commits. Publish it as an artifact page, not as a hosted dashboard (the app is local).
+5. A chart for each step: before and after, and over the commits. `npm run perf:chart` writes `perf/chart.html`; publish it as an artifact page, not as a hosted dashboard (the app is local).
 6. A budget test, so that a slow change fails CI.
 
 ---
@@ -179,3 +179,15 @@ Status values: `proposed`, `accepted`, `done`, `reverted`, `replaced by D-NNN`.
 - Change: fork `5a7a216` (merge of upstream v0.6.1), `docs/UPSTREAM-SYNC.md`.
 - Validation: after the merge the full fork suite passed except the 3 known upstream failures, and CI passed.
 - Links: `docs/UPSTREAM-SYNC.md`.
+
+## D-013 Local timing marks for each session open, five phases first (2026-11-18) `accepted`
+
+- Area: phone
+- Problem: the walkthrough timed a session open with a stopwatch on the Simulator (8.2 to 9.1 s for the golden session). We need numbers from a Release build on the iPhone, for each commit, to decide the fixes of issue 21 and to show that each fix made the open faster and not slower.
+- How we found it: D-009 (measure before we optimize) and the walkthrough report.
+- Options: (a) a hosted monitoring service (refused in D-009: the data leaves the devices); (b) profilers only (Hermes, React Profiler, Instruments): they find the slow function but slow the app, and some work only in dev builds; (c) a few local timing marks that are always on, with a developer panel and result files, plus profilers when a phase needs a cause.
+- Decision and why: (c) (user, 2026-11-18, after the panel mockup). Start with five phases (Fetch, Parse, First transcript draw, Reveal to idle, Scroll to the end), the longest frozen frame and the island count. Add sub-phases of the transcript draw only after the first profile shows where to split. The panel says which phase is slow; the profiler says why.
+- Change: issue 21 slice A (`src/lib/perf-marks.ts`, `src/lib/perf.ts`, `src/components/perf-panel.tsx`, `app.config.ts`, `scripts/perf-collect.ts`, `scripts/perf-chart.ts`, `e2e/perf-open.yaml`).
+- Validation: unit tests of the phases, the ring buffer and the file; an app test that a row tap records all five marks in order. The marks cost a few `performance.now()` calls, and the frame watch runs only during an open. On the Pro Max Simulator (dev build) the fixed scenario recorded all five marks for 5 of 5 opens: median 10.69 s, with 4.54 s in the first transcript draw and 4.48 s in the reveal; the same run showed 291 WebKit processes with no island mounted (slice B). The iPhone Release baseline is not measured yet.
+- Impact and trade-offs: a new Expo module (`expo-file-system`) for the result file. A build with changed files gets a `-dirty` commit, and its numbers do not count in a decision. "Island WebViews mounted now" counts components, not WebKit processes: slice B also counts the processes.
+- Links: `docs/ISSUES.md` issue 21 slice A, D-009.

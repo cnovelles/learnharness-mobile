@@ -28,6 +28,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
 	createEndFollow,
+	isAtEnd,
 	showsLatest,
 	createIslandViewport,
 	IslandViewportContext,
@@ -62,6 +63,7 @@ import {
 } from "@/components/ui";
 import { useMacFetch } from "@/lib/connection-context";
 import { appendDictation } from "@/lib/dictation";
+import { perf } from "@/lib/perf";
 import { PHASE_LABEL, latestPlanTree, planSteps } from "@/lib/plan";
 import type { SessionRecord } from "@/lib/sessions";
 import { phaseAt3Lh, type Phase3 } from "@/lib/shared";
@@ -351,6 +353,21 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	// at the end. An island that starts near the screen changes its height:
 	// that must not pull a reader who scrolled up back to the end.
 	const [follow] = useState(createEndFollow);
+	// The perf marks of the open (issue 21 slice A): the first commit of the
+	// transcript, the reveal idle, and then the first moment at the end.
+	const shape = useRef<ScrollMetrics>({ offset: 0, visible: 0, content: 0 });
+	const idleSeen = useRef(false);
+	const checkEnd = () => {
+		const m = shape.current;
+		if (idleSeen.current && isAtEnd(m.offset, m.visible, m.content)) perf.mark(record.id, "atEnd");
+	};
+	useEffect(() => perf.mark(record.id, "drawn"), [record.id]);
+	const onRevealIdle = () => {
+		follow.revealIdle();
+		idleSeen.current = true;
+		perf.mark(record.id, "idle");
+		checkEnd();
+	};
 	const metrics = (event: NativeSyntheticEvent<NativeScrollEvent>): ScrollMetrics => {
 		const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
 		return {
@@ -364,9 +381,11 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	const checkLatest = (m: ScrollMetrics) => setLatest(!follow.follows() && showsLatest(m));
 	const onTranscriptScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
 		const m = metrics(event);
+		shape.current = m;
 		follow.scrolled(m);
 		checkLatest(m);
 		viewport.notify();
+		checkEnd();
 	};
 	const onDragStart = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
 		follow.dragStart(metrics(event));
@@ -418,20 +437,26 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						testID="transcript-scroll"
 						contentContainerStyle={styles.content}
 						keyboardShouldPersistTaps="handled"
-						onContentSizeChange={() => {
+						onContentSizeChange={(_w, h) => {
+							shape.current = { ...shape.current, content: h };
 							if (follow.follows()) scroll.current?.scrollToEnd({ animated: true });
 							viewport.notify();
+							checkEnd();
 						}}
 						onScroll={onTranscriptScroll}
 						onScrollBeginDrag={onDragStart}
 						onScrollEndDrag={onDragEnd}
 						onMomentumScrollEnd={onMomentumEnd}
 						onScrollToTop={follow.toTop}
-						onLayout={viewport.notify}
+						onLayout={(event) => {
+							shape.current = { ...shape.current, visible: event.nativeEvent.layout.height };
+							viewport.notify();
+							checkEnd();
+						}}
 						scrollEventThrottle={100}
 					>
 						<IslandViewportContext.Provider value={viewport}>
-							<RevealProvider onIdle={follow.revealIdle}>
+							<RevealProvider onIdle={onRevealIdle}>
 								<Transcript rows={rows} onOpenPlan={openPlan} />
 							</RevealProvider>
 						</IslandViewportContext.Provider>
@@ -545,6 +570,13 @@ function SessionBody({ record }: { record: SessionRecord }) {
 export default function SessionScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
 	const macFetch = useMacFetch();
+	// Before the record read starts (the effects run in order): an open that
+	// no tap started (a new session, a link) starts here.
+	useEffect(() => {
+		const chatId = String(id);
+		perf.ensureOpen(chatId);
+		return () => perf.leave(chatId);
+	}, [id]);
 	const { load, reload } = useSessionRecord(String(id), macFetch);
 	return (
 		<>

@@ -1,0 +1,44 @@
+# The fixed scenario of the session open timings (issue 21 slice A): open
+# the golden teach session from its row 5 times. Each open waits for the
+# last teacher text, then goes back. The app records each open in the
+# performance panel and in Documents/perf-opens.json. It needs:
+#   1. The test Mac with the golden data and a formula in each teacher reply:
+#      LH_E2E_GOLDEN=1 LH_E2E_MATH=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear (or a Release build: no Metro)
+#   3. The build on the booted Simulator.
+# Run: npm run e2e:perf-open, then npm run perf:collect and npm run perf:chart.
+# The pairing clears the app state, so the flow starts with no old timings.
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+- repeat:
+    times: 5
+    commands:
+      # Tap the row, not the title on the "Continue learning" card (plain
+      # text). A row is one button: its label ends with the concept count.
+      - extendedWaitUntil:
+          visible: "test session, no probing.*concepts.*"
+          timeout: 30000
+      - tapOn: "test session, no probing.*concepts.*"
+      - extendedWaitUntil:
+          visible: ".*PDF extraction remains untested.*"
+          timeout: 60000
+      - waitForAnimationToEnd:
+          timeout: 10000
+      - tapOn:
+          id: "BackButton"
+- takeScreenshot: perf-open-done

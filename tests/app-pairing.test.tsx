@@ -34,6 +34,8 @@ jest.mock("expo-camera", () => ({
 }));
 
 const APP = path.resolve(__dirname, "../src/app");
+// As the other app tests: a full render can take more than 5 s when the suite runs in parallel.
+jest.setTimeout(20_000);
 const CODE = "c".repeat(24);
 const PIN = `sha256/${"A".repeat(42)}Q=`;
 /** The pin of the certificate that the fake Mac shows. */

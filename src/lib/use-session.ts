@@ -53,6 +53,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 
+import { perf } from "./perf";
 import { useEventHub } from "./server-events-context";
 import { attachSessionEvents, syncSession, type SessionEventHooks } from "./session-events";
 import { openingPrompts, readSession, type OpeningPrompts, type SessionRecord } from "./sessions";
@@ -114,8 +115,12 @@ export function useSessionRecord(
 	const [attempt, setAttempt] = useState(0);
 	useEffect(() => {
 		let current = true;
-		readSession(macFetch, chatId).then(
-			(record) => current && setLoad({ status: "ready", record }),
+		readSession(macFetch, chatId, { onResponse: () => perf.mark(chatId, "fetched") }).then(
+			(record) => {
+				perf.mark(chatId, "parsed");
+				perf.describe(chatId, { title: record.title, messages: record.messages.length });
+				if (current) setLoad({ status: "ready", record });
+			},
 			(e: unknown) => current && setLoad({ status: "error", userText: describeError(e) }),
 		);
 		return () => {

@@ -54,7 +54,9 @@ const GroupContext = createContext<Group | null>(null);
 /**
  * `onIdle`: the reveal has no block that waits (the session screen ends its
  * opening). The check waits for the next task, so all blocks of one render
- * have registered: the first block alone is often ready.
+ * have registered: the first block alone is often ready. It runs after each
+ * change of the gate, and once after the first render (a transcript with
+ * no block).
  */
 export function RevealProvider({ children, onIdle }: { children: ReactNode; onIdle?: () => void }) {
 	const [gate] = useState(() => createRevealGate());
@@ -65,13 +67,17 @@ export function RevealProvider({ children, onIdle }: { children: ReactNode; onId
 	}, [onIdle]);
 	useEffect(() => {
 		let timer: ReturnType<typeof setTimeout> | null = null;
-		const unsubscribe = gate.subscribe(() => {
+		const check = () => {
 			if (timer) clearTimeout(timer);
 			timer = setTimeout(() => {
 				timer = null;
 				if (!gate.busy()) idleRef.current?.();
 			}, 0);
-		});
+		};
+		const unsubscribe = gate.subscribe(check);
+		// A transcript with no block (only a learner message) never changes
+		// the gate: check once after the first render too.
+		check();
 		return () => {
 			if (timer) clearTimeout(timer);
 			unsubscribe();

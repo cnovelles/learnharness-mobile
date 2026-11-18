@@ -118,9 +118,18 @@ export interface SessionRecord {
 	compacting: boolean;
 }
 
-export async function readSession(fetchImpl: typeof fetch, id: string): Promise<SessionRecord> {
+/**
+ * `onResponse`: the Mac answered (the headers came), before the body is
+ * read. The perf marks use it (issue 21 slice A).
+ */
+export async function readSession(
+	fetchImpl: typeof fetch,
+	id: string,
+	hooks: { onResponse?: () => void } = {},
+): Promise<SessionRecord> {
 	if (!isSessionId(id)) throw new SessionApiError(`Not a session id: ${id}`);
 	const res = await fetchImpl(`/api/chats/${id}`);
+	hooks.onResponse?.();
 	if (res.status === 404)
 		throw new UserFacingError(userMessage("This session is not on the Mac any more."));
 	if (!res.ok) throw await failure(res);

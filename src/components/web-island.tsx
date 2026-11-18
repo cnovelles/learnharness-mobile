@@ -18,6 +18,7 @@ import { StyleSheet, View } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
 import { parseIslandMessage, type IslandMessage } from "@/lib/island-messages";
+import { perf } from "@/lib/perf";
 
 /** How long the island waits for its first valid height. */
 export const HEIGHT_WAIT_MS = 3000;
@@ -92,6 +93,11 @@ export function WebIsland({
 	const loaded = useRef(false);
 	const sent = useRef<object | null>(null);
 	const gotHeight = useRef(false);
+	// The island count of the perf panel (issue 21 slice A).
+	useEffect(() => {
+		perf.islandStarted();
+		return () => perf.islandEnded();
+	}, []);
 	// One load of the page: the WebView gets `load.data` through
 	// `islandDataScript`. A stopped process, or new data when the
 	// island is not live, makes a new load.

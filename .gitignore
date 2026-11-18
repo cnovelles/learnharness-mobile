@@ -57,3 +57,4 @@ e2e/screenshots/
 
 # Local Release builds (docs/SETUP.md)
 /build
+perf/chart.html

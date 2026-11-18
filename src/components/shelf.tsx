@@ -8,12 +8,14 @@
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { perf } from "@/lib/perf";
 import { rowNote } from "@/lib/teach-shelf";
 import type { ChatListItem } from "@/lib/shared";
 import { SPACE } from "./spacing";
 import { Button, FONT, Icon, LABEL, Spinner, TYPE, usePalette } from "./ui";
 
 export function openSession(id: string) {
+	perf.startOpen(id);
 	router.push({ pathname: "/session/[id]", params: { id } });
 }
 

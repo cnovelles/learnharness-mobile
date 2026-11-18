@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-18 (issue 20 slice C, the Practice tab, is done; fork `e725d12` adds `problemCount`).
+Last update: 2026-11-18 (issue 21 slice A, the timing marks and the performance panel, is built; issue 20 slice C, the Practice tab, is done; fork `e725d12` adds `problemCount`).
 
 **Done**
 
@@ -49,7 +49,7 @@ Last update: 2026-11-18 (issue 20 slice C, the Practice tab, is done; fork `e725
 
 **Decision log:** `docs/DECISIONS.md` (D-001 to D-012, user request 2026-11-18): the problem, how it was found, the options, the choice, and the validation of each big decision for the phone and the fork. Add an entry for each new big decision (AGENTS.md "Decisions").
 
-**Next step:** Issue 20 slice D (folder changes from the phone): audit first (`docs/TRANSPORT-SECURITY.md`), then the fork gateway write (`PHONE_WRITES` in `electron/phone-access.cjs`, tests, push to `fork`), then the phone long press menu, the Move sheet and the folder menu. Show the mockups again before the build. Ask the user whether issue 21 slices A and B (performance, from `docs/reviews/2026-11-18-e2e-walkthrough.md`) come before slice D. Then slice E, then issue 08 in the Graph tab. The bug "Choppy load of a large session" is part of issue 21 slice D. The user's Mac needs a new fork build (with `e725d12`) in `/Applications` for the Practice tab numbers: back up the real data first. Commit subjects use Conventional Commits. The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
+**Next step:** Issue 21 slice A is built (see `docs/ISSUES.md` issue 21, D-013): measure the baseline in a Release build on the iPhone (`npm run perf:collect -- --file <shared file>`, then `npm run perf:chart`) before its free profile ends 2026-11-24, then a Hermes profile of the slowest phase, then slice B (the WebView leak). Then issue 20 slice D (folder changes from the phone): audit first (`docs/TRANSPORT-SECURITY.md`), then the fork gateway write (`PHONE_WRITES` in `electron/phone-access.cjs`, tests, push to `fork`), then the phone long press menu, the Move sheet and the folder menu. Show the mockups again before the build. Then slice E, then issue 08 in the Graph tab. The bug "Choppy load of a large session" is part of issue 21 slice D. The user's Mac needs a new fork build (with `e725d12`) in `/Applications` for the Practice tab numbers: back up the real data first. Commit subjects use Conventional Commits. The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
 
 **Facts found during the work**
 
