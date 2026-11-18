@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-17 (the second open position fix `e64c041` was worse on the iPhone and is reverted; the user keeps the behavior of `e1b060e`; new bug: choppy load of a large session).
+Last update: 2026-11-17 (issue 20 slice A is done: the native tab bar with Teach, Practice and Graph tabs).
 
 **Done**
 
@@ -47,9 +47,11 @@ Last update: 2026-11-17 (the second open position fix `e64c041` was worse on the
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 20 slice A (tab shell), then B and C. The mockups are done and all choices are answered (`docs/ISSUES.md`, issue 20, "Decisions ... from the issue 20 mockups": the inset grouped style, subfolders as path sections, the "Not in a folder" group at the end, the Graph placeholder, a grey Delete). Before slice B, move the fork's folder order (`renderLevel`) to the fork's `src/core`. Read the SDK 58 router docs before slice A. The bug "Choppy load of a large session" comes later (user choice 2026-11-17). Then step 2 of the plan `~/.claude/plans/twinkly-swinging-snowglobe.md`: issue 20 (tab bar, Teach and Practice tabs). Show the user mockups of each screen first (the user wants mockups before each build, also for answered choices). Then the folder writes, then issue 08 in the Graph tab. Commit subjects use Conventional Commits (`AGENTS.md`, "Commits"). The side session `fork-chain-rows` (`local_162677a1`) finished issue 08 slice A in the fork (`d99dd16`, `refactor(core): ...`, pushed to `fork`). The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
+**Next step:** Move the fork's folder order (`renderLevel` in `components/source-folder-tree.tsx`) to the fork's `src/core` (push to `fork` only), then issue 20 slice B (Teach tab) and slice C (Practice tab). Slice A is done (native tabs, user choice 2026-11-17; `docs/ISSUES.md` issue 20 Facts). The mockups are done and all choices are answered (`docs/ISSUES.md`, issue 20, both "Decisions" lists). The bug "Choppy load of a large session" comes later (user choice 2026-11-17). Then the folder writes, then issue 08 in the Graph tab. Show the user mockups before each build. Commit subjects use Conventional Commits (`AGENTS.md`, "Commits"). The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
 
 **Facts found during the work**
+
+- State 2026-11-17 (compact after issue 20 slice A): the tab shell is committed. Jest 635 pass in band. `e2e:open-long` passed on the Pro Max, `e2e:practice` on the SE. Nothing runs (Metro and the test Mac are stopped). The Pro Max is in light mode, the SE in dark mode; both have the dev build (no native change). The iPhone still has the Release build of `fec7e97` (no tabs yet).
 
 - Jest screen tests: `renderRouter` (expo-router testing library) turns on Jest's fake timers. `package.json` keeps `nextTick` and `queueMicrotask` real (`jest.fakeTimers.doNotFake`), or the web streams of later tests stop. Advance timers inside `act` (`jest.advanceTimersByTimeAsync`); a real `setTimeout` in a test never fires.
 - The fake Mac for screen tests is `tests/helpers/fake-mac.ts`. A held turn must end with a `turn-settled` SSE event; a bare `[DONE]` after a held stream makes SessionModel read it as a dropped stream.

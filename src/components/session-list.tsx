@@ -1,5 +1,5 @@
 /**
- * The Mac's sessions on the home screen, as the desktop sidebar list (user
+ * The Mac's sessions in the Teach and Practice tabs, as the desktop sidebar list (user
  * decision 2026-11-15): a row with the title in the prose font and a small
  * mono line under it (the state or the phase, and how long ago). It reads
  * the list when the screen comes into view, on server events and on pull to
@@ -11,11 +11,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useMacFetch } from "@/lib/connection-context";
 import { useServerEvent } from "@/lib/server-events-context";
-import { listSessions } from "@/lib/sessions";
+import { listSessions, type SessionKind } from "@/lib/sessions";
 import type { ChatListItem } from "@/lib/shared";
 import { timeAgo } from "@/lib/time-ago";
 import { describeError, type UserMessage } from "@/lib/user-error";
-import { ErrorBanner, FONT, Icon, LABEL, SectionLabel, Spinner, TYPE, usePalette } from "./ui";
+import { ErrorBanner, FONT, SectionLabel, Spinner, TYPE, usePalette } from "./ui";
 import { SPACE } from "./spacing";
 
 /** The phase as a word, for a session with no waiting state. */
@@ -99,64 +99,32 @@ function Row({ chat }: { chat: ChatListItem }) {
 	);
 }
 
-/** One of the two outlined buttons on home (user decision 2026-11-15: two buttons, no switch). */
-function NewButton({
-	testID,
-	icon,
-	title,
-	enabled,
-	onPress,
-}: {
-	testID: string;
-	icon: "plus" | "target";
-	title: string;
-	enabled: boolean;
-	onPress: () => void;
-}) {
-	const c = usePalette();
-	return (
-		<Pressable
-			testID={testID}
-			onPress={onPress}
-			accessibilityRole="button"
-			accessibilityState={{ disabled: !enabled }}
-			disabled={!enabled}
-			style={({ pressed }) => [
-				styles.newSession,
-				{
-					borderColor: c.line,
-					backgroundColor: pressed ? c.hover : "transparent",
-					opacity: enabled ? 1 : 0.4,
-				},
-			]}
-		>
-			<Icon name={icon} size={12} color={c.text} />
-			<Text style={[LABEL, styles.wide, { color: c.text }]}>{title}</Text>
-		</Pressable>
-	);
+/** The empty text of each tab (issue 20, error state 4). */
+const EMPTY: Record<SessionKind, string> = {
+	teach: "Start a session to begin learning.",
+	practice: "Start a practice session to begin.",
+};
+
+/** A session's kind: the Mac leaves it out on older teach sessions. */
+export function kindOf(chat: ChatListItem): SessionKind {
+	return chat.kind === "practice" ? "practice" : "teach";
 }
 
-export function SessionList({ enabled, list }: { enabled: boolean; list: SessionListState }) {
+/** The sessions of one kind (one tab), newest first as the Mac sends them. */
+export function SessionList({
+	enabled,
+	list,
+	kind,
+}: {
+	enabled: boolean;
+	list: SessionListState;
+	kind: SessionKind;
+}) {
 	const c = usePalette();
-	const { chats, error } = list;
+	const { error } = list;
+	const chats = list.chats === null ? null : list.chats.filter((chat) => kindOf(chat) === kind);
 	return (
 		<View style={styles.list}>
-			<View style={styles.newRow}>
-				<NewButton
-					testID="new-session"
-					icon="plus"
-					title="New session"
-					enabled={enabled}
-					onPress={() => router.push("/new-session")}
-				/>
-				<NewButton
-					testID="new-practice"
-					icon="target"
-					title="New practice"
-					enabled={enabled}
-					onPress={() => router.push({ pathname: "/new-session", params: { kind: "practice" } })}
-				/>
-			</View>
 			<SectionLabel>Sessions</SectionLabel>
 			{error ? <ErrorBanner testID="sessions-error" text={error} /> : null}
 			{chats === null ? (
@@ -165,7 +133,7 @@ export function SessionList({ enabled, list }: { enabled: boolean; list: Session
 				</Text>
 			) : chats.length === 0 ? (
 				<Text style={[styles.note, { color: c.muted }]} testID="sessions-note">
-					No sessions yet. Start a new session.
+					{EMPTY[kind]}
 				</Text>
 			) : (
 				<View>
@@ -180,19 +148,6 @@ export function SessionList({ enabled, list }: { enabled: boolean; list: Session
 
 const styles = StyleSheet.create({
 	list: { gap: SPACE.md },
-	/** The two buttons wrap to two rows only if a large text size needs it. */
-	newRow: { flexDirection: "row", flexWrap: "wrap", gap: SPACE.sm },
-	newSession: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: SPACE.xs,
-		borderWidth: 1,
-		borderRadius: 8,
-		paddingHorizontal: SPACE.md,
-		minHeight: 36,
-	},
-	/** The desktop's `tracking-wider` on the new-session buttons. */
-	wide: { letterSpacing: 0.55 },
 	/** The desktop SessionRow: rounded-lg, 12 x 8 padding, a pressed fill. */
 	row: {
 		borderRadius: 12,

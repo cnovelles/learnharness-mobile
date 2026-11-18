@@ -10,6 +10,7 @@ import { Alert, Dimensions } from "react-native";
 
 import { FakeMac, type Rec, pairedConnection } from "./helpers/fake-mac";
 import { PROBLEM, SOLVED, conclude, pose } from "./helpers/practice-record";
+import { headerButton } from "./helpers/tabs";
 import { DISMISS_FAILED, PROBLEM_NOT_ACTIVE, PROBLEM_STILL_ACTIVE } from "@/lib/user-error";
 
 const mockKeychain = new Map<string, string>();
@@ -57,16 +58,15 @@ beforeEach(() => {
 });
 
 describe("slice A: start a practice session", () => {
-	it("home has a New practice button next to New session", async () => {
+	it("the Teach tab has New session and the Practice tab has New practice (issue 20)", async () => {
 		await renderRouter(APP, { initialUrl: "/" });
-		expect(await screen.findByTestId("new-session")).toBeTruthy();
-		expect(screen.getByTestId("new-practice")).toBeTruthy();
-		expect(screen.getByText("New practice")).toBeTruthy();
+		expect(await screen.findByLabelText("New session")).toBeTruthy();
+		expect(screen.getByLabelText("New practice")).toBeTruthy();
 	});
 
 	it("New practice opens the practice form and starts a practice session with the text", async () => {
-		await renderRouter(APP, { initialUrl: "/" });
-		await fireEvent.press(await screen.findByTestId("new-practice"));
+		await renderRouter(APP, { initialUrl: "/practice" });
+		await fireEvent.press(await headerButton("new-practice"));
 		expect(await screen.findByText("What do you want to practice?")).toBeTruthy();
 		expect(screen.getByText("Start practice")).toBeTruthy();
 		expect(screen).toHavePathname("/new-session");

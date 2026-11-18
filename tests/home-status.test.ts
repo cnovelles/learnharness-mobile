@@ -1,4 +1,4 @@
-import { statusText } from "@/app/index";
+import { statusText } from "@/components/tab-screen";
 import type { Connection } from "@/lib/pairing";
 
 const connection: Connection = {

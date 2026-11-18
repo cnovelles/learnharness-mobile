@@ -534,7 +534,7 @@ The app gets a tab bar (issue 20). Issue 08 now lives in the **Graph tab**. The 
 - **E. Pipeline cost (if 4A).** The cost chip, the cost sheet and the run rows; refresh on the `activity-changed` event.
 - **F. Checks.** `npm run test:integration` against the fork server on a copy of the golden data (the phone values equal the desktop helper values); a Maestro flow on both Simulators (Pro Max and SE); screenshots for the user.
 
-## 20 Tab bar, Teach and Practice tabs, folders `todo`
+## 20 Tab bar, Teach and Practice tabs, folders `doing`
 
 User request 2026-11-17 (screenshots of the "Hello Interview" app as the reference; keep our colors, no theme change now). Plan: `~/.claude/plans/twinkly-swinging-snowglobe.md`.
 
@@ -557,15 +557,21 @@ User request 2026-11-17 (screenshots of the "Hello Interview" app as the referen
 - Style (user, after the second mockups): the inset grouped style of the reference app, in our colors. A section label over each group (the folder name, or Today / This week / Earlier). The rows of a group sit in one rounded card (`panel` color, `line` border, radius 14, dividers). A row: the title (prose font, 15 pt), then the count ("12 concepts", "4 problems") and a chevron on the right; one line only, plus a small mono second line only when something waits ("A question waits", "A problem waits"). Rows at least 44 pt high. The active tab uses `accent` in light mode and `text` in dark mode.
 - Subfolders: option A. Each subfolder is its own section, with the path in the label ("Databases › Postgres"), in the desktop order (depth first, by name). All sessions show on one screen (no folder screen). A folder with no sessions and no subfolders still shows its section with an empty-folder line, so its "…" menu stays reachable.
 
+- Tab bar: the native iOS tab bar (`expo-router/native-tabs`, option A, user choice 2026-11-17 after a mockup of native and JS tabs). On iOS 26 it is the floating glass bar with system labels; only the active color is ours.
+
 ### Facts
 
+- Slice A layout: `src/app/(tabs)/_layout.tsx` (`NativeTabs`, triggers `(teach)`, `practice`, `graph`). Each tab is a folder with its own Stack (`_layout.tsx`), because native tabs have no header. URLs: `/` is Teach, `/practice`, `/graph`. `session/[id]`, `new-session`, `settings` and `pair` stay in the root Stack, so they cover the tab bar. The shared header options are in `src/components/stack-options.ts`; the tab frame (status line, banner, gear, "+") is `src/components/tab-screen.tsx`.
+- Native tabs mount all tabs at once (also in Jest). A query on the whole screen finds the status line three times: scope screen tests with `inTab()` and `headerButton()` from `tests/helpers/tabs.ts`. Each tab has `testID` `tab-teach`, `tab-practice` or `tab-graph`. The "+" keeps the old testIDs (`new-session` in Teach, `new-practice` in Practice). Maestro taps a tab by its label (`tapOn: "Practice"`).
+- No native rebuild for native tabs: the dev build already has the tab views of react-native-screens 4.30.
 - `GET /api/chats` gives `ChatListItem` (title, dates, kind, messageCount, phase, `pendingQuestion`, `pendingProblem`, busy, compacting). It has no problem count: load the practice records for the visible rows and cache by `updatedAt`.
 - The folder route: `POST /api/graph/sources` with `OrganizationAction` (`create-folder`, `rename-folder`, `rename-source`, `move`, `delete-folder`; fork `src/core/source-organization.ts`). It changes only the folder list and the display names, never a session. The server checks the input (`SourceOrganizationInputError`, `canMoveFolder`, empty folder delete). `DELETE /api/graph/sources` deletes sources: it stays refused.
 - The gateway refuses `POST /api/graph/sources` now. Opening it lowers a security floor: audit first (`docs/TRANSPORT-SECURITY.md`), one place for phone writes in `electron/phone-access.cjs` (a `PHONE_WRITES` table with a body guard: JSON, at most 4 KB, the 5 actions), fork tests.
 
 ### Slices
 
-- A. Tab shell: `(tabs)` group (`teach`, `practice`, `graph`), the root Stack keeps `session/[id]`, `new-session`, `settings`, `pair` over the tabs. Read the SDK 58 router docs first (native or JS tabs).
+- A. `done` (2026-11-17). Tab shell: `(tabs)` group (`teach`, `practice`, `graph`), the root Stack keeps `session/[id]`, `new-session`, `settings`, `pair` over the tabs. Read the SDK 58 router docs first (native or JS tabs).
+  - Checks: Jest 635 pass in band (new `tests/app-tabs.test.tsx`, 7 tests). `npm run e2e:open-long` passed on the Pro Max (golden test Mac); `npm run e2e:practice` passed on the SE on the second run. The first SE run failed late, after a dismissal: "Next problem" started no turn within 60 s. No code in that area changed; watch for it again.
 - B. Teach tab: `src/lib/teach-shelf.ts` (pure), the continue card, folder groups, concept counts.
 - C. Practice tab: `src/lib/practice-shelf.ts` (pure), time groups, problem counts.
 - D. Folder changes: fork gateway write (audit, guard, tests, push to `fork`), phone long press menu, Move sheet, folder menu, refresh on `sources-changed`.

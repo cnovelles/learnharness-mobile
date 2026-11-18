@@ -23,7 +23,8 @@ appId: dev.local.learnharnessmobile
     visible: "Connected · Test Mac"
     timeout: 30000
 
-# Start practice.
+# Start practice from the Practice tab (issue 20).
+- tapOn: "Practice"
 - tapOn:
     id: "new-practice"
 - extendedWaitUntil:

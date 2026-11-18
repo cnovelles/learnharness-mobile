@@ -8,6 +8,8 @@ import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testi
 import path from "node:path";
 import { Alert } from "react-native";
 
+import { headerButton, inTab } from "./helpers/tabs";
+
 const mockKeychain = new Map<string, string>();
 jest.mock("expo-secure-store", () => ({
 	WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6,
@@ -92,7 +94,7 @@ it("an unpaired phone opens on the pair screen; pasting the text pairs and shows
 	await fireEvent.changeText(screen.getByTestId("pairing-text"), PAYLOAD);
 	await fireEvent.press(screen.getByTestId("pair"));
 
-	expect(await screen.findByText("Connected · Studio Mac")).toBeTruthy();
+	expect(await (await inTab("teach")).findByText("Connected · Studio Mac")).toBeTruthy();
 	expect(screen).toHavePathname("/");
 	expect(pairedDevices).toEqual(["Test iPhone"]);
 	expect(JSON.parse(mockKeychain.get("lh.connection.v1")!)).toMatchObject({
@@ -138,8 +140,9 @@ describe("a paired phone", () => {
 
 	it("opens connected, and settings show the Mac and the address in use", async () => {
 		await renderRouter(APP, { initialUrl: "/" });
-		expect(await screen.findByText("Connected · Studio Mac")).toBeTruthy();
-		await fireEvent.press(screen.getByTestId("open-settings"));
+		const teach = await inTab("teach");
+		expect(await teach.findByText("Connected · Studio Mac")).toBeTruthy();
+		await fireEvent.press(await headerButton("open-settings"));
 		expect(await screen.findByTestId("mac-name")).toHaveTextContent("Studio Mac");
 		expect(screen.getByTestId("mac-address")).toHaveTextContent("https://192.168.1.20:47821");
 	});
@@ -150,7 +153,9 @@ describe("a paired phone", () => {
 		});
 		await renderRouter(APP, { initialUrl: "/" });
 		expect(
-			await screen.findByText(/The phone cannot reach Studio Mac\. Make sure that the Mac is on/),
+			await (
+				await inTab("teach")
+			).findByText(/The phone cannot reach Studio Mac\. Make sure that the Mac is on/),
 		).toBeTruthy();
 	});
 
@@ -168,9 +173,9 @@ describe("a paired phone", () => {
 		mockMacPin = `sha256/${"B".repeat(42)}Q=`;
 		await renderRouter(APP, { initialUrl: "/" });
 		expect(
-			await screen.findByText(
-				/A device answered at the address of Studio Mac, but it is not Studio Mac/,
-			),
+			await (
+				await inTab("teach")
+			).findByText(/A device answered at the address of Studio Mac, but it is not Studio Mac/),
 		).toBeTruthy();
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(mockKeychain.size).toBe(1);
