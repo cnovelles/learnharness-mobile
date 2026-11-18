@@ -55,27 +55,15 @@ describe("the opening of a session", () => {
 		expect(follow.follows()).toBe(false);
 	});
 
-	it("ends when the reveal is idle and the view is at the end, and then the normal rules apply", () => {
+	it("ends when the reveal is idle, and then the normal rules apply", () => {
 		const follow = createEndFollow();
-		// The view is not at the end yet: an idle moment does not end the opening.
-		follow.scrolled(at(1500));
 		follow.revealIdle();
-		expect(follow.opening()).toBe(true);
-		// The app's scroll reaches the end.
-		follow.scrolled(at(3200));
 		expect(follow.opening()).toBe(false);
 		expect(follow.follows()).toBe(true);
 		// Now a drag that ends away from the end stops the follow.
 		follow.dragStart(at(3200));
 		follow.dragEnd(at(3100), false);
 		expect(follow.follows()).toBe(false);
-	});
-
-	it("ends at once when the reveal is idle and the view is already at the end", () => {
-		const follow = createEndFollow();
-		follow.scrolled(at(3200));
-		follow.revealIdle();
-		expect(follow.opening()).toBe(false);
 	});
 
 	it("ends with a tap on the status bar (the view goes to the top)", () => {
@@ -87,7 +75,6 @@ describe("the opening of a session", () => {
 
 	it("follows again after a tap on the Latest button", () => {
 		const follow = createEndFollow();
-		follow.scrolled(at(3200));
 		follow.revealIdle();
 		follow.dragStart(at(3200));
 		follow.dragEnd(at(500), false);
@@ -97,69 +84,6 @@ describe("the opening of a session", () => {
 		// The app's scroll to the end sends frames that are not at the end.
 		follow.scrolled(at(1500));
 		follow.momentumEnd(at(2000));
-		expect(follow.follows()).toBe(true);
-	});
-});
-
-describe("a touch stops the animated scroll to the end (iOS)", () => {
-	it("asks for the scroll again after a short drag during the opening", () => {
-		const follow = createEndFollow();
-		// The touch stopped the scroll at 1500; the content does not grow after it.
-		follow.dragStart(at(1500));
-		expect(follow.dragEnd(at(1510), false)).toBe(true);
-		expect(follow.follows()).toBe(true);
-	});
-
-	it("waits for the momentum, and then asks for the scroll again", () => {
-		const follow = createEndFollow();
-		follow.dragStart(at(1500));
-		expect(follow.dragEnd(at(1600), true)).toBe(false);
-		expect(follow.momentumEnd(at(2100))).toBe(true);
-	});
-
-	it("does not ask when the drag ends at the end", () => {
-		const follow = createEndFollow();
-		follow.dragStart(at(3150));
-		expect(follow.dragEnd(at(3200), false)).toBe(false);
-	});
-
-	it("does not ask after a clear drag up (the reader wants to read above)", () => {
-		const follow = createEndFollow();
-		follow.dragStart(at(1500));
-		expect(follow.dragEnd(at(1000), false)).toBe(false);
-		expect(follow.follows()).toBe(false);
-	});
-
-	it("asks for the scroll again after a tap with no drag", () => {
-		const follow = createEndFollow();
-		// No scroll event yet: nothing is known, nothing to ask.
-		expect(follow.touchEnd()).toBe(false);
-		follow.scrolled(at(1500));
-		expect(follow.touchEnd()).toBe(true);
-		// At the end: no scroll.
-		follow.scrolled(at(3200));
-		expect(follow.touchEnd()).toBe(false);
-	});
-
-	it("leaves a tap during a drag to dragEnd", () => {
-		const follow = createEndFollow();
-		follow.scrolled(at(1500));
-		follow.dragStart(at(1500));
-		expect(follow.touchEnd()).toBe(false);
-	});
-
-	it("does not ask after a tap when the reader scrolled up (no follow)", () => {
-		const follow = createEndFollow();
-		follow.scrolled(at(3200));
-		follow.revealIdle();
-		follow.dragStart(at(3200));
-		follow.dragEnd(at(1000), false);
-		expect(follow.touchEnd()).toBe(false);
-	});
-
-	it("asks again when the app's own scroll stopped short of the end", () => {
-		const follow = createEndFollow();
-		expect(follow.momentumEnd(at(2000))).toBe(true);
 		expect(follow.follows()).toBe(true);
 	});
 });

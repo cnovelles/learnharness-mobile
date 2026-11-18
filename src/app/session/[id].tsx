@@ -368,25 +368,18 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		checkLatest(m);
 		viewport.notify();
 	};
-	// On iOS a touch stops the animated scrollToEnd. The follow can still be
-	// on: then scroll to the end again (the iPhone check of e1b060e).
-	const toEndAgain = () => scroll.current?.scrollToEnd({ animated: true });
 	const onDragStart = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
 		follow.dragStart(metrics(event));
 	const onDragEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
 		const v = event.nativeEvent.velocity;
 		const m = metrics(event);
-		if (follow.dragEnd(m, Math.abs(v?.y ?? 0) > 0.01)) toEndAgain();
+		follow.dragEnd(m, Math.abs(v?.y ?? 0) > 0.01);
 		checkLatest(m);
 	};
 	const onMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
 		const m = metrics(event);
-		if (follow.momentumEnd(m)) toEndAgain();
+		follow.momentumEnd(m);
 		checkLatest(m);
-	};
-	// A tap with no drag also stops the animated scroll on iOS.
-	const onTouchEnd = () => {
-		if (follow.touchEnd()) toEndAgain();
 	};
 	const goToLatest = () => {
 		follow.toEnd();
@@ -433,8 +426,6 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						onScrollBeginDrag={onDragStart}
 						onScrollEndDrag={onDragEnd}
 						onMomentumScrollEnd={onMomentumEnd}
-						onTouchEnd={onTouchEnd}
-						onTouchCancel={onTouchEnd}
 						onScrollToTop={follow.toTop}
 						onLayout={viewport.notify}
 						scrollEventThrottle={100}
