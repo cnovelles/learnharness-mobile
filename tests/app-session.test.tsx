@@ -8,6 +8,7 @@
  */
 import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
 import path from "node:path";
+import { ScrollView } from "react-native";
 
 import { codeText } from "./helpers/code-text";
 import { FakeMac, PROBE, type Rec, pairedConnection } from "./helpers/fake-mac";
@@ -211,6 +212,26 @@ describe("the session open position (bug 2026-11-17)", () => {
 		// The app's scroll to the end does not bring it back.
 		await fireEvent.scroll(transcript, scrollEvent(1500));
 		expect(screen.queryByTestId("go-latest")).toBeNull();
+	});
+
+	it("a tap that stops the scroll down scrolls to the end again (iOS, the iPhone check)", async () => {
+		const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
+		mac.chats.get(id)!.messages.push(mac.assistant([{ type: "text", text: "Hi." }]));
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByText("Hi.")).toBeTruthy();
+		const transcript = screen.getByTestId("transcript-scroll");
+		// The Jest ScrollView mock has scrollToEnd on its prototype.
+		const toEnd = jest.spyOn(ScrollView.prototype, "scrollToEnd");
+		// The animated scroll was at 1500 when the tap stopped it.
+		await fireEvent.scroll(transcript, scrollEvent(1500));
+		await fireEvent(transcript, "touchEnd", {});
+		expect(toEnd).toHaveBeenCalledWith({ animated: true });
+		// A short drag that stops it again: the same.
+		toEnd.mockClear();
+		await fireEvent(transcript, "scrollBeginDrag", scrollEvent(1500));
+		await fireEvent(transcript, "scrollEndDrag", scrollEvent(1520));
+		expect(toEnd).toHaveBeenCalledWith({ animated: true });
+		toEnd.mockRestore();
 	});
 });
 

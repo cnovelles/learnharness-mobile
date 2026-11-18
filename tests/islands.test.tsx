@@ -336,6 +336,8 @@ describe("islands near the screen (decision 3)", () => {
 		expect(follow.follows()).toBe(true);
 		// The rules after the opening (tests/end-follow.test.ts has the opening).
 		follow.revealIdle();
+		follow.scrolled({ offset: 1600, visible: 800, content: 2400 });
+		expect(follow.opening()).toBe(false);
 		// The app's animated scroll after an island grew: a middle frame, then
 		// its end (iOS sends onMomentumScrollEnd for it too). Neither is the reader's.
 		follow.scrolled({ offset: 400, visible: 800, content: 2400 });
