@@ -13,7 +13,13 @@
  *   then shows its own loading box), so a slow or failed chart never
  *   holds the blocks under it for long.
  * - A shown block stays shown. A streaming change that makes it "not
- *   ready" again (a paragraph that gets a formula) does not hide it.
+ *   ready" again (a paragraph that gets a formula) does not hide it. *
+ * With `hold: false` (the session screen, issue 21 slice D, D-014) every
+ * block shows at once. The gate then only says when the blocks are drawn:
+ * it is busy while a block is not ready. Each block has its own time limit
+ * from when it comes, and the limits run at the same time (not one after
+ * the other, as at the front of a held reveal). A hidden block has no height, so a held reveal of a
+ * long transcript put all its islands near the screen at once.
  */
 
 /** The longest wait for one block at the front (user decision: 1.5 s). */
@@ -50,13 +56,41 @@ export interface RevealGate {
 	dispose(): void;
 }
 
-export function createRevealGate(limitMs: number = REVEAL_LIMIT_MS): RevealGate {
+export interface RevealOptions {
+	/** False: show every block at once, and only track which blocks are drawn. */
+	hold?: boolean;
+}
+
+export function createRevealGate(
+	limitMs: number = REVEAL_LIMIT_MS,
+	{ hold = true }: RevealOptions = {},
+): RevealGate {
 	const slots = new Map<string, Slot>();
 	const views = new Map<string, RevealView>();
 	const listeners = new Set<() => void>();
 	let front: string | null = null;
 	let timer: ReturnType<typeof setTimeout> | null = null;
 	let disposed = false;
+	/** Hold off: the time limit of each block. */
+	const limits = new Map<string, ReturnType<typeof setTimeout>>();
+	const stopLimit = (id: string) => {
+		const t = limits.get(id);
+		if (t) clearTimeout(t);
+		limits.delete(id);
+	};
+	const startLimit = (id: string) => {
+		if (limits.has(id)) return;
+		limits.set(
+			id,
+			setTimeout(() => {
+				limits.delete(id);
+				const slot = slots.get(id);
+				if (!slot) return;
+				slot.expired = true;
+				recompute();
+			}, limitMs),
+		);
+	};
 
 	const stopTimer = () => {
 		if (timer) clearTimeout(timer);
@@ -70,7 +104,11 @@ export function createRevealGate(limitMs: number = REVEAL_LIMIT_MS): RevealGate 
 		let nextFront: string | null = null;
 		views.clear();
 		for (const [id, slot] of order) {
-			if (!blocked && (slot.ready || slot.shown || slot.expired)) {
+			if (!hold) {
+				slot.shown = true;
+				views.set(id, "shown");
+				if (!nextFront && !slot.ready && !slot.expired) nextFront = id;
+			} else if (!blocked && (slot.ready || slot.shown || slot.expired)) {
 				slot.shown = true;
 				views.set(id, "shown");
 			} else if (!blocked) {
@@ -78,6 +116,11 @@ export function createRevealGate(limitMs: number = REVEAL_LIMIT_MS): RevealGate 
 				nextFront = id;
 				views.set(id, "front");
 			} else views.set(id, "hidden");
+		}
+		if (!hold) {
+			front = nextFront;
+			for (const listener of listeners) listener();
+			return;
 		}
 		if (nextFront !== front) {
 			stopTimer();
@@ -106,10 +149,15 @@ export function createRevealGate(limitMs: number = REVEAL_LIMIT_MS): RevealGate 
 				shown: old?.shown ?? false,
 				expired: old?.expired ?? false,
 			});
+			if (!hold) {
+				if (ready) stopLimit(id);
+				else if (!old?.expired) startLimit(id);
+			}
 			recompute();
 		},
 		remove(id) {
 			if (!slots.delete(id)) return;
+			stopLimit(id);
 			recompute();
 		},
 		view: (id) => views.get(id) ?? "hidden",
@@ -121,6 +169,7 @@ export function createRevealGate(limitMs: number = REVEAL_LIMIT_MS): RevealGate 
 		dispose() {
 			disposed = true;
 			stopTimer();
+			for (const id of [...limits.keys()]) stopLimit(id);
 			listeners.clear();
 		},
 	};

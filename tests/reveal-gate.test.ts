@@ -105,3 +105,45 @@ describe("createRevealGate", () => {
 		expect(gate.view("a")).toBe("front");
 	});
 });
+
+describe("createRevealGate with hold off (issue 21 slice D)", () => {
+	it("shows every block at once, also under a block that is not ready", () => {
+		const gate = createRevealGate(REVEAL_LIMIT_MS, { hold: false });
+		gate.set("a", [0], true);
+		gate.set("b", [1], false);
+		gate.set("c", [2], true);
+		expect(["a", "b", "c"].map((id) => gate.view(id))).toEqual(["shown", "shown", "shown"]);
+	});
+
+	it("is busy while a block is not ready, until it is ready or the limit ends", () => {
+		const gate = createRevealGate(REVEAL_LIMIT_MS, { hold: false });
+		gate.set("a", [0], false);
+		gate.set("b", [1], false);
+		expect(gate.busy()).toBe(true);
+		gate.set("a", [0], true);
+		expect(gate.busy()).toBe(true);
+		jest.advanceTimersByTime(REVEAL_LIMIT_MS);
+		expect(gate.busy()).toBe(false);
+		expect(gate.view("b")).toBe("shown");
+	});
+});
+
+describe("the limits with hold off", () => {
+	it("run at the same time: all blocks that are not ready end after one limit", () => {
+		const gate = createRevealGate(REVEAL_LIMIT_MS, { hold: false });
+		for (let i = 0; i < 6; i++) gate.set(`s${i}`, [i], false);
+		jest.advanceTimersByTime(REVEAL_LIMIT_MS);
+		expect(gate.busy()).toBe(false);
+	});
+
+	it("start when the block comes, not when the gate starts", () => {
+		const gate = createRevealGate(REVEAL_LIMIT_MS, { hold: false });
+		gate.set("a", [0], false);
+		jest.advanceTimersByTime(REVEAL_LIMIT_MS - 100);
+		gate.set("b", [1], false);
+		jest.advanceTimersByTime(100);
+		expect(gate.busy()).toBe(true);
+		jest.advanceTimersByTime(REVEAL_LIMIT_MS);
+		expect(gate.busy()).toBe(false);
+	});
+});

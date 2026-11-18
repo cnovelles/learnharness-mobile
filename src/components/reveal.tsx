@@ -30,7 +30,12 @@ import {
 } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
 
-import { createRevealGate, type RevealGate, type RevealKey } from "@/lib/reveal-gate";
+import {
+	REVEAL_LIMIT_MS,
+	createRevealGate,
+	type RevealGate,
+	type RevealKey,
+} from "@/lib/reveal-gate";
 import { Spinner } from "./ui";
 
 /** The fade of a block that was hidden. */
@@ -58,8 +63,17 @@ const GroupContext = createContext<Group | null>(null);
  * change of the gate, and once after the first render (a transcript with
  * no block).
  */
-export function RevealProvider({ children, onIdle }: { children: ReactNode; onIdle?: () => void }) {
-	const [gate] = useState(() => createRevealGate());
+export function RevealProvider({
+	children,
+	onIdle,
+	hold = true,
+}: {
+	children: ReactNode;
+	onIdle?: () => void;
+	/** False: every block shows at once; the gate only reports when they are drawn (D-014). */
+	hold?: boolean;
+}) {
+	const [gate] = useState(() => createRevealGate(REVEAL_LIMIT_MS, { hold }));
 	useEffect(() => () => gate.dispose(), [gate]);
 	const idleRef = useRef(onIdle);
 	useEffect(() => {

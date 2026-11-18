@@ -21,17 +21,38 @@ import { Dimensions, type View } from "react-native";
 export type IslandViewport = {
 	subscribe: (check: () => void) => () => void;
 	notify: () => void;
+	/** True while the islands must not measure their place yet. */
+	waiting: () => boolean;
+	/** End the wait and let every island measure its place. */
+	start: () => void;
 };
 
-export function createIslandViewport(): IslandViewport {
+/**
+ * `waiting`: the islands do not measure their place until `start()`. The
+ * session screen opens at the top of the page window for one frame and
+ * then jumps to the end (D-014): a measure in that frame puts the islands
+ * of the top near the screen, and they start their WebView for nothing.
+ */
+export function createIslandViewport({
+	waiting = false,
+}: { waiting?: boolean } = {}): IslandViewport {
 	const checks = new Set<() => void>();
+	let wait = waiting;
+	const notify = () => {
+		if (wait) return;
+		for (const check of checks) check();
+	};
 	return {
 		subscribe(check) {
 			checks.add(check);
 			return () => checks.delete(check);
 		},
-		notify() {
-			for (const check of checks) check();
+		notify,
+		waiting: () => wait,
+		start() {
+			if (!wait) return;
+			wait = false;
+			notify();
 		},
 	};
 }
@@ -168,6 +189,7 @@ export function useNearScreenState(ref: RefObject<ComponentRef<typeof View> | nu
 		if (!viewport) return;
 		let live = true;
 		const check = () => {
+			if (viewport.waiting()) return;
 			ref.current?.measureInWindow((_x, y, _w, h) => {
 				if (!live || !Number.isFinite(y)) return;
 				const screen = Dimensions.get("window").height;

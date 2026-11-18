@@ -87,7 +87,7 @@ it("a new session sends the first text, shows the probe, sends the answer and sh
 	expect(mac.inputs).toEqual([{ type: "text", text: "Teach me how the tides work." }]);
 	// In the transcript (the header shows the same text as the session title).
 	expect(
-		within(screen.getByTestId("transcript")).getByText("Teach me how the tides work."),
+		within(screen.getByTestId("transcript-scroll")).getByText("Teach me how the tides work."),
 	).toBeTruthy();
 
 	// The answer needs a choice. Then choose, set 90%, and send.
@@ -238,7 +238,7 @@ describe("error states", () => {
 		expect(await screen.findByText(/Your Mac has no Strong model set\./)).toBeTruthy();
 		// No raw server text, and no phone-only bubble for the refused text.
 		expect(screen.queryByText(/models_not_configured|No model configured/)).toBeNull();
-		expect(within(screen.getByTestId("transcript")).queryByText(OPENING)).toBeNull();
+		expect(within(screen.getByTestId("transcript-scroll")).queryByText(OPENING)).toBeNull();
 		// The text is back in the composer.
 		expect(screen.getByTestId("composer").props.value).toBe(OPENING);
 

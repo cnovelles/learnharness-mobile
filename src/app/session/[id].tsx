@@ -69,6 +69,7 @@ import type { SessionRecord } from "@/lib/sessions";
 import { phaseAt3Lh, type Phase3 } from "@/lib/shared";
 import { revealPlan } from "@/lib/reveal";
 import { transcriptRows } from "@/lib/transcript";
+import { earlierStart, firstStart, keepStart, wantsEarlier } from "@/lib/transcript-window";
 import { COMPACTING, useSessionModel, useSessionRecord } from "@/lib/use-session";
 import { SPACE } from "@/components/spacing";
 
@@ -304,6 +305,25 @@ function LatestButton({ onPress }: { onPress: () => void }) {
 	);
 }
 
+/** Keep the visible row in place when older rows come in above it (index 0 is EarlierLine). */
+const MVCP = { minIndexForVisible: 1 };
+
+/**
+ * The top of the page window: older rows are in the record but not drawn
+ * yet. The next page comes in when the reader scrolls near it (D-014).
+ */
+function EarlierLine({ shown }: { shown: boolean }) {
+	const c = usePalette();
+	// Always mounted, so the rows keep their child index for maintainVisibleContentPosition.
+	if (!shown) return <View />;
+	return (
+		<View style={styles.earlier} testID="earlier-rows">
+			<Spinner />
+			<Text style={[LABEL, { color: c.muted }]}>Loading earlier messages</Text>
+		</View>
+	);
+}
+
 function confirmStop(onStop: () => void) {
 	Alert.alert("Stop this turn?", "The partial answer stays.", [
 		{ text: "Cancel", style: "cancel" },
@@ -324,6 +344,12 @@ function SessionBody({ record }: { record: SessionRecord }) {
 			}),
 		[state.messages, malformed, pending, running],
 	);
+	// The page window (issue 21 slice D, D-014): draw the last page first,
+	// and one more page of older rows near the top. The record keeps all rows.
+	const [windowStart, setWindowStart] = useState(() => firstStart(rows.length));
+	const start = keepStart(windowStart, rows.length);
+	// One page at a time: the next page waits for the content to grow.
+	const pageAsked = useRef(false);
 	const phase = useMemo(() => phaseAt3Lh(state.nativeMessages), [state.nativeMessages]);
 	const tree = useMemo(() => latestPlanTree(state.messages), [state.messages]);
 	const [planOpen, setPlanOpen] = useState(false);
@@ -348,7 +374,8 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	);
 	const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 	// Math and Mermaid islands start their WebView only near the screen.
-	const [viewport] = useState(createIslandViewport);
+	// They wait until the open has jumped to the end (D-014).
+	const [viewport] = useState(() => createIslandViewport({ waiting: true }));
 	// New content scrolls the transcript to the end only when the reader is
 	// at the end. An island that starts near the screen changes its height:
 	// that must not pull a reader who scrolled up back to the end.
@@ -379,6 +406,11 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	// "↓ Latest" (bug 2026-11-17): more than one screen up, and no follow.
 	const [latest, setLatest] = useState(false);
 	const checkLatest = (m: ScrollMetrics) => setLatest(!follow.follows() && showsLatest(m));
+	const checkEarlier = () => {
+		if (pageAsked.current || !wantsEarlier(shape.current, start)) return;
+		pageAsked.current = true;
+		setWindowStart(earlierStart(start));
+	};
 	const onTranscriptScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
 		const m = metrics(event);
 		shape.current = m;
@@ -386,6 +418,7 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		checkLatest(m);
 		viewport.notify();
 		checkEnd();
+		checkEarlier();
 	};
 	const onDragStart = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
 		follow.dragStart(metrics(event));
@@ -416,6 +449,8 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		);
 		return () => sub.remove();
 	}, []);
+	// The lines and the dock under the transcript.
+	const tail = running || compacting || !!banner || (!running && (!!pending || !!malformed));
 	// The check that the learner opened. It stays open while a refused answer is sent again.
 	const [openedKey, setOpenedKey] = useState<string | null>(null);
 
@@ -437,11 +472,19 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						testID="transcript-scroll"
 						contentContainerStyle={styles.content}
 						keyboardShouldPersistTaps="handled"
+						// Older rows come in above the reader: keep the visible row in
+						// place. Index 0 is the "earlier messages" line.
+						maintainVisibleContentPosition={MVCP}
 						onContentSizeChange={(_w, h) => {
 							shape.current = { ...shape.current, content: h };
-							if (follow.follows()) scroll.current?.scrollToEnd({ animated: true });
+							pageAsked.current = false;
+							// The opening jumps to the end with no motion (D-014).
+							if (follow.follows()) scroll.current?.scrollToEnd({ animated: !follow.opening() });
+							// The islands measure after the frame of the jump.
+							if (viewport.waiting()) requestAnimationFrame(viewport.start);
 							viewport.notify();
 							checkEnd();
+							checkEarlier();
 						}}
 						onScroll={onTranscriptScroll}
 						onScrollBeginDrag={onDragStart}
@@ -455,68 +498,74 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						}}
 						scrollEventThrottle={100}
 					>
+						<EarlierLine shown={start > 0} />
 						<IslandViewportContext.Provider value={viewport}>
-							<RevealProvider onIdle={onRevealIdle}>
-								<Transcript rows={rows} onOpenPlan={openPlan} />
+							<RevealProvider onIdle={onRevealIdle} hold={false}>
+								<Transcript rows={rows} start={start} onOpenPlan={openPlan} />
 							</RevealProvider>
 						</IslandViewportContext.Provider>
-						{running ? (
-							<StatusLine testID="turn-running">
-								{state.status === "submitted" ? "Sending…" : "Thinking…"}
-							</StatusLine>
-						) : null}
-						{compacting ? <StatusLine testID="compacting">{COMPACTING}</StatusLine> : null}
-						{banner ? (
-							<ErrorBanner
-								text={banner.text}
-								testID="session-error"
-								actions={
-									<>
-										{banner.retry ? (
-											<Button
-												title="Try again"
-												kind="plain"
-												size="sm"
-												onPress={() => void session.retryBanner()}
-												disabled={compacting && banner.retry !== "sync"}
-												testID="retry-turn"
-											/>
-										) : null}
+						{tail ? (
+							<View style={styles.tail}>
+								{running ? (
+									<StatusLine testID="turn-running">
+										{state.status === "submitted" ? "Sending…" : "Thinking…"}
+									</StatusLine>
+								) : null}
+								{compacting ? <StatusLine testID="compacting">{COMPACTING}</StatusLine> : null}
+								{banner ? (
+									<ErrorBanner
+										text={banner.text}
+										testID="session-error"
+										actions={
+											<>
+												{banner.retry ? (
+													<Button
+														title="Try again"
+														kind="plain"
+														size="sm"
+														onPress={() => void session.retryBanner()}
+														disabled={compacting && banner.retry !== "sync"}
+														testID="retry-turn"
+													/>
+												) : null}
+												<Button
+													title="Close"
+													kind="plain"
+													size="sm"
+													onPress={session.closeBanner}
+													testID="clear-error"
+												/>
+											</>
+										}
+									/>
+								) : null}
+								{!running && pending ? (
+									<QuestionDock
+										key={pending.key}
+										call={pending}
+										reveal={revealPlan(state.nativeMessages, pending)}
+										opened={openedKey === pending.key}
+										onOpen={() => setOpenedKey(pending.key)}
+										draft={session.draft(pending.key)}
+										onDraft={(draft) => session.saveDraft(pending.key, draft)}
+										onSubmit={(answer) => session.answer(pending.toolCallId, answer, pending.key)}
+										waiting={compacting}
+									/>
+								) : null}
+								{!running && malformed ? (
+									<Panel>
+										<Body>
+											The teacher&apos;s question was not complete. Ask the teacher to write it
+											again.
+										</Body>
 										<Button
-											title="Close"
-											kind="plain"
-											size="sm"
-											onPress={session.closeBanner}
-											testID="clear-error"
+											title="Ask again"
+											onPress={() => void session.retryQuestion()}
+											testID="retry-question"
 										/>
-									</>
-								}
-							/>
-						) : null}
-						{!running && pending ? (
-							<QuestionDock
-								key={pending.key}
-								call={pending}
-								reveal={revealPlan(state.nativeMessages, pending)}
-								opened={openedKey === pending.key}
-								onOpen={() => setOpenedKey(pending.key)}
-								draft={session.draft(pending.key)}
-								onDraft={(draft) => session.saveDraft(pending.key, draft)}
-								onSubmit={(answer) => session.answer(pending.toolCallId, answer, pending.key)}
-								waiting={compacting}
-							/>
-						) : null}
-						{!running && malformed ? (
-							<Panel>
-								<Body>
-									The teacher&apos;s question was not complete. Ask the teacher to write it again.
-								</Body>
-								<Button
-									title="Ask again"
-									onPress={() => void session.retryQuestion()}
-									testID="retry-question"
-								/>
-							</Panel>
+									</Panel>
+								) : null}
+							</View>
 						) : null}
 					</ScrollView>
 					{latest ? <LatestButton onPress={goToLatest} /> : null}
@@ -608,7 +657,16 @@ export default function SessionScreen() {
 
 const styles = StyleSheet.create({
 	screen: { flex: 1 },
-	content: { padding: SPACE.lg, gap: SPACE.lg, flexGrow: 1 },
+	// No gap: the rows are direct children and set their own space (D-014).
+	content: { padding: SPACE.lg, flexGrow: 1 },
+	earlier: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: SPACE.sm,
+		paddingBottom: SPACE.md,
+	},
+	tail: { gap: SPACE.lg, paddingTop: SPACE.lg },
 	row: { flexDirection: "row", gap: SPACE.md },
 	bottom: { paddingHorizontal: SPACE.lg, paddingBottom: SPACE.sm, gap: SPACE.sm },
 	headerTitle: { alignItems: "center", maxWidth: 200 },

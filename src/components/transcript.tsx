@@ -383,10 +383,16 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 export function Transcript({
 	rows,
 	onOpenPlan,
+	start = 0,
 }: {
 	rows: TranscriptRow[];
 	/** Opens the lesson map (the Plan sheet). */
 	onOpenPlan: () => void;
+	/**
+	 * The first row to draw (the page window, issue 21 slice D). The rows
+	 * over it stay in the record but are not drawn.
+	 */
+	start?: number;
 }) {
 	const gated = useRevealActive();
 	if (!gated) {
@@ -398,13 +404,18 @@ export function Transcript({
 			</View>
 		);
 	}
-	// The top-to-bottom reveal: a text row shows block by block (its
-	// Markdown makes the slots), every other row is one slot.
+	// The slots of the reveal: a text row shows block by block (its
+	// Markdown makes the slots), every other row is one slot. The rows are
+	// direct children of the scroll view's content (no wrapper view), so
+	// iOS keeps the visible row in place when older rows come in above it
+	// (`maintainVisibleContentPosition`). A slot's key is the row's place in
+	// the whole record, so a new page above does not change the keys.
 	return (
-		<View testID="transcript">
-			{rows.map((row, i) => {
+		<>
+			{rows.slice(start).map((row, n) => {
+				const i = start + n;
 				const key = `${row.kind}-${row.id}`;
-				const space = i === 0 ? 0 : SPACE.md;
+				const space = n === 0 ? 0 : SPACE.md;
 				return row.kind === "text" ? (
 					<RevealScope key={key} prefix={[i]} space={space}>
 						<Row row={row} onOpenPlan={onOpenPlan} />
@@ -415,7 +426,7 @@ export function Transcript({
 					</RevealSlot>
 				);
 			})}
-		</View>
+		</>
 	);
 }
 

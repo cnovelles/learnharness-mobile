@@ -402,4 +402,30 @@ describe("islands near the screen (decision 3)", () => {
 		await page(only(), { type: "height", height: 30 });
 		expect(screen.queryByTestId("md-math-loading")).toBeNull();
 	});
+
+	it("measure nothing while the viewport waits (the open jumps to the end first)", async () => {
+		const top = 300;
+		jest
+			.spyOn(
+				ReactNative.View.prototype as unknown as { measureInWindow: () => void },
+				"measureInWindow",
+			)
+			.mockImplementation(function (this: unknown, ...args: unknown[]) {
+				(args[0] as (x: number, y: number, w: number, h: number) => void)(0, top, 300, 24);
+			});
+		const viewport = createIslandViewport({ waiting: true });
+		await render(
+			<IslandViewportContext.Provider value={viewport}>
+				{md("Pull $F = ma$ here.")}
+			</IslandViewportContext.Provider>,
+		);
+		await act(async () => {
+			viewport.notify();
+		});
+		expect(webviews()).toHaveLength(0);
+		await act(async () => {
+			viewport.start();
+		});
+		expect(webviews()).toHaveLength(1);
+	});
 });
