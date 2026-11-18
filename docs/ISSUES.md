@@ -594,6 +594,30 @@ User request 2026-11-17 (screenshots of the "Hello Interview" app as the referen
 | 6. The Mac refuses a folder change (400: bad name, a cycle, a folder that is not empty) | The server's case as a message from `describeError` (never raw text). The list stays as it was. |
 | 7. The network fails during a folder change                                             | "Not saved. Check the connection to your Mac." The list stays as it was.                        |
 
+## 21 Performance: session open, WebView leak, local timing marks `todo`
+
+User decision 2026-11-18: add this issue after the walkthrough numbers. The app is local and single user, so it gets no cloud dashboards and no alerts. It gets local timing marks, a developer panel, MetricKit, and performance budgets in the tests. Source: `docs/reviews/2026-11-18-e2e-walkthrough.md` (dev build, Simulators, golden data).
+
+### Facts (walkthrough 2026-11-18)
+
+- A large session open (golden teach session, 360 KB, 95 messages) takes 8.2–9.1 s on the Pro Max and about 12 s on the SE. About 83% is JS work with a frozen screen (6.7–6.9 s: the mount of the whole transcript, the reveal slots, `projectView`). The Mac route takes 47–88 ms; the fetch is at most about 0.5 s.
+- Thus a prefetch of the newest N records saves little on the test rig. Check again in a Release build on the iPhone (faster JS, slower network) before a decision.
+- WebView leak: each open of the golden session starts about 29 `com.apple.WebKit.WebContent` processes that do not end when the session closes (102 after 3–4 opens, gone only when the app quits). iOS can stop the app for memory.
+- The reveal gate cost grows with the square of the block count (Node: 300 blocks 18 ms, 1000 blocks 170 ms).
+- The `Spinner` runs on a JS `setInterval`, so it stops while the JS thread is busy (up to 7 s).
+- The Teach tab reads the whole graph (429 KB) and the newest record on each focus.
+
+### Slices (plan, order by impact)
+
+- A. Timing marks: tap, record fetched, record parsed, first transcript commit, reveal idle, follow at end; the island count for each session. A small ring buffer, shown in the developer section of Settings. Measure the Release build on the iPhone. This gives the baseline for B to E.
+- B. Fix the WebView leak: an island WebView ends when its slot unmounts or goes far. An E2E check of the WebKit process count after a session closes.
+- C. Spinner on the UI thread (native driver or `ActivityIndicator`).
+- D. Do not mount the whole transcript at once: a virtualized list from the end, or the last rows first and older rows in idle chunks. Make the reveal gate cheaper (ordered insert, notify only changed slots). Absorbs the bug "Choppy load of a large session". Show the title and phase from the list item at once.
+- E. Prefetch, only if A shows that the fetch matters on the iPhone: first keep the record that the continue card read and give it to the session screen.
+- F. MetricKit (launch time, hangs) through a small native module; performance budgets in Jest (for example the number of islands that start at once).
+
+Other walkthrough findings go to the issue of their screen: the native network error text is not mapped in `describeError` and a failed send does not call `monitor.check()`; the refresh spinner shows on each tab focus; small rough edges (empty session hint, plan sheet close tap, SE placeholder wraps, "Forget this Mac" blank second, "+" field focus).
+
 ## Choppy load of a large session (bug, 2026-11-17) `todo`
 
 - The user's report (iPhone 13 Pro Max, Release build of `e1b060e`): the scroll is very choppy while a large session loads.
