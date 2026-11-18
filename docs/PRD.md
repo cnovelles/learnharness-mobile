@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-17 (issue 20 slice A is done: the native tab bar with Teach, Practice and Graph tabs).
+Last update: 2026-11-18 (the fork's folder order is in `src/core`; issue 20 slice A is done).
 
 **Done**
 
@@ -47,7 +47,7 @@ Last update: 2026-11-17 (issue 20 slice A is done: the native tab bar with Teach
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Move the fork's folder order (`renderLevel` in `components/source-folder-tree.tsx`) to the fork's `src/core` (push to `fork` only), then issue 20 slice B (Teach tab) and slice C (Practice tab). Slice A is done (native tabs, user choice 2026-11-17; `docs/ISSUES.md` issue 20 Facts). The mockups are done and all choices are answered (`docs/ISSUES.md`, issue 20, both "Decisions" lists). The bug "Choppy load of a large session" comes later (user choice 2026-11-17). Then the folder writes, then issue 08 in the Graph tab. Show the user mockups before each build. Commit subjects use Conventional Commits (`AGENTS.md`, "Commits"). The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
+**Next step:** Issue 20 slice B (Teach tab), then slice C (Practice tab). Show the user mockups before each build. The fork's folder order is in `src/core/folder-order.ts` (fork `79f70b5`, pushed to `fork`; `docs/ISSUES.md` issue 20 Facts). Slice A is done (native tabs). All mockup choices are answered (`docs/ISSUES.md`, issue 20, both "Decisions" lists). The bug "Choppy load of a large session" comes later (user choice 2026-11-17). Then the folder writes, then issue 08 in the Graph tab. Commit subjects use Conventional Commits (`AGENTS.md`, "Commits"). The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
 
 **Facts found during the work**
 
