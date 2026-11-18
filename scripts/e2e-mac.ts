@@ -44,6 +44,11 @@
  * WebView, so the top-to-bottom reveal of the session is slow: the case
  * of the session open position bug (a long session opened at the top).
  *
+ * LH_E2E_SHELF=1 (with LH_E2E_GOLDEN=1) adds teach sessions and desktop
+ * folders for the Teach tab (issue 20): "Algebra" (2 sessions),
+ * "Databases" (1), "Databases/Postgres" (the golden teach session), the
+ * empty "Reading list", and one session with no folder.
+ *
  * LH_E2E_GATEWAY_HOST=<IPv4> makes the gateway listen on that address and
  * puts only that address in the pairing text (default 127.0.0.1). Use the
  * Mac's Tailscale address (100.x) to check the phone's App Transport
@@ -330,6 +335,7 @@ async function main() {
 		vision: slot("fake-cheap"),
 	};
 	await putModels(MODELS);
+	if (process.env.LH_E2E_SHELF === "1") await addShelf(server.url, json);
 	await fetch(`${server.url}/api/settings/graph`, {
 		method: "PUT",
 		headers: json,
@@ -395,3 +401,37 @@ main().catch((e: unknown) => {
 	console.error(e);
 	process.exit(1);
 });
+
+/** The Teach tab data of LH_E2E_SHELF=1, through the desktop API. */
+async function addShelf(url: string, headers: Record<string, string>) {
+	const post = async (route: string, body: unknown) => {
+		const res = await fetch(`${url}${route}`, {
+			method: "POST",
+			headers,
+			body: JSON.stringify(body),
+		});
+		if (!res.ok) throw new Error(`shelf ${route}: ${await res.text()}`);
+		return res.json() as Promise<Record<string, unknown>>;
+	};
+	type Directory = { organization: { folders: { id: string; name: string }[] } };
+	const folder = async (name: string, parentId: string | null) => {
+		const dir = (await post("/api/graph/sources", {
+			action: "create-folder",
+			name,
+			parentId,
+		})) as Directory;
+		return dir.organization.folders.find((f) => f.name === name)!.id;
+	};
+	const move = (id: string, parentId: string) =>
+		post("/api/graph/sources", { action: "move", kind: "source", id, parentId });
+	const session = async (title: string) => String((await post("/api/chats", { title })).id);
+	const algebra = await folder("Algebra", null);
+	const databases = await folder("Databases", null);
+	const postgres = await folder("Postgres", databases);
+	await folder("Reading list", null);
+	await move(GOLDEN_TEACH.replace(/\.json$/, ""), postgres);
+	await move(await session("Linear maps"), algebra);
+	await move(await session("Eigenvalues"), algebra);
+	await move(await session("Indexes"), databases);
+	await session("Bayes rule");
+}

@@ -66,6 +66,17 @@ export class FakeMac {
 	createAnswer: { status: number; body: Rec } | null = null;
 	/** The next N record reads fail with 500. */
 	failRecordReads = 0;
+	/** The desktop folders (`GET /api/graph/sources`); null answers 500. */
+	directory: Rec | null = {
+		organization: { version: 1, folders: [], placements: {} },
+		sources: [],
+	};
+	/** The stored propositions (`GET /api/graph`); null answers 500. */
+	propositions: Rec[] | null = [];
+	/** Extra list fields for a session (`GET /api/chats`), for example `updatedAt` or `phase`. */
+	listFields = new Map<string, Rec>();
+	/** The paths of the GET requests, in order. */
+	reads: string[] = [];
 	private seq = 0;
 
 	get holding() {
@@ -149,6 +160,15 @@ export class FakeMac {
 		expect(new Headers(init?.headers).get("authorization")).toBe(`Bearer ${"t".repeat(43)}`);
 		const method = (init?.method ?? "GET").toUpperCase();
 		const p = u.pathname;
+		if (method === "GET") this.reads.push(p);
+		if (p === "/api/graph/sources" && method === "GET")
+			return this.directory
+				? this.json(this.directory)
+				: this.json({ error: "Could not read source organization." }, 500);
+		if (p === "/api/graph" && method === "GET")
+			return this.propositions
+				? this.json({ nodes: this.propositions, propositions: this.propositions, chains: [] })
+				: this.json({ error: "fake Mac: graph failed" }, 500);
 		if (p === "/phone/v1/ping") return this.json({ ok: true });
 		// Dictation (issue 07): the Mac's language, and the Deepgram token (503: no key).
 		if (p === "/api/settings" && method === "GET")
@@ -177,6 +197,7 @@ export class FakeMac {
 					pendingProblem: false,
 					busy: false,
 					compacting: false,
+					...this.listFields.get(id),
 				})),
 			});
 		if (p === "/api/chats" && method === "POST") {

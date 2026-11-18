@@ -70,6 +70,7 @@
     "e2e:wide": "sh scripts/e2e-test.sh e2e/wide-content.yaml",
     "e2e:open-long": "sh scripts/e2e-test.sh e2e/open-long-session.yaml",
     "e2e:practice": "sh scripts/e2e-test.sh e2e/practice.yaml",
+    "e2e:teach-shelf": "sh scripts/e2e-test.sh e2e/teach-shelf.yaml",
     "e2e:dictation": "sh scripts/e2e-test.sh e2e/dictation.yaml",
     "e2e:dictation-settings": "sh scripts/e2e-test.sh e2e/dictation-settings.yaml",
     "islands": "node scripts/island-pages/build.cjs",

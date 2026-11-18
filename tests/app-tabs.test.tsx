@@ -40,11 +40,11 @@ beforeEach(() => {
 });
 
 it('"/" opens the Teach tab with the teach sessions only', async () => {
-	mac.add("How the tides work");
+	const id = mac.add("How the tides work");
 	mac.add("Linear recurrences", [], "practice");
 	await renderRouter(APP, { initialUrl: "/" });
 	const teach = await inTab("teach");
-	expect(await teach.findByText("How the tides work")).toBeTruthy();
+	expect(await teach.findByTestId(`session-${id}`)).toHaveTextContent(/How the tides work/);
 	expect(teach.queryByText("Linear recurrences")).toBeNull();
 	expect(screen).toHavePathname("/");
 });
@@ -77,7 +77,7 @@ it("a session opens over the tabs, and back returns to the tab", async () => {
 	const id = mac.add("How the tides work");
 	await renderRouter(APP, { initialUrl: "/" });
 	const teach = await inTab("teach");
-	await fireEvent.press(await teach.findByText("How the tides work"));
+	await fireEvent.press(await teach.findByTestId(`session-${id}`));
 	expect(screen).toHavePathname(`/session/${id}`);
 });
 

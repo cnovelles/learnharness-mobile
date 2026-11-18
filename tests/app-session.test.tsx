@@ -56,11 +56,11 @@ beforeEach(() => {
 	globalThis.fetch = jest.fn(mac.handle) as unknown as typeof fetch;
 });
 
-it("home lists the Mac's sessions with their phase", async () => {
-	mac.add("How the tides work");
+it("home lists the Mac's sessions, and the continue card shows the phase", async () => {
+	const id = mac.add("How the tides work");
 	await renderRouter(APP, { initialUrl: "/" });
-	expect(await screen.findByText("How the tides work")).toBeTruthy();
-	expect(screen.getByText(/^Finding out what you know · /)).toBeTruthy();
+	expect(await screen.findByTestId(`session-${id}`)).toHaveTextContent(/How the tides work/);
+	expect(screen.getByTestId("continue-line")).toHaveTextContent("Probing");
 });
 
 it("a new session sends the first text, shows the probe, sends the answer and shows the next turn", async () => {

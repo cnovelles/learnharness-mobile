@@ -33,7 +33,7 @@ export function isSessionId(id: unknown): id is string {
 	return typeof id === "string" && ID.test(id);
 }
 
-async function failure(res: Response): Promise<SessionApiError> {
+export async function failure(res: Response): Promise<SessionApiError> {
 	let message = `The Mac answered with status ${res.status}.`;
 	let body: unknown;
 	try {

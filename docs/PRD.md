@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-18 (the fork's folder order is in `src/core`; issue 20 slice A is done).
+Last update: 2026-11-18 (issue 20 slice B is done: the Teach tab with folders, concept counts and the continue card).
 
 **Done**
 
@@ -47,10 +47,11 @@ Last update: 2026-11-18 (the fork's folder order is in `src/core`; issue 20 slic
 
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
-**Next step:** Issue 20 slice B (Teach tab), then slice C (Practice tab). Show the user mockups before each build. The fork's folder order is in `src/core/folder-order.ts` (fork `79f70b5`, pushed to `fork`; `docs/ISSUES.md` issue 20 Facts). Slice A is done (native tabs). All mockup choices are answered (`docs/ISSUES.md`, issue 20, both "Decisions" lists). The bug "Choppy load of a large session" comes later (user choice 2026-11-17). Then the folder writes, then issue 08 in the Graph tab. Commit subjects use Conventional Commits (`AGENTS.md`, "Commits"). The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
+**Next step:** Run `e2e:practice` (plain test Mac) and `e2e:open-long` (`LH_E2E_GOLDEN=1 LH_E2E_MATH=1`) once after slice B, then issue 20 slice C (Practice tab): show the user the mockup first. Slice B is done (`docs/ISSUES.md` issue 20 Slices). The session e2e-walkthrough (`local_ac81e124`) uses the Simulators after the slice B commit. Then slice D (folder writes, audit first), then issue 08 in the Graph tab. The bug "Choppy load of a large session" comes later. Commit subjects use Conventional Commits. The iPhone's free profile ends 2026-11-24. The Deepgram check of issue 07 waits for the user's key.
 
 **Facts found during the work**
 
+- State 2026-11-18 (compact after issue 20 slice B): slice B is committed. Nothing runs (Metro and the test Mac are stopped). The Pro Max (light) and the SE (dark) are booted with the dev build (no native change). `e2e:practice` and `e2e:open-long` are not run after slice B yet.
 - State 2026-11-17 (compact after issue 20 slice A): the tab shell is committed. Jest 635 pass in band. `e2e:open-long` passed on the Pro Max, `e2e:practice` on the SE. Nothing runs (Metro and the test Mac are stopped). The Pro Max is in light mode, the SE in dark mode; both have the dev build (no native change). The iPhone still has the Release build of `fec7e97` (no tabs yet).
 
 - Jest screen tests: `renderRouter` (expo-router testing library) turns on Jest's fake timers. `package.json` keeps `nextTick` and `queueMicrotask` real (`jest.fakeTimers.doNotFake`), or the web streams of later tests stop. Advance timers inside `act` (`jest.advanceTimersByTimeAsync`); a real `setTimeout` in a test never fires.

@@ -75,3 +75,12 @@ export {
 	wrapTitle,
 	type LayoutNode,
 } from "@lh/components/plan-layout";
+// The desktop folder order (issue 20): the Chains folders and their order.
+// Import the files directly: the src/core barrel is not needed here.
+export { folderTree, type FolderTreeSource } from "@lh/src/core/folder-order";
+export type {
+	SourceDirectory,
+	SourceFolder,
+	SourceOrganization,
+} from "@lh/src/core/source-organization";
+export type { GraphNode } from "@lh/src/core/contracts/graph";
