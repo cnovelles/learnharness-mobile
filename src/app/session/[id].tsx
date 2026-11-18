@@ -28,6 +28,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
 	createEndFollow,
+	showsLatest,
 	createIslandViewport,
 	IslandViewportContext,
 	type ScrollMetrics,
@@ -278,6 +279,29 @@ function PlanChip({ onPress }: { onPress: () => void }) {
 	);
 }
 
+/** "↓ Latest": over the transcript, above the composer (bug 2026-11-17). */
+function LatestButton({ onPress }: { onPress: () => void }) {
+	const c = usePalette();
+	return (
+		<View pointerEvents="box-none" style={styles.latestRow}>
+			<Pressable
+				onPress={onPress}
+				accessibilityRole="button"
+				accessibilityLabel="Go to the latest message"
+				hitSlop={SPACE.sm}
+				testID="go-latest"
+				style={({ pressed }) => [
+					styles.latest,
+					{ borderColor: c.line, backgroundColor: pressed ? c.hover : c.panel },
+				]}
+			>
+				<Icon name="arrow.down" size={13} color={c.text} />
+				<Text style={[LABEL, { color: c.text }]}>Latest</Text>
+			</Pressable>
+		</View>
+	);
+}
+
 function confirmStop(onStop: () => void) {
 	Alert.alert("Stop this turn?", "The partial answer stays.", [
 		{ text: "Cancel", style: "cancel" },
@@ -335,16 +359,33 @@ function SessionBody({ record }: { record: SessionRecord }) {
 			content: contentSize.height,
 		};
 	};
+	// "↓ Latest" (bug 2026-11-17): more than one screen up, and no follow.
+	const [latest, setLatest] = useState(false);
+	const checkLatest = (m: ScrollMetrics) => setLatest(!follow.follows() && showsLatest(m));
 	const onTranscriptScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-		follow.scrolled(metrics(event));
+		const m = metrics(event);
+		follow.scrolled(m);
+		checkLatest(m);
 		viewport.notify();
 	};
+	const onDragStart = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
+		follow.dragStart(metrics(event));
 	const onDragEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
 		const v = event.nativeEvent.velocity;
-		follow.dragEnd(metrics(event), Math.abs(v?.y ?? 0) > 0.01);
+		const m = metrics(event);
+		follow.dragEnd(m, Math.abs(v?.y ?? 0) > 0.01);
+		checkLatest(m);
 	};
-	const onMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
-		follow.momentumEnd(metrics(event));
+	const onMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+		const m = metrics(event);
+		follow.momentumEnd(m);
+		checkLatest(m);
+	};
+	const goToLatest = () => {
+		follow.toEnd();
+		setLatest(false);
+		scroll.current?.scrollToEnd({ animated: true });
+	};
 	// The keyboard covers the screen on iOS: pad the view by its height
 	// (Expo keyboard guide). The offset is the header height.
 	const headerHeight = useHeaderHeight();
@@ -371,86 +412,90 @@ function SessionBody({ record }: { record: SessionRecord }) {
 				keyboardVerticalOffset={headerHeight}
 				style={styles.screen}
 			>
-				<ScrollView
-					ref={scroll}
-					contentContainerStyle={styles.content}
-					keyboardShouldPersistTaps="handled"
-					onContentSizeChange={() => {
-						if (follow.follows()) scroll.current?.scrollToEnd({ animated: true });
-						viewport.notify();
-					}}
-					onScroll={onTranscriptScroll}
-					onScrollBeginDrag={follow.dragStart}
-					onScrollEndDrag={onDragEnd}
-					onMomentumScrollEnd={onMomentumEnd}
-					onScrollToTop={follow.toTop}
-					onLayout={viewport.notify}
-					scrollEventThrottle={100}
-				>
-					<IslandViewportContext.Provider value={viewport}>
-						<RevealProvider>
-							<Transcript rows={rows} onOpenPlan={openPlan} />
-						</RevealProvider>
-					</IslandViewportContext.Provider>
-					{running ? (
-						<StatusLine testID="turn-running">
-							{state.status === "submitted" ? "Sending…" : "Thinking…"}
-						</StatusLine>
-					) : null}
-					{compacting ? <StatusLine testID="compacting">{COMPACTING}</StatusLine> : null}
-					{banner ? (
-						<ErrorBanner
-							text={banner.text}
-							testID="session-error"
-							actions={
-								<>
-									{banner.retry ? (
+				<View style={styles.screen}>
+					<ScrollView
+						ref={scroll}
+						testID="transcript-scroll"
+						contentContainerStyle={styles.content}
+						keyboardShouldPersistTaps="handled"
+						onContentSizeChange={() => {
+							if (follow.follows()) scroll.current?.scrollToEnd({ animated: true });
+							viewport.notify();
+						}}
+						onScroll={onTranscriptScroll}
+						onScrollBeginDrag={onDragStart}
+						onScrollEndDrag={onDragEnd}
+						onMomentumScrollEnd={onMomentumEnd}
+						onScrollToTop={follow.toTop}
+						onLayout={viewport.notify}
+						scrollEventThrottle={100}
+					>
+						<IslandViewportContext.Provider value={viewport}>
+							<RevealProvider onIdle={follow.revealIdle}>
+								<Transcript rows={rows} onOpenPlan={openPlan} />
+							</RevealProvider>
+						</IslandViewportContext.Provider>
+						{running ? (
+							<StatusLine testID="turn-running">
+								{state.status === "submitted" ? "Sending…" : "Thinking…"}
+							</StatusLine>
+						) : null}
+						{compacting ? <StatusLine testID="compacting">{COMPACTING}</StatusLine> : null}
+						{banner ? (
+							<ErrorBanner
+								text={banner.text}
+								testID="session-error"
+								actions={
+									<>
+										{banner.retry ? (
+											<Button
+												title="Try again"
+												kind="plain"
+												size="sm"
+												onPress={() => void session.retryBanner()}
+												disabled={compacting && banner.retry !== "sync"}
+												testID="retry-turn"
+											/>
+										) : null}
 										<Button
-											title="Try again"
+											title="Close"
 											kind="plain"
 											size="sm"
-											onPress={() => void session.retryBanner()}
-											disabled={compacting && banner.retry !== "sync"}
-											testID="retry-turn"
+											onPress={session.closeBanner}
+											testID="clear-error"
 										/>
-									) : null}
-									<Button
-										title="Close"
-										kind="plain"
-										size="sm"
-										onPress={session.closeBanner}
-										testID="clear-error"
-									/>
-								</>
-							}
-						/>
-					) : null}
-					{!running && pending ? (
-						<QuestionDock
-							key={pending.key}
-							call={pending}
-							reveal={revealPlan(state.nativeMessages, pending)}
-							opened={openedKey === pending.key}
-							onOpen={() => setOpenedKey(pending.key)}
-							draft={session.draft(pending.key)}
-							onDraft={(draft) => session.saveDraft(pending.key, draft)}
-							onSubmit={(answer) => session.answer(pending.toolCallId, answer, pending.key)}
-							waiting={compacting}
-						/>
-					) : null}
-					{!running && malformed ? (
-						<Panel>
-							<Body>
-								The teacher&apos;s question was not complete. Ask the teacher to write it again.
-							</Body>
-							<Button
-								title="Ask again"
-								onPress={() => void session.retryQuestion()}
-								testID="retry-question"
+									</>
+								}
 							/>
-						</Panel>
-					) : null}
-				</ScrollView>
+						) : null}
+						{!running && pending ? (
+							<QuestionDock
+								key={pending.key}
+								call={pending}
+								reveal={revealPlan(state.nativeMessages, pending)}
+								opened={openedKey === pending.key}
+								onOpen={() => setOpenedKey(pending.key)}
+								draft={session.draft(pending.key)}
+								onDraft={(draft) => session.saveDraft(pending.key, draft)}
+								onSubmit={(answer) => session.answer(pending.toolCallId, answer, pending.key)}
+								waiting={compacting}
+							/>
+						) : null}
+						{!running && malformed ? (
+							<Panel>
+								<Body>
+									The teacher&apos;s question was not complete. Ask the teacher to write it again.
+								</Body>
+								<Button
+									title="Ask again"
+									onPress={() => void session.retryQuestion()}
+									testID="retry-question"
+								/>
+							</Panel>
+						) : null}
+					</ScrollView>
+					{latest ? <LatestButton onPress={goToLatest} /> : null}
+				</View>
 				{/* The composer stays under the transcript, above the keyboard. */}
 				<View style={styles.bottom}>
 					{session.queuedSteers.length > 0 ? (
@@ -538,6 +583,22 @@ const styles = StyleSheet.create({
 	practiceTag: { flexDirection: "row", alignItems: "center", gap: SPACE.xs },
 	/** Header A (user decision 2026-11-15): the title font at 17 pt in the bar. */
 	headerName: { fontSize: 17, lineHeight: 22, fontFamily: FONT.title, fontWeight: "700" },
+	latestRow: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		bottom: SPACE.sm,
+		alignItems: "center",
+	},
+	latest: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: SPACE.xs,
+		borderWidth: 1,
+		borderRadius: 999,
+		paddingHorizontal: SPACE.md,
+		minHeight: 32,
+	},
 	planChip: {
 		flexDirection: "row",
 		alignItems: "center",

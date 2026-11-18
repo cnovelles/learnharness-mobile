@@ -47,6 +47,33 @@ describe("the top-to-bottom reveal", () => {
 		expect(webviews()).toHaveLength(1);
 	});
 
+	it("tells the screen when the reveal is idle, after all blocks of a render have registered", async () => {
+		const onIdle = jest.fn();
+		await render(
+			<RevealProvider onIdle={onIdle}>
+				<RevealSlot order={[0]} space={0}>
+					<Probe ready label="Ready at once." />
+				</RevealSlot>
+				<RevealSlot order={[1]} space={0}>
+					<Probe ready={false} label="Still drawing." />
+				</RevealSlot>
+			</RevealProvider>,
+		);
+		await act(async () => {
+			jest.advanceTimersByTime(0);
+		});
+		// The first block alone is idle, but the second one waits: not idle.
+		expect(onIdle).not.toHaveBeenCalled();
+		await act(async () => {
+			jest.advanceTimersByTime(REVEAL_LIMIT_MS);
+		});
+		// The block at the front shows after the limit; the idle check runs on the next task.
+		await act(async () => {
+			jest.advanceTimersByTime(1);
+		});
+		expect(onIdle).toHaveBeenCalled();
+	});
+
 	it("the formula's first height shows it and the blocks under it", async () => {
 		await render(<Reply text={TEXT} />);
 		await act(async () => {

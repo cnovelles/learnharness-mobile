@@ -334,6 +334,8 @@ describe("islands near the screen (decision 3)", () => {
 	it("keep the follow during the app's own scroll to the end, and stop it only for the reader's scroll", () => {
 		const follow = createEndFollow();
 		expect(follow.follows()).toBe(true);
+		// The rules after the opening (tests/end-follow.test.ts has the opening).
+		follow.revealIdle();
 		// The app's animated scroll after an island grew: a middle frame, then
 		// its end (iOS sends onMomentumScrollEnd for it too). Neither is the reader's.
 		follow.scrolled({ offset: 400, visible: 800, content: 2400 });

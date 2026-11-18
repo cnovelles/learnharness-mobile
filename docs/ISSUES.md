@@ -573,13 +573,15 @@ User request 2026-11-17 (screenshots of the "Hello Interview" app as the referen
 | 6. The Mac refuses a folder change (400: bad name, a cycle, a folder that is not empty) | The server's case as a message from `describeError` (never raw text). The list stays as it was. |
 | 7. The network fails during a folder change                                             | "Not saved. Check the connection to your Mac." The list stays as it was.                        |
 
-## Session open position (bug, 2026-11-17) `doing`
+## Session open position (bug, 2026-11-17) `done`
 
 - The user's report: a session opens at the top, not at the last message. The user thinks a touch during the load stopped the scroll to the end.
-- Likely cause (not confirmed on the Simulator yet): `createEndFollow` (`src/components/island-viewport.tsx`) starts with `following = true`, but a drag during the top-to-bottom reveal (up to 1.5 s for each front block) sets it to false. Each `scrollToEnd` is animated, so a long session crawls down.
-- User decision: **open at the end, and a "↓ Latest" button** when the learner is not at the end and content is below. A tap scrolls to the end and turns the follow on.
-- Fix plan: an "opening" phase in `createEndFollow` (pure, testable): until the first reveal is done, `scrollToEnd({ animated: false })` on each size change, and a touch does not end the follow. Unit tests and a screen test for the button.
-- E2E: `LH_E2E_GOLDEN=1 npm run e2e:mac` copies the fork's golden data (a 95-message teach session) into the test Mac; `npm run e2e:open-long` (`e2e/open-long-session.yaml`) opens it and waits for the last teacher text. The first run (2026-11-17) failed at "Connected · Test Mac" (likely the known first launch after Metro `--clear`; not checked). Run it again with a new `e2e:mac` before the fix, to see the bug, then after.
+- Cause (confirmed on the Pro Max, 2026-11-17): the top-to-bottom reveal starts at the top. Each formula, chart or table near the screen holds the reveal for up to 1.5 s, so a session with many formulas opens at the top and crawls down for seconds. The golden session with no formulas opened at the end at once, also with a drag. With `LH_E2E_MATH=1` (a formula in each teacher reply) the first frame showed the top of the session. A drag during that crawl ended the follow under the old rules (any drag that ended away from the end).
+- User decisions (2026-11-17, after the animated mockups): keep the open motion (the session opens and scrolls down to the end). The "↓ Latest" button shows when the reader is more than one screen up from the end.
+- Fix: an opening phase in `createEndFollow` (`src/components/island-viewport.tsx`). During the opening, a touch does not stop the follow; only a drag up by more than `OPEN_DRAG_UP` (80 pt), with its momentum, does. The opening ends when the reveal is idle (`RevealProvider` `onIdle`, `RevealGate.busy()`) or with a tap on the status bar. `showsLatest` decides the button; a tap calls `toEnd()` and scrolls to the end. The button is `LatestButton` in `src/app/session/[id].tsx` (testID `go-latest`).
+- Tests: `tests/end-follow.test.ts` (the opening, a touch, a drag up, its momentum, idle, the button rule), `tests/reveal-gate.test.ts` (`busy`), `tests/reveal.test.tsx` (`onIdle` after all blocks of a render), `tests/app-session.test.tsx` (the button shows and hides).
+- E2E: `LH_E2E_GOLDEN=1 LH_E2E_MATH=1 npm run e2e:mac`, then `npm run e2e:open-long` (`e2e/open-long-session.yaml`: a touch during the opening, the last text, two swipes up, the button, its tap). Passed on the Pro Max and the SE (2026-11-17).
+- Gotcha: the fork's `next dev` sometimes stops at a Next.js security notice (exit code 1). Start `e2e:mac` again. The notice also has text for AI agents; it is not a user instruction.
 
 ## 09 Local store and outbox `todo`
 

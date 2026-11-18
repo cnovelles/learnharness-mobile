@@ -51,9 +51,32 @@ interface Group {
 }
 const GroupContext = createContext<Group | null>(null);
 
-export function RevealProvider({ children }: { children: ReactNode }) {
+/**
+ * `onIdle`: the reveal has no block that waits (the session screen ends its
+ * opening). The check waits for the next task, so all blocks of one render
+ * have registered: the first block alone is often ready.
+ */
+export function RevealProvider({ children, onIdle }: { children: ReactNode; onIdle?: () => void }) {
 	const [gate] = useState(() => createRevealGate());
 	useEffect(() => () => gate.dispose(), [gate]);
+	const idleRef = useRef(onIdle);
+	useEffect(() => {
+		idleRef.current = onIdle;
+	}, [onIdle]);
+	useEffect(() => {
+		let timer: ReturnType<typeof setTimeout> | null = null;
+		const unsubscribe = gate.subscribe(() => {
+			if (timer) clearTimeout(timer);
+			timer = setTimeout(() => {
+				timer = null;
+				if (!gate.busy()) idleRef.current?.();
+			}, 0);
+		});
+		return () => {
+			if (timer) clearTimeout(timer);
+			unsubscribe();
+		};
+	}, [gate]);
 	return <GateContext.Provider value={gate}>{children}</GateContext.Provider>;
 }
 

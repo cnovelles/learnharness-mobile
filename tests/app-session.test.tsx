@@ -182,6 +182,38 @@ it("a turn that the Mac starts by itself (the teacher after the probe) shows wit
 	expect(mac.inputs.map((i) => i.type)).toEqual(["answer"]);
 });
 
+describe("the session open position (bug 2026-11-17)", () => {
+	const scrollEvent = (offset: number, velocity = 0) => ({
+		nativeEvent: {
+			contentOffset: { x: 0, y: offset },
+			contentSize: { width: 400, height: 4000 },
+			layoutMeasurement: { width: 400, height: 800 },
+			velocity: { x: 0, y: velocity },
+		},
+	});
+
+	it("a drag far up shows Latest, and its tap hides it", async () => {
+		const id = mac.add("Tides", [{ role: "user", id: "u_1", content: "Tides", timestamp: 1 }]);
+		mac.chats.get(id)!.messages.push(mac.assistant([{ type: "text", text: "Hi." }]));
+		await renderRouter(APP, { initialUrl: `/session/${id}` });
+		expect(await screen.findByText("Hi.")).toBeTruthy();
+		const transcript = screen.getByTestId("transcript-scroll");
+		// The reveal of this short session is idle at once: the opening ends
+		// (tests/end-follow.test.ts has the rules of the opening).
+		expect(screen.queryByTestId("go-latest")).toBeNull();
+		// The reader drags far up and lets go.
+		await fireEvent(transcript, "scrollBeginDrag", scrollEvent(3200));
+		await fireEvent.scroll(transcript, scrollEvent(500));
+		await fireEvent(transcript, "scrollEndDrag", scrollEvent(500));
+		expect(screen.getByTestId("go-latest")).toBeTruthy();
+		await fireEvent.press(screen.getByTestId("go-latest"));
+		expect(screen.queryByTestId("go-latest")).toBeNull();
+		// The app's scroll to the end does not bring it back.
+		await fireEvent.scroll(transcript, scrollEvent(1500));
+		expect(screen.queryByTestId("go-latest")).toBeNull();
+	});
+});
+
 describe("error states", () => {
 	const OPENING = "Teach me how the tides work.";
 

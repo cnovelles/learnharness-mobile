@@ -39,6 +39,11 @@
  * practice session and a real graph. For the session open position and
  * the issue 08 screens.
  *
+ * LH_E2E_MATH=1 (with LH_E2E_GOLDEN=1) adds a display formula to each
+ * teacher reply of the golden teach session. Each formula draws in a
+ * WebView, so the top-to-bottom reveal of the session is slow: the case
+ * of the session open position bug (a long session opened at the top).
+ *
  * LH_E2E_GATEWAY_HOST=<IPv4> makes the gateway listen on that address and
  * puts only that address in the pairing text (default 127.0.0.1). Use the
  * Mac's Tailscale address (100.x) to check the phone's App Transport
@@ -120,6 +125,27 @@ export const PRACTICE = {
 		modelSolution: "The Moon: it is much closer, so its uneven pull is about twice the Sun's.",
 	},
 };
+
+/** The golden teach session (95 messages, one compaction). */
+const GOLDEN_TEACH = "chat_mv27rrra_feff23b6.json";
+
+/** LH_E2E_MATH=1: a display formula after the first text part of each teacher reply. */
+function addFormulas(file: string) {
+	const chat = JSON.parse(fs.readFileSync(file, "utf8")) as {
+		messages: { role: string; content: unknown }[];
+	};
+	let n = 0;
+	for (const message of chat.messages) {
+		if (message.role !== "assistant" || !Array.isArray(message.content)) continue;
+		const part = (message.content as { type: string; text?: string }[]).find(
+			(p) => p.type === "text",
+		);
+		if (!part || typeof part.text !== "string") continue;
+		n += 1;
+		part.text = `$$\\sum_{k=1}^{${n}} k = \\frac{${n}(${n}+1)}{2}$$\n\n${part.text}`;
+	}
+	fs.writeFileSync(file, JSON.stringify(chat));
+}
 
 /** Rich Markdown for the manual checks of issue 05 (LH_E2E_RICH=1). */
 export const RICH = [
@@ -276,6 +302,8 @@ async function main() {
 		const golden = path.join(FORK, "tests/fixtures/golden-data");
 		for (const dir of ["chats", "graph"])
 			fs.cpSync(path.join(golden, dir), path.join(server.dataDir, dir), { recursive: true });
+		if (process.env.LH_E2E_MATH === "1")
+			addFormulas(path.join(server.dataDir, "chats", GOLDEN_TEACH));
 	}
 
 	const json = { ...DESKTOP, "content-type": "application/json" };

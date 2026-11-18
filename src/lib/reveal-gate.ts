@@ -43,6 +43,8 @@ export interface RevealGate {
 	set(id: string, key: RevealKey, ready: boolean): void;
 	remove(id: string): void;
 	view(id: string): RevealView;
+	/** True while a block waits at the front. */
+	busy(): boolean;
 	subscribe(listener: () => void): () => void;
 	/** Stop the timer (the transcript leaves the screen). */
 	dispose(): void;
@@ -111,6 +113,7 @@ export function createRevealGate(limitMs: number = REVEAL_LIMIT_MS): RevealGate 
 			recompute();
 		},
 		view: (id) => views.get(id) ?? "hidden",
+		busy: () => front !== null,
 		subscribe(listener) {
 			listeners.add(listener);
 			return () => listeners.delete(listener);

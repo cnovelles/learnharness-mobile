@@ -68,6 +68,17 @@ export interface ScrollMetrics {
 }
 
 /**
+ * During the opening, a drag up (toward the top) by more than this many
+ * points stops the follow. A smaller touch is not a wish to read above.
+ */
+export const OPEN_DRAG_UP = 80;
+
+/** The "↓ Latest" button shows more than one screen up from the end. */
+export function showsLatest(m: ScrollMetrics): boolean {
+	return m.content - (m.offset + m.visible) > m.visible;
+}
+
+/**
  * Decides if new content scrolls the transcript to the end. Only the
  * reader's own drag (and the momentum after it) or a tap on the status bar
  * changes the decision. The app's own animated scrollToEnd also sends
@@ -75,39 +86,68 @@ export interface ScrollMetrics {
  * the content grew again is not at the end, and it must not stop the
  * follow (found on the Simulator, slice D: a growing island left the check
  * card under the screen).
+ *
+ * The opening (bug 2026-11-17): a session opens and scrolls down to its
+ * last message while the top-to-bottom reveal grows the transcript. That
+ * can take seconds when formulas draw. During the opening, a touch does not
+ * stop the follow. Only a clear drag up (OPEN_DRAG_UP) does. The opening
+ * ends when the reveal is idle, or with a tap on the status bar.
  */
 export function createEndFollow() {
 	let following = true;
+	let opening = true;
 	let userScroll = false;
+	let dragFrom: number | null = null;
 	const read = (m: ScrollMetrics) => {
 		following = isAtEnd(m.offset, m.visible, m.content);
+	};
+	/** The opening: stop the follow only for a clear drag up. */
+	const openingRead = (m: ScrollMetrics) => {
+		if (dragFrom === null || dragFrom - m.offset <= OPEN_DRAG_UP) return;
+		following = false;
+		opening = false;
 	};
 	return {
 		/** True when new content scrolls to the end. */
 		follows: () => following,
+		/** True until the first reveal of the transcript is done. */
+		opening: () => opening,
 		/** The reader starts a drag. */
-		dragStart: () => {
+		dragStart: (m?: ScrollMetrics) => {
 			userScroll = true;
+			dragFrom = m?.offset ?? null;
 		},
 		/** Each scroll event. Only a scroll by the reader changes the decision. */
 		scrolled: (m: ScrollMetrics) => {
-			if (userScroll) read(m);
+			if (userScroll && !opening) read(m);
 		},
 		/** The drag ends. With no speed left, no momentum follows: the reader's scroll ends. */
 		dragEnd: (m: ScrollMetrics, moving: boolean) => {
 			if (!userScroll) return;
-			read(m);
+			if (opening) openingRead(m);
+			else read(m);
 			if (!moving) userScroll = false;
 		},
 		/** A momentum ends. It counts only after the reader's drag. */
 		momentumEnd: (m: ScrollMetrics) => {
 			if (!userScroll) return;
-			read(m);
+			if (opening) openingRead(m);
+			else read(m);
+			userScroll = false;
+		},
+		/** The reveal has no block that waits: the opening is done. */
+		revealIdle: () => {
+			opening = false;
+		},
+		/** The reader tapped "↓ Latest": go to the end and follow again. */
+		toEnd: () => {
+			following = true;
 			userScroll = false;
 		},
 		/** iOS: the reader tapped the status bar, and the view went to the top. */
 		toTop: () => {
 			following = false;
+			opening = false;
 		},
 	};
 }

@@ -31,6 +31,16 @@ describe("createRevealGate", () => {
 		expect(gate.view("c")).toBe("shown");
 	});
 
+	it("is busy while a block waits at the front, and idle when all blocks show", () => {
+		const gate = createRevealGate();
+		expect(gate.busy()).toBe(false);
+		gate.set("a", [0], true);
+		gate.set("b", [1], false);
+		expect(gate.busy()).toBe(true);
+		gate.set("b", [1], true);
+		expect(gate.busy()).toBe(false);
+	});
+
 	it("orders by key, not by the order of registration", () => {
 		const gate = createRevealGate();
 		gate.set("late", [5], true);

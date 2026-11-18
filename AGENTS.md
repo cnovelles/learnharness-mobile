@@ -40,6 +40,12 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
+## Commits
+
+- Write each commit subject as a Conventional Commit, the same as upstream LearnHarness: `type(scope): summary`. Example: `fix(session): open a long session at its last message`.
+- Use the GitHub noreply email `278555343+cnovelles@users.noreply.github.com`. Add no AI attribution lines.
+- Run `npm run format:check`, `npx expo lint`, `npx tsc --noEmit` and `npx jest` before each commit.
+
 ## Error states
 
 Every feature handles its error states, not only the happy path.
