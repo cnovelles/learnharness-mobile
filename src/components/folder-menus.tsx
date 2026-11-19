@@ -71,12 +71,15 @@ export function MenuSheet({
 			onRequestClose={onClose}
 			onDismiss={runChosen}
 		>
-			<Pressable
-				style={styles.backdrop}
-				onPress={onClose}
-				accessibilityLabel="Close the menu"
-				testID={`${testID}-backdrop`}
-			>
+			{/* The backdrop is its own layer, so VoiceOver still reads each item. */}
+			<View style={styles.backdrop}>
+				<Pressable
+					style={StyleSheet.absoluteFill}
+					onPress={onClose}
+					accessibilityRole="button"
+					accessibilityLabel="Close the menu"
+					testID={`${testID}-backdrop`}
+				/>
 				<SafeAreaView edges={["bottom"]} style={styles.menuArea}>
 					<View
 						testID={testID}
@@ -93,6 +96,7 @@ export function MenuSheet({
 									key={item.testID}
 									testID={item.testID}
 									accessibilityRole="button"
+									accessibilityLabel={item.label}
 									onPress={() => {
 										chosen.current = item.onPress;
 										onClose();
@@ -122,7 +126,7 @@ export function MenuSheet({
 						<Text style={[styles.cancelText, { color: c.text }]}>Cancel</Text>
 					</Pressable>
 				</SafeAreaView>
-			</Pressable>
+			</View>
 		</Modal>
 	);
 }
@@ -152,6 +156,7 @@ function MoveRow({
 		<Pressable
 			testID={testID}
 			accessibilityRole="button"
+			accessibilityLabel={label}
 			accessibilityState={{ selected: chosen }}
 			onPress={onPress}
 			style={({ pressed }) => [

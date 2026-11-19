@@ -1,0 +1,88 @@
+# Folder changes from the Teach tab (issue 20, slice D): a long press moves a
+# session to another folder, the folder menu adds a subfolder, and an empty
+# folder is deleted after a confirm. The test Mac checks each change in its
+# gateway (D-015) and keeps it in its own temporary data folder.
+# It needs:
+#   1. The test Mac with the golden data and the shelf:
+#      LH_E2E_GOLDEN=1 LH_E2E_SHELF=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:teach-folders
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Eigenvalues, .*"
+    timeout: 30000
+# 1. Move "Bayes rule" (no folder) into the empty "Reading list".
+- scrollUntilVisible:
+    element: "Bayes rule, .*"
+    direction: DOWN
+- assertVisible: "No sessions in this folder."
+- longPressOn: "Bayes rule, .*"
+- extendedWaitUntil:
+    visible: "Move to folder…"
+    timeout: 10000
+- takeScreenshot: teach-folders-menu
+- tapOn: "Move to folder…"
+- extendedWaitUntil:
+    visible: "Move “Bayes rule”"
+    timeout: 10000
+- assertVisible: "New folder…"
+- takeScreenshot: teach-folders-move-sheet
+- tapOn: "Reading list"
+- extendedWaitUntil:
+    notVisible: "Move “Bayes rule”"
+    timeout: 10000
+- extendedWaitUntil:
+    notVisible: "No sessions in this folder."
+    timeout: 10000
+- assertNotVisible: "NOT IN A FOLDER"
+- takeScreenshot: teach-folders-moved
+# 2. A new subfolder of "Algebra" from the folder menu.
+- scrollUntilVisible:
+    element: "Folder actions for Algebra"
+    direction: UP
+- tapOn: "Folder actions for Algebra"
+- extendedWaitUntil:
+    visible: "New subfolder"
+    timeout: 10000
+- takeScreenshot: teach-folders-folder-menu
+- tapOn: "New subfolder"
+- extendedWaitUntil:
+    visible: "Save"
+    timeout: 10000
+- inputText: "Matrices"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "ALGEBRA › MATRICES"
+    timeout: 10000
+# 3. Delete the new, empty subfolder after the confirm.
+- tapOn: "Folder actions for Algebra › Matrices"
+- extendedWaitUntil:
+    visible: "Delete"
+    timeout: 10000
+- tapOn: "Delete"
+- extendedWaitUntil:
+    visible: "Delete “Matrices”?"
+    timeout: 10000
+- takeScreenshot: teach-folders-delete-confirm
+# The menu is closed: the only "Delete" now is the confirm button.
+- tapOn: "Delete"
+- extendedWaitUntil:
+    notVisible: "ALGEBRA › MATRICES"
+    timeout: 10000
