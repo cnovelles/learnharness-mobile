@@ -31,6 +31,8 @@ export interface TeachShelfData {
 	/** Concepts by session; null before the graph loads or when it fails (error state 2). */
 	concepts: Map<string, number> | null;
 	refresh: () => void;
+	/** Shows the folders that a folder change gave back, at once. */
+	apply: (directory: SourceDirectory) => void;
 }
 
 /**
@@ -77,7 +79,11 @@ export function useTeachShelf(enabled: boolean): TeachShelfData {
 	useFocusEffect(refresh);
 	useServerEvent("sources-changed", readFolders);
 	useServerEvent("activity-changed", readConcepts);
-	return { directory, foldersFailed, concepts, refresh };
+	const apply = useCallback((d: SourceDirectory) => {
+		setDirectory(d);
+		setFoldersFailed(false);
+	}, []);
+	return { directory, foldersFailed, concepts, refresh, apply };
 }
 
 /** The plan steps of the continue card's session, read again when it changes. */
@@ -128,9 +134,13 @@ export function ContinueCard({ chat }: { chat: ChatListItem }) {
 export function ShelfGroup({
 	section,
 	concepts,
+	onLongPressRow,
+	onMenu,
 }: {
 	section: ShelfSection;
 	concepts: Map<string, number> | null;
+	onLongPressRow?: (chat: ChatListItem) => void;
+	onMenu?: () => void;
 }) {
 	return (
 		<ShelfSectionView
@@ -138,6 +148,8 @@ export function ShelfGroup({
 			testID={`folder-${section.folderId ?? "none"}`}
 			sessions={section.sessions}
 			empty={EMPTY_FOLDER}
+			onLongPressRow={onLongPressRow}
+			onMenu={onMenu}
 			countOf={(chat) =>
 				concepts
 					? { text: conceptLabel(concepts.get(chat.id) ?? 0), testID: `concepts-${chat.id}` }

@@ -79,8 +79,11 @@ export {
 // Import the files directly: the src/core barrel is not needed here.
 export { folderTree, type FolderTreeSource } from "@lh/src/core/folder-order";
 export type {
+	OrganizationAction,
 	SourceDirectory,
 	SourceFolder,
 	SourceOrganization,
 } from "@lh/src/core/source-organization";
+// The desktop rule for "this folder is empty" (no subfolder, no placed source).
+export { folderIsEmpty } from "@lh/src/core/source-organization";
 export type { GraphNode } from "@lh/src/core/contracts/graph";

@@ -5,6 +5,12 @@
  * shared SessionModel then reads the record. The real stream format is
  * covered by tests/integration (the real server).
  */
+import {
+	applyOrganizationAction,
+	parseOrganizationAction,
+	type SourceOrganization,
+} from "@lh/src/core/source-organization";
+
 export const PIN = `sha256/${"A".repeat(42)}Q=`;
 export const MAC = "https://192.168.1.20:47821";
 export const TOKEN = "t".repeat(43);
@@ -71,6 +77,12 @@ export class FakeMac {
 		organization: { version: 1, folders: [], placements: {} },
 		sources: [],
 	};
+	/** The folder changes that reached the Mac (`POST /api/graph/sources`), in order. */
+	folderChanges: Rec[] = [];
+	/** The answer for the next folder change (a refusal); the change is not made. */
+	folderAnswer: { status: number; body: Rec } | null = null;
+	/** The next folder change fails like a lost network (fetch rejects); the Mac gets nothing. */
+	networkFailNextFolderChange = false;
 	/** The stored propositions (`GET /api/graph`); null answers 500. */
 	propositions: Rec[] | null = [];
 	/** Extra list fields for a session (`GET /api/chats`), for example `updatedAt` or `phase`. */
@@ -106,6 +118,67 @@ export class FakeMac {
 
 	get eventListeners() {
 		return this.listeners.length;
+	}
+
+	/** The folders, with every session in `sources`, as the real Mac lists them. */
+	private sourceDirectory(): Rec {
+		const directory = this.directory as { organization: SourceOrganization; sources: Rec[] };
+		const listed = new Set(directory.sources.map((s) => String(s.id)));
+		const chats = [...this.chats]
+			.filter(([id]) => !listed.has(id))
+			.map(([id, c]) => ({
+				id,
+				kind: "chat",
+				chatKind: c.kind ?? "teach",
+				label: c.title,
+				createdAt: null,
+			}));
+		return { ...directory, sources: [...directory.sources, ...chats] };
+	}
+
+	/** A folder change with the desktop's own rules (fork src/core/source-organization.ts). */
+	private changeFolders(init?: RequestInit): Response {
+		if (this.networkFailNextFolderChange) {
+			this.networkFailNextFolderChange = false;
+			throw new TypeError("Network request failed");
+		}
+		expect(new Headers(init?.headers).get("content-type")).toBe("application/json");
+		const action = JSON.parse(String(init?.body)) as Rec;
+		this.folderChanges.push(action);
+		if (this.folderAnswer) {
+			const { status, body } = this.folderAnswer;
+			this.folderAnswer = null;
+			return this.json(body, status);
+		}
+		const directory = this.directory as { organization: SourceOrganization; sources: Rec[] };
+		const sourceIds = new Set([
+			...this.chats.keys(),
+			...directory.sources.map((s) => String(s.id)),
+		]);
+		try {
+			const parsed = parseOrganizationAction(action);
+			let createdFolderId: string | undefined;
+			if (parsed.action === "rename-source") {
+				const chat = this.chats.get(parsed.id);
+				if (!chat) throw new Error("Source no longer exists.");
+				chat.title = parsed.name;
+			} else {
+				const fresh = { id: `folder_${++this.seq}`, createdAt: "2026-11-18T00:00:00.000Z" };
+				directory.organization = applyOrganizationAction(
+					directory.organization,
+					parsed,
+					sourceIds,
+					fresh,
+				);
+				if (parsed.action === "create-folder") createdFolderId = fresh.id;
+			}
+			return this.json({
+				...this.sourceDirectory(),
+				...(createdFolderId ? { createdFolderId } : {}),
+			});
+		} catch (e) {
+			return this.json({ error: (e as Error).message }, 400);
+		}
 	}
 
 	add(title: string, messages: Rec[] = [], kind?: "practice") {
@@ -163,8 +236,9 @@ export class FakeMac {
 		if (method === "GET") this.reads.push(p);
 		if (p === "/api/graph/sources" && method === "GET")
 			return this.directory
-				? this.json(this.directory)
+				? this.json(this.sourceDirectory())
 				: this.json({ error: "Could not read source organization." }, 500);
+		if (p === "/api/graph/sources" && method === "POST") return this.changeFolders(init);
 		if (p === "/api/graph" && method === "GET")
 			return this.propositions
 				? this.json({ nodes: this.propositions, propositions: this.propositions, chains: [] })

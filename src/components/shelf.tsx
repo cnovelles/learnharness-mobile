@@ -77,7 +77,17 @@ export interface RowCount {
 	testID: string;
 }
 
-function Row({ chat, count, first }: { chat: ChatListItem; count?: RowCount; first: boolean }) {
+function Row({
+	chat,
+	count,
+	first,
+	onLongPress,
+}: {
+	chat: ChatListItem;
+	count?: RowCount;
+	first: boolean;
+	onLongPress?: (chat: ChatListItem) => void;
+}) {
 	const c = usePalette();
 	const note = rowNote(chat);
 	return (
@@ -86,6 +96,8 @@ function Row({ chat, count, first }: { chat: ChatListItem; count?: RowCount; fir
 			testID={`session-${chat.id}`}
 			accessibilityRole="button"
 			onPress={() => openSession(chat.id)}
+			onLongPress={onLongPress ? () => onLongPress(chat) : undefined}
+			accessibilityHint={onLongPress ? "Long press for more actions." : undefined}
 			style={({ pressed }) => [
 				styles.row,
 				first ? null : { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
@@ -116,7 +128,8 @@ function Row({ chat, count, first }: { chat: ChatListItem; count?: RowCount; fir
 /**
  * One section: the label and a rounded card of rows. `countOf` gives the
  * count of a row, or undefined for no count. With no sessions, the card
- * shows `empty`.
+ * shows `empty`. `onLongPressRow` opens the row menu; `onMenu` adds a "…"
+ * button to the label (the folder menu).
  */
 export function ShelfSectionView({
 	label,
@@ -124,25 +137,55 @@ export function ShelfSectionView({
 	sessions,
 	countOf,
 	empty,
+	onLongPressRow,
+	onMenu,
 }: {
 	label: string;
 	testID: string;
 	sessions: readonly ChatListItem[];
 	countOf: (chat: ChatListItem) => RowCount | undefined;
 	empty?: string;
+	onLongPressRow?: (chat: ChatListItem) => void;
+	onMenu?: () => void;
 }) {
 	const c = usePalette();
 	return (
 		<View style={styles.group} testID={testID}>
-			<Text style={[LABEL, styles.label, { color: c.muted }]} accessibilityRole="header">
-				{label}
-			</Text>
+			<View style={styles.labelRow}>
+				<Text
+					style={[LABEL, styles.label, styles.labelText, { color: c.muted }]}
+					accessibilityRole="header"
+				>
+					{label}
+				</Text>
+				{onMenu ? (
+					<Pressable
+						testID={`${testID}-menu`}
+						accessibilityRole="button"
+						accessibilityLabel={`Folder actions for ${label}`}
+						onPress={onMenu}
+						hitSlop={SPACE.md}
+						style={({ pressed }) => [
+							styles.menuButton,
+							pressed ? { backgroundColor: c.hover } : null,
+						]}
+					>
+						<Icon name="ellipsis" size={14} color={c.muted} />
+					</Pressable>
+				) : null}
+			</View>
 			<View style={[styles.card, { backgroundColor: c.panel, borderColor: c.line }]}>
 				{sessions.length === 0 ? (
 					<Text style={[styles.empty, { color: c.muted }]}>{empty}</Text>
 				) : (
 					sessions.map((chat, i) => (
-						<Row key={chat.id} chat={chat} first={i === 0} count={countOf(chat)} />
+						<Row
+							key={chat.id}
+							chat={chat}
+							first={i === 0}
+							count={countOf(chat)}
+							onLongPress={onLongPressRow}
+						/>
 					))
 				)}
 			</View>
@@ -153,6 +196,15 @@ export function ShelfSectionView({
 const styles = StyleSheet.create({
 	group: { gap: SPACE.xs },
 	label: { paddingHorizontal: SPACE.xs },
+	labelRow: { flexDirection: "row", alignItems: "center", gap: SPACE.sm },
+	labelText: { flex: 1 },
+	menuButton: {
+		minWidth: 32,
+		minHeight: 24,
+		alignItems: "center",
+		justifyContent: "center",
+		borderRadius: 8,
+	},
 	/** The inset grouped card: `panel`, a `line` border, radius 14. */
 	card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
 	continue: { padding: SPACE.md, gap: SPACE.sm },
