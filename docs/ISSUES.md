@@ -666,6 +666,11 @@ User decision 2026-11-18: add this issue after the walkthrough numbers. The app 
     - During the scroll up: peaks of 61, 51 and 48. The count falls again in 5 to 30 s (to 4, 6 and 11), so the processes end when the islands unmount. The old leak (about 29 processes for each open that never end) is gone.
     - On the session list for 60 s after the 3rd open: 11, with no change. After the quit: 1.
     - Open points: the peak of about 50 to 60 processes during a scroll, and the 10 processes that stay on the list (this can be a WebKit process cache or a slow growth; 3 opens do not show which).
+  - **Pick up later (user decision 2026-11-18: park slice B, go on with other issues, come back to it):**
+    1. A longer count: 6 open-and-back cycles of the longest session with no long scroll, then 2 minutes on the list. Use the poll script below. If the count stays near 10, it is a cache: close the leak finding. If it grows with each open, find the island that does not end and fix it, with a test.
+    2. Then decide whether to limit the number of islands that mount at the same time during a scroll (the peak of about 60 processes).
+    3. Then profile one open of the medium session to split the 2.1 s reveal (see "Slice D state").
+    - Poll script: every 5 s, run `xcrun devicectl device info processes --device E9ED011A-CFB1-57A1-AF91-608AE2A55CC5 --json-output <file> -q`, then count the `executable` values that contain `WebKit.WebContent` in `result.runningProcesses`. The JSON gives no owner app, so subtract the count before the app starts (1 to 2).
 - C. Spinner on the UI thread (native driver or `ActivityIndicator`).
 - D. Do not mount the whole transcript at once: a virtualized list from the end, or the last rows first and older rows in idle chunks. Make the reveal gate cheaper (ordered insert, notify only changed slots). Absorbs the bug "Choppy load of a large session". Show the title and phase from the list item at once.
 - E. Prefetch, only if A shows that the fetch matters on the iPhone: first keep the record that the continue card read and give it to the session screen.
