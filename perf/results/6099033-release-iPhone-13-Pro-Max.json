@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "exportedAt": "2026-11-18T23:16:04.551Z",
+  "exportedAt": "2026-11-19T00:35:24.634Z",
   "opens": [
     {
       "v": 1,
@@ -120,6 +120,54 @@
       },
       "longestFrameMs": 4147,
       "islands": 9,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mwb02dsi_05f7ee4b",
+      "title": "I would like to learn sql with a priority for inteviews for a mid-level…",
+      "messages": 50,
+      "at": "2026-11-18T23:28:06.563Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "6099033",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 77,
+        "parsed": 111,
+        "drawn": 694,
+        "idle": 823,
+        "atEnd": 994
+      },
+      "longestFrameMs": 723,
+      "islands": 0,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mwgnc2pb_0ac6597c",
+      "title": "I want to understand how LearnHarness is built so I can design my own…",
+      "messages": 22,
+      "at": "2026-11-18T23:28:10.553Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "6099033",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 60,
+        "parsed": 97,
+        "drawn": 177,
+        "idle": 191,
+        "atEnd": 204
+      },
+      "longestFrameMs": 143,
+      "islands": 0,
       "outcome": "end"
     }
   ]
