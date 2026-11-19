@@ -77,7 +77,7 @@ export {
 } from "@lh/components/plan-layout";
 // The desktop folder order (issue 20): the Chains folders and their order.
 // Import the files directly: the src/core barrel is not needed here.
-export { folderTree, type FolderTreeSource } from "@lh/src/core/folder-order";
+export { folderTree, type FolderTree, type FolderTreeSource } from "@lh/src/core/folder-order";
 export type {
 	OrganizationAction,
 	SourceDirectory,
@@ -86,4 +86,47 @@ export type {
 } from "@lh/src/core/source-organization";
 // The desktop rule for "this folder is empty" (no subfolder, no placed source).
 export { folderIsEmpty } from "@lh/src/core/source-organization";
-export type { GraphNode } from "@lh/src/core/contracts/graph";
+export type {
+	Cluster,
+	GraphChain,
+	GraphEdge,
+	GraphNode,
+	GraphSnapshot,
+	Position,
+	ProvenancePoint,
+} from "@lh/src/core/contracts/graph";
+// The Graph tab (issue 08): the desktop chain rows, the graph view helpers,
+// the canvas math and the session links. Import the files directly: the
+// src/core barrel brings node:crypto.
+export {
+	DEFAULT_CHAIN_SORT,
+	UNLABELED_SOURCE,
+	buildChainRows,
+	nextChainSort,
+	sourceDisplayName,
+	type ChainRows,
+	type ChainSort,
+	type ChainSortCol,
+	type ChainSourceGroup,
+} from "@lh/src/core/chain-rows";
+export { formatChainLine, type ReasoningChain } from "@lh/src/core/chains";
+export {
+	displayCostTotals,
+	isNodeVisible,
+	seedMissingNodePositions,
+} from "@lh/src/core/graph-view-model";
+export {
+	CLUSTER_LIGHTNESS,
+	LABELS_FADE_RATIO,
+	arrowGeometry,
+	fitTransform,
+	isImpNodeId,
+	labelAlpha,
+	pickNearest,
+	zoomRatioOf,
+	type ArrowGeom,
+	type ClusterLightness,
+} from "@lh/src/core/graph-canvas-geometry";
+export { clusterHue } from "@lh/components/cluster-geometry";
+export { messageIdFromHash, propositionSessionHref } from "@lh/src/core/session-navigation";
+export type { GraphCostSummary, RecentRun, StageCost } from "@lh/src/core/cost-summary";
