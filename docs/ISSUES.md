@@ -500,6 +500,20 @@ The app gets a tab bar (issue 20). Issue 08 now lives in the **Graph tab**. The 
 - 6 changed: the Graph tab shows the connectivity graph canvas, as the desktop (with Search, Chains, the cost chip). The canvas needs its own design step: mockups and a tech choice (for example Skia with gesture handler, or the desktop canvas code in a WebView) before code.
 - Slice A (fork: chain rows and stats helpers into `src/core`) runs in the side session `fork-chain-rows` (`local_162677a1`, started 2026-11-17).
 
+### Decisions (user, 2026-11-19, from the Graph tab mockups)
+
+Ten mockups at 375 pt, light and dark: the canvas at fit zoom and zoomed in, the node card as a sheet and as a floating card, search, the cost sheet, Chains with the sort menu, an opened source, the session stats sheet, and the empty and error states.
+
+- Canvas: **Skia** (`@shopify/react-native-skia`, an Expo SDK 58 module) with gesture handler and Reanimated (D-016). Read only: the phone draws the positions that the Mac saves (`snapshot.positions`, the desktop ledger) and computes no layout. It never writes positions. Nodes with no saved position get the desktop seed (`seedMissingNodePositions`). Draw layers as the desktop: session regions, edges with arrowheads, nodes, node labels (zoomed in) and region labels (zoomed out), faded on one zoom gate. Pan with one finger, pinch to zoom, double tap to fit.
+- Controls over the canvas, as the desktop: the search field and "Chains" in one row; under them at the right, the cost number and one pill for each run in progress. The gear (Settings) stays in the header.
+- Search: the desktop match on name and statement (`isNodeVisible`); other nodes hide; "N of M nodes" under the field; no match: "No matching nodes."
+- Node card: a **bottom sheet** (option A): the name, the statement with math, then "Sessions": a session row opens the session, a notes file row is plain text. No sessions: "No sessions recorded." No delete (the gateway refuses graph writes).
+- A session row opens the session **at the node's message** (the desktop `propositionSessionHref`). The paged draw (D-014) loads the page with that message first; the model input does not change. If the message is not in the record, the session opens at its normal position.
+- Look: the fork's **default render settings** (`DEFAULT_RENDER_SETTINGS`), sized for the phone. No new gateway route.
+- Cost: a tap on the cost number opens the cost sheet (stage totals and recent runs, the desktop `GraphCostPanel` numbers). Read only.
+- Chains: a pushed screen from the Graph tab. The desktop folder groups, two-line source rows ("41 props · 2026-11-10"), search, and a sort menu (Name, Props, Created; a second tap turns the order). An opened source lists its chain lines with TeX as text; an opened chain shows its statements with math, and "Open <session>" opens the session.
+- Session stats: one line under the composer ("38k / 200k · $0.0123"), a tap opens the "Session stats" sheet (context, total cost, cache hit rate, unpriced turns, one row for each turn).
+
 ### Design choices as first asked (2026-11-17)
 
 1. Where the knowledge view lives: A, a "Your knowledge" section on home (counts and a Chains row; recommended), or B, a tab bar (Sessions, Knowledge).
@@ -524,15 +538,21 @@ The app gets a tab bar (issue 20). Issue 08 now lives in the **Graph tab**. The 
 | 9. The model's context limit is not known (`/api/models` fails or has no entry) | Show only the tokens ("38k").                                              |
 | 10. No measured context (no usage yet, or a compaction marker last)             | Show "?" for the tokens.                                                   |
 | 11. The costs or status call fails                                              | Hide the cost chip and the run rows; the list still shows.                 |
+| 12. A node has no saved position (the Mac's settle did not finish)              | The desktop seed position; no error.                                       |
+| 13. A search finds no node                                                      | "No matching nodes."                                                       |
+| 14. A node has no session                                                       | "No sessions recorded." in the sheet.                                      |
+| 15. The node's message is not in the session record                             | The session opens at its normal position.                                  |
+| 16. A session in the node card is gone (deleted on the Mac)                     | The row shows "unlabeled" and opens nothing.                               |
 
-### Slices (plan, after the user's choices)
+### Slices (plan, updated 2026-11-19 after the Graph tab mockups)
 
-- **A. Fork: pure chain rows.** Move the chain table's sort, group, filter and label code from `components/chain-table.tsx` into `src/core/chain-rows.ts`, and the stats format helpers into `src/core` (no behavior change; the desktop uses the new module). Fork tests for the module. Push to `fork` only.
-- **B. Phone data.** `src/lib/knowledge.ts`: fetch and check the snapshot, the sources, the costs and the status; the view model from the fork's `chain-rows.ts`. Golden test: the fork's golden data through `graphSnapshot` and the desktop row code, against the phone model (same counts, order, labels, dates).
-- **C. Phone screens.** The entry from choice 1 and the chain list from choice 2: search, sort, open and close a source and a chain, statements as Markdown. Every error state above with a test.
-- **D. Session stats.** The line and the sheet from choice 3: `pricing` from the record, `measuredContextTokens`, the limit from `/api/models`; update after each turn and after a compaction. Golden test with the fork's recorded teach chat (25 turns, 1 compaction).
-- **E. Pipeline cost (if 4A).** The cost chip, the cost sheet and the run rows; refresh on the `activity-changed` event.
-- **F. Checks.** `npm run test:integration` against the fork server on a copy of the golden data (the phone values equal the desktop helper values); a Maestro flow on both Simulators (Pro Max and SE); screenshots for the user.
+- **A. Fork: pure chain rows.** `done` (fork `d99dd16`: `src/core/chain-rows.ts` and the usage format helpers in `src/core`; `79f70b5`: `src/core/folder-order.ts`).
+- **B. Phone data.** `src/lib/knowledge.ts`: fetch and check the snapshot, the sources, the costs and the status; the chain view model from the fork's `chain-rows.ts`; the canvas model (positions from the ledger, the seed for missing ones, regions, edges, search). Golden test: the fork's golden data through `graphSnapshot` and the desktop code, against the phone model (same counts, order, labels, dates, positions).
+- **C. Canvas.** Add `@shopify/react-native-skia` with `npx expo install` (D-016), rebuild the dev builds on both Simulators. `src/components/graph-canvas.tsx`: the draw layers, the camera (pan, pinch, double tap to fit), hit test, search, the node sheet, the open at the node's message. Performance check on the iPhone with the user's graph (frame rate during a pinch).
+- **D. Chains screen.** Search, sort, open and close a source and a chain, statements with math. Every error state above with a test.
+- **E. Session stats.** The line and the sheet: `pricing` from the record, `measuredContextTokens`, the limit from `/api/models`; update after each turn and after a compaction. Golden test with the fork's recorded teach chat (25 turns, 1 compaction).
+- **F. Pipeline cost.** The cost number, the cost sheet and the run pills; refresh on the `activity-changed` event.
+- **G. Checks.** `npm run test:integration` against the fork server on a copy of the golden data (the phone values equal the desktop helper values); a Maestro flow on both Simulators (Pro Max and SE); screenshots for the user; a Release build on the iPhone.
 
 ## 20 Tab bar, Teach and Practice tabs, folders `done`
 

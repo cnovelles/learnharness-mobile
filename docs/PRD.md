@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-19 (issue 20 is done: slice E ran all 11 Maestro flows on both Simulators with the new `npm run e2e:suite`; issue 08 in the Graph tab is next).
+Last update: 2026-11-19 (issue 20 is done. Issue 08 in the Graph tab: the user chose from ten mockups: a Skia canvas from the Mac's saved positions (D-016), a node sheet, desktop default look, open a session at the node's message. Next: issue 08 slice B, the phone data; then slice C, the canvas).
 
 **Done**
 

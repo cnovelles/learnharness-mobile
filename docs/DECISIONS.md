@@ -216,3 +216,15 @@ Status values: `proposed`, `accepted`, `done`, `reverted`, `replaced by D-NNN`.
 - Validation: fork `tests/phone-access.test.ts` (each action passes; each bad input is refused before the server; the folder limit); phone unit and screen tests; a Maestro folder move flow.
 - Impact and trade-offs: a stolen token can disorder the folders (no data loss, no undo). To change or remove a phone write, change only the table.
 - Links: `docs/TRANSPORT-SECURITY.md`, `docs/ISSUES.md` issue 20, D-012.
+
+## D-016 Draw the Graph tab canvas with Skia, read only, from the Mac's saved positions (2026-11-19) `accepted`
+
+- Area: phone
+- Problem: the Graph tab must show the desktop connectivity graph (issue 08, user decision 2026-11-17). The desktop draws it with one Canvas 2D (fork `components/graph-canvas.ts`, d3-zoom for the camera). React Native has no Canvas 2D.
+- How we found it: a read of the fork graph code (2026-11-19): `components/graph-view.tsx`, `components/graph-canvas.ts`, `src/core/contracts/graph.ts`. The server saves the resting position of each node (`snapshot.positions`, the ledger), so a reader needs no layout code. The gateway refuses `POST /api/graph/positions`.
+- Options: (a) `@shopify/react-native-skia` (an Expo SDK 58 module) with gesture handler and Reanimated: port the draw layers; (b) the desktop `graph-canvas.ts` in a WebView: the same code and look, but a second WebView (memory, D-010), the node names go in by `postMessage`, and the gestures go through d3-zoom in WebKit; (c) `react-native-svg` (already installed): one element for each node, edge and label, slow at the size of a real graph.
+- Decision and why: (a) (user, 2026-11-19, after the ten Graph tab mockups). Native pinch and pan on the UI thread, no extra WebView, and the draw stays in our code. The phone is read only: it draws the saved positions, uses the desktop seed for nodes with no position, never writes a position, and uses the fork's default render settings (no new gateway route).
+- Change: issue 08 slice C. A new native dependency: rebuild the dev builds on both Simulators and the Release build on the iPhone.
+- Validation: unit tests of the canvas model (positions, regions, label gate, hit test, search) against the desktop helpers on the golden data; a Maestro flow on both Simulators; the frame rate during a pinch on the iPhone with the user's graph (numbers to add when measured).
+- Impact and trade-offs: the region shading is a port of the desktop look, not the same code, so a later desktop change to the look needs a phone change too. The app size grows by the Skia library.
+- Links: `docs/ISSUES.md` issue 08, D-010, D-014.
