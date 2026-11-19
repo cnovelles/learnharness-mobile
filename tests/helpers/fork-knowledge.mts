@@ -27,6 +27,7 @@ try {
 	const { propositionSessionHref } = await import(
 		path.join(fork, "src/core/session-navigation.ts")
 	);
+	const { DEFAULT_RENDER_SETTINGS } = await import(path.join(fork, "src/core/render-settings.ts"));
 
 	const snapshot = graphView();
 	const directory = sourceDirectory.read();
@@ -124,6 +125,7 @@ try {
 				chainRows,
 				search,
 				cards,
+				renderSettings: DEFAULT_RENDER_SETTINGS,
 			},
 		}),
 	);

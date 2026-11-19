@@ -9,6 +9,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
+import { CANVAS_SETTINGS } from "@/lib/graph-scene";
 import { parseGraphCosts, parseGraphSnapshot, readSourceDirectory } from "@/lib/graph-api";
 import {
 	canvasModel,
@@ -54,6 +55,7 @@ interface Golden {
 		}[];
 		search: { query: string; visibleIds: string[] }[];
 		cards: { nodeId: string; rows: ({ file: string } | { href: string; title: string })[] }[];
+		renderSettings: Record<string, unknown> & { regions: Record<string, unknown> };
 	};
 }
 
@@ -182,5 +184,13 @@ describe("the Graph tab model on the golden data", () => {
 			});
 			expect(rows).toEqual(card.rows);
 		}
+	});
+
+	it("the canvas draws with the desktop default render settings (slice C)", () => {
+		const d = golden.desktop.renderSettings;
+		const { regions, ...phone } = CANVAS_SETTINGS;
+		for (const [key, value] of Object.entries(phone)) expect([key, d[key]]).toEqual([key, value]);
+		for (const [key, value] of Object.entries(regions))
+			expect([key, d.regions[key]]).toEqual([key, value]);
 	});
 });

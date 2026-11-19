@@ -367,3 +367,36 @@ export function chainList(
 		chains: rows.chains,
 	};
 }
+
+// ─── The Graph tab view ─────────────────────────────────────────────────────
+
+/** State 1: the Mac is not reachable, or a new read failed; the last graph stays. */
+export const KNOWLEDGE_STALE = userMessage("Not up to date");
+/** No graph yet, and the phone is not connected. */
+export const KNOWLEDGE_OFFLINE = userMessage("Connect to the Mac to see your knowledge.");
+export const KNOWLEDGE_LOADING = userMessage("Loading…");
+
+/** What the Graph tab shows now. */
+export type GraphTabView =
+	| { kind: "note"; text: UserMessage }
+	| { kind: "error"; text: UserMessage }
+	| { kind: "empty" }
+	| { kind: "graph"; knowledge: Knowledge; stale: UserMessage | null };
+
+/**
+ * The Graph tab view from the last loaded knowledge, the last read error,
+ * and the connection. A loaded graph stays on screen when a later read
+ * fails or the Mac goes away (state 1, "Not up to date").
+ */
+export function graphTabView(
+	knowledge: Knowledge | null,
+	error: UserMessage | null,
+	connected: boolean,
+): GraphTabView {
+	if (knowledge) {
+		if (isEmptyKnowledge(knowledge.snapshot)) return { kind: "empty" };
+		return { kind: "graph", knowledge, stale: error || !connected ? KNOWLEDGE_STALE : null };
+	}
+	if (error) return { kind: "error", text: error };
+	return { kind: "note", text: connected ? KNOWLEDGE_LOADING : KNOWLEDGE_OFFLINE };
+}

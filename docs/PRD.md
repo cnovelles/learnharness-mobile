@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-19 (issue 20 is done. Issue 08 in the Graph tab: the user chose from ten mockups: a Skia canvas from the Mac's saved positions (D-016), a node sheet, desktop default look, open a session at the node's message. Slice B, the phone data, is done: `src/lib/knowledge.ts` with a golden test against the desktop code. Next: slice C, the canvas).
+Last update: 2026-11-19 (issue 08 in the Graph tab, D-016. Slice B, the phone data, is done. Slice C1 is done: the Skia canvas draws the desktop graph read only, with pan, pinch, double tap to fit, search and the node sheet; fork `cc2b9ce`; checked on the SE and the Pro Max. Next: slice C2, the session opens at the node's message; then the frame rate on the iPhone).
 
 **Done**
 

@@ -130,24 +130,27 @@ function ConnectionStatus() {
 
 /**
  * One tab's screen. `kind` adds the "+" for a new session of that kind; the
- * Graph tab has none.
+ * Graph tab has none. `scroll={false}` gives the children the full height
+ * with no scroll (the Graph tab canvas takes the pan gestures).
  */
 export function TabScreen({
 	title,
 	kind,
 	refreshControl,
+	scroll = true,
 	children,
 }: {
 	title: string;
 	kind?: SessionKind;
 	refreshControl?: ReactElement<RefreshControlProps>;
+	scroll?: boolean;
 	children: ReactNode;
 }) {
 	const { state } = useConnection();
 	const connected = state.status === "connected";
 	const add = kind ? NEW[kind] : null;
 	return (
-		<Screen refreshControl={refreshControl}>
+		<Screen refreshControl={refreshControl} scroll={scroll}>
 			<Stack.Screen
 				options={{
 					title,
@@ -179,7 +182,7 @@ export function TabScreen({
 				}}
 			/>
 			{/* Native tabs mount all tabs at once: the testID tells them apart. */}
-			<View style={styles.body} testID={`tab-${title.toLowerCase()}`}>
+			<View style={[styles.body, !scroll && styles.fill]} testID={`tab-${title.toLowerCase()}`}>
 				<ConnectionStatus />
 				{children}
 			</View>
@@ -189,6 +192,7 @@ export function TabScreen({
 
 const styles = StyleSheet.create({
 	body: { gap: SPACE.lg },
+	fill: { flex: 1 },
 	status: { flexDirection: "row", alignItems: "center", gap: SPACE.sm },
 	dot: { width: 6, height: 6, borderRadius: 3 },
 	statusText: { flexShrink: 1 },

@@ -22,6 +22,10 @@ import {
 	canvasSearch,
 	chainList,
 	describeKnowledgeError,
+	graphTabView,
+	KNOWLEDGE_LOADING,
+	KNOWLEDGE_OFFLINE,
+	KNOWLEDGE_STALE,
 	isEmptyKnowledge,
 	loadKnowledge,
 	nodeSheet,
@@ -30,70 +34,9 @@ import {
 import { NotPairedError } from "@/lib/mac-fetch";
 import { SessionApiError } from "@/lib/sessions";
 import { describeError } from "@/lib/user-error";
-import type { GraphNode, GraphSnapshot, SourceDirectory } from "@/lib/shared";
+import type { GraphSnapshot, SourceDirectory } from "@/lib/shared";
 
-const node = (id: string, name: string, extra: Partial<GraphNode> = {}): GraphNode => ({
-	id,
-	name,
-	statement: `${name} is true.`,
-	aliases: [],
-	createdAt: "2026-11-10T10:00:00.000Z",
-	provenance: [{ chatId: "chat_a", messageId: "" }],
-	...extra,
-});
-
-/** A small graph: a ⟹ c from a and b (an implication node), and d with no source. */
-function snapshot(): GraphSnapshot {
-	const a = node("n_a", "Alpha", { provenance: [{ chatId: "chat_a", messageId: "m1" }] });
-	const b = node("n_b", "Beta", {
-		provenance: [
-			{ chatId: "chat_a", messageId: "" },
-			{ chatId: "src_notes", messageId: "" },
-		],
-	});
-	const c = node("n_c", "Gamma", { createdAt: "2026-11-12T10:00:00.000Z" });
-	const d = node("n_d", "Delta", { provenance: [{ chatId: "chat_gone", messageId: "m9" }] });
-	const imp = node("arg_1", "⟹", { statement: "Alpha, Beta → Gamma" });
-	return {
-		nodes: [a, b, c, d, imp],
-		propositions: [a, b, c, d],
-		edges: [
-			{ from: "n_a", to: "arg_1" },
-			{ from: "n_b", to: "arg_1" },
-			{ from: "arg_1", to: "n_c" },
-		],
-		logicalEdges: [
-			{ from: "n_a", to: "n_c" },
-			{ from: "n_b", to: "n_c" },
-		],
-		impLinks: [{ id: "arg_1", premises: ["n_a", "n_b"], conclusion: "n_c" }],
-		chains: [
-			{
-				id: "arg_1",
-				premises: ["n_a", "n_b"],
-				conclusion: "n_c",
-				provenance: [{ chatId: "chat_a", messageId: "" }],
-				createdAt: "2026-11-12T10:00:00.000Z",
-			},
-		],
-		sessions: { chat_a: "Eigenvalues" },
-		fileSources: { src_notes: "notes/linear algebra.md" },
-		nodeSessions: {
-			n_a: ["chat_a"],
-			n_b: ["chat_a", "src_notes"],
-			n_c: ["chat_a"],
-			n_d: ["chat_gone"],
-		},
-		clusters: [{ id: "chat_a", label: "Eigenvalues", members: ["n_a", "n_b", "n_c"] }],
-		positions: {
-			n_a: { x: 0, y: 0 },
-			n_b: { x: 100, y: 0 },
-			n_c: { x: 50, y: 100 },
-			n_d: { x: 200, y: 50 },
-			arg_1: { x: 50, y: 40 },
-		},
-	};
-}
+import { snapshot } from "./helpers/graph-snapshot";
 
 const json = (body: unknown, status = 200) =>
 	new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -426,5 +369,30 @@ describe("the chain list", () => {
 
 	it("writes one prop, and no date when the source has none", () => {
 		expect(sourceRowDetail({ nodeIds: ["n_a"], newestCreatedAt: "" })).toBe("1 prop");
+	});
+});
+
+describe("graphTabView (slice C)", () => {
+	const loaded = () => ({ snapshot: snapshot(), directory: null, costs: null, runs: null });
+	it("with no graph: loading when connected, a connect note when not", () => {
+		expect(graphTabView(null, null, true)).toEqual({ kind: "note", text: KNOWLEDGE_LOADING });
+		expect(graphTabView(null, null, false)).toEqual({ kind: "note", text: KNOWLEDGE_OFFLINE });
+	});
+	it("a failed first read shows its message", () => {
+		expect(graphTabView(null, KNOWLEDGE_OLD_MAC, true)).toEqual({
+			kind: "error",
+			text: KNOWLEDGE_OLD_MAC,
+		});
+	});
+	it("a loaded graph stays; a later failure or a lost Mac marks it not up to date (state 1)", () => {
+		const k = loaded();
+		expect(graphTabView(k, null, true)).toEqual({ kind: "graph", knowledge: k, stale: null });
+		expect(graphTabView(k, KNOWLEDGE_NOT_LOADED, true)).toMatchObject({ stale: KNOWLEDGE_STALE });
+		expect(graphTabView(k, null, false)).toMatchObject({ stale: KNOWLEDGE_STALE });
+	});
+	it("an empty graph is the empty state (state 4)", () => {
+		const k = loaded();
+		k.snapshot.propositions = [];
+		expect(graphTabView(k, null, true)).toEqual({ kind: "empty" });
 	});
 });

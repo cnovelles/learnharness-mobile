@@ -47,11 +47,14 @@ appId: dev.local.learnharnessmobile
 - assertVisible: "Linear recurrences, .*1 problem.*"
 - assertNotVisible: "CONTINUE LEARNING"
 - takeScreenshot: tabs-2-practice
-# 3. Graph: the note until issue 08.
+# 3. Graph: the canvas of the golden graph with the search field (issue 08).
 - tapOn: "Graph"
 - extendedWaitUntil:
-    visible: "The graph comes in a later update."
-    timeout: 10000
+    visible:
+      id: "graph-search"
+    timeout: 20000
+- assertVisible:
+    id: "graph-canvas"
 - assertNotVisible: "CONTINUE PRACTICE"
 - takeScreenshot: tabs-3-graph
 # 4. The gear opens Settings over the tab bar; back returns to Graph.
@@ -68,7 +71,8 @@ appId: dev.local.learnharnessmobile
 - tapOn:
     id: "BackButton"
 - extendedWaitUntil:
-    visible: "The graph comes in a later update."
+    visible:
+      id: "graph-search"
     timeout: 10000
 # 5. Back to Teach: the tab keeps its list.
 - tapOn: "Teach"

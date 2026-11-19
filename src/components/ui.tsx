@@ -157,7 +157,7 @@ export function Screen({
 	refreshControl?: ReactElement<RefreshControlProps>;
 }) {
 	const c = usePalette();
-	const body = <View style={styles.inner}>{children}</View>;
+	const body = <View style={[styles.inner, !scroll && styles.screen]}>{children}</View>;
 	return (
 		<SafeAreaView
 			style={[styles.screen, { backgroundColor: c.bg }]}
@@ -299,6 +299,7 @@ export function Field({
 	placeholder,
 	multiline,
 	editable = true,
+	search = false,
 	testID,
 }: {
 	value: string;
@@ -308,11 +309,17 @@ export function Field({
 	placeholder?: string;
 	multiline?: boolean;
 	editable?: boolean;
+	/** A search field: no auto-capitals, no autocorrect, a clear button. */
+	search?: boolean;
 	testID?: string;
 }) {
 	const c = usePalette();
 	return (
 		<TextInput
+			autoCapitalize={search ? "none" : undefined}
+			autoCorrect={search ? false : undefined}
+			clearButtonMode={search ? "while-editing" : undefined}
+			returnKeyType={search ? "search" : undefined}
 			testID={testID}
 			accessibilityLabel={label}
 			value={value}

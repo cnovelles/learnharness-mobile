@@ -66,11 +66,12 @@ it("an empty tab asks the learner to start a session (error state 4)", async () 
 	expect(await teach.findByText("Start a session to begin learning.")).toBeTruthy();
 });
 
-it("the Graph tab shows the placeholder and the connection status", async () => {
+it("the Graph tab shows the connection status and the graph state", async () => {
 	await renderRouter(APP, { initialUrl: "/graph" });
 	const graph = await inTab("graph");
-	expect(graph.getByText("The graph comes in a later update.")).toBeTruthy();
 	expect(await graph.findByText("Connected · Studio Mac")).toBeTruthy();
+	// The fake Mac has no proposition: the empty graph text (issue 08 state 4).
+	expect(await graph.findByTestId("graph-empty")).toBeTruthy();
 });
 
 it("a session opens over the tabs, and back returns to the tab", async () => {

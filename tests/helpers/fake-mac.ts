@@ -241,7 +241,19 @@ export class FakeMac {
 		if (p === "/api/graph/sources" && method === "POST") return this.changeFolders(init);
 		if (p === "/api/graph" && method === "GET")
 			return this.propositions
-				? this.json({ nodes: this.propositions, propositions: this.propositions, chains: [] })
+				? this.json({
+						nodes: this.propositions,
+						propositions: this.propositions,
+						edges: [],
+						logicalEdges: [],
+						impLinks: [],
+						chains: [],
+						sessions: {},
+						fileSources: {},
+						nodeSessions: {},
+						clusters: [],
+						positions: {},
+					})
 				: this.json({ error: "fake Mac: graph failed" }, 500);
 		if (p === "/phone/v1/ping") return this.json({ ok: true });
 		// Dictation (issue 07): the Mac's language, and the Deepgram token (503: no key).
