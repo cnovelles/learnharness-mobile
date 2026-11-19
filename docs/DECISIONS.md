@@ -204,3 +204,15 @@ Status values: `proposed`, `accepted`, `done`, `reverted`, `replaced by D-NNN`.
 - Rule (user, 2026-11-18): the paged draw must not change the model's use and retrieval of the session. It changes only the rows that the screen draws. The phone sends only `{ chatId, input }` with a turn (fork `components/session-core.ts`), and the Mac builds the model's context from its own full record. The phone keeps the whole record in `SessionModel`; paging never removes messages from it, and never changes what the phone sends.
 - Impact and trade-offs: a search of the whole session in the view is not possible until all pages are drawn. A jump to a far message (for example from the Plan sheet) must first load the pages up to it.
 - Links: `docs/ISSUES.md` issue 21 slices B and D, D-007, D-009, D-010, D-013.
+
+## D-015 Open the folder write route to the phone, behind gateway guards (2026-11-18) `accepted`
+
+- Area: fork gateway and phone
+- Problem: issue 20 asks for folder changes from the phone (move a session, rename, new folder, delete an empty folder). The gateway refuses every write to `/api/graph/sources`, and the server route has no limit on the name length or on the number of folders.
+- How we found it: the audit in `docs/TRANSPORT-SECURITY.md` "Gateway writes" (2026-11-18), from a read of fork `app/api/graph/sources/route.ts`, `src/server/source-organization.ts` and `src/core/source-organization.ts`.
+- Options: (a) add the route to the plain allowlist (the server checks the actions, but not the sizes); (b) a guard table in the gateway that reads and checks each write before the server sees it; (c) a new phone-only route in the fork server (more upstream drift, D-012).
+- Decision and why: (b) with the 500-folder limit (user, 2026-11-18, after the audit and the slice D mockups). The guards live in one place (`PHONE_WRITES` in fork `electron/phone-access.cjs`), the server code does not change, and `DELETE /api/graph/sources` stays refused.
+- Change: issue 20 slice D.
+- Validation: fork `tests/phone-access.test.ts` (each action passes; each bad input is refused before the server; the folder limit); phone unit and screen tests; a Maestro folder move flow.
+- Impact and trade-offs: a stolen token can disorder the folders (no data loss, no undo). To change or remove a phone write, change only the table.
+- Links: `docs/TRANSPORT-SECURITY.md`, `docs/ISSUES.md` issue 20, D-012.

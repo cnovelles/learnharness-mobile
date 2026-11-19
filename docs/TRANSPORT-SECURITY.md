@@ -51,3 +51,55 @@ Dictation with Deepgram adds one network path that does not go to the Mac.
 | Real certificate (not built)         | on                         | Tailscale by name                     | `tailscale cert` (Let's Encrypt). HTTPS certificates must be on in the tailnet. Renewal every 90 days, so the pin must survive renewal (keep the key, or pin the CA). |
 
 To add a policy: add it to `POLICIES` in the plugin, add a test, change the option in `app.json`, run `npx expo prebuild --platform ios --no-install`, and build again (a native change).
+
+## Gateway writes: folder changes (issue 20 slice D, audit 2026-11-18)
+
+Status: approved by the user (2026-11-18), with the 500-folder limit (D-015).
+
+### What opens
+
+One route: `POST /api/graph/sources` (fork `app/api/graph/sources/route.ts`, `sourceDirectory.change`). `DELETE /api/graph/sources` (it deletes sources and their graph data) stays refused. `GET` is already open.
+
+The route takes one action for each request (operation-based, never the whole state):
+
+| Action          | Effect                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| `create-folder` | Adds a folder (name, parent).                                                              |
+| `rename-folder` | Changes a folder name.                                                                     |
+| `rename-source` | For a chat: the same rename as `PUT /api/chats/[id]` (already open). For notes: the label. |
+| `move`          | Puts a source or a folder in another folder, or at the top.                                |
+| `delete-folder` | Removes an empty folder only.                                                              |
+
+### What the server checks now
+
+- `parseOrganizationAction`: only the 5 actions, an id and a non-empty name where needed, `parentId` a string or `null`, `kind` `source` or `folder`.
+- `applyOrganizationAction`: the parent must exist, the source must exist, no folder into itself or its children (`canMoveFolder`), delete only an empty folder.
+- `sourceOrganizationStore.write`: parses the full state again before the atomic write, then emits `sources-changed` (the desktop and the phone read the folders again).
+- `readOrganizationAction`: at most 64 KB, also when `content-length` is wrong.
+
+### What a stolen device token can do with it
+
+- Rename, move, add and remove empty folders, and move sessions between folders. No session, message, graph node or file is deleted or changed. The worst result is a disordered folder list that the user must put back by hand (there is no undo).
+- Compare: the token can already send chat turns, rename and steer sessions and stop jobs. The new risk is small.
+
+### Gaps found
+
+1. No limit on the name length (a 60 KB folder name is accepted).
+2. No limit on the number of folders (many requests can grow the file and slow every folder read).
+3. The proxy streams the body without a parse, so the gateway cannot check it.
+
+### Guards (proposal)
+
+All in one place: a `PHONE_WRITES` table in fork `electron/phone-access.cjs`. Each entry has the method, the path, a byte limit and a `check(body)` function. To change or remove a write, change only this table.
+
+- The gateway reads the body (at most 4 KB, also when `content-length` is wrong), parses it as JSON, and calls `check`. A refusal gives 400 or 413 and the request never reaches the server.
+- `check` for the folder route: an object with only the keys of its action; `action` is one of the 5; ids at most 200 characters; names, after trim, 1 to 200 characters, with no control characters.
+- The gateway sends the parsed and checked body again (the same bytes for the server's own checks), not the phone's raw stream.
+- A limit of 500 folders: the gateway reads `GET /api/graph/sources` before a `create-folder` and refuses with 409 at the limit.
+- `DELETE /api/graph/sources` stays out of the allowlist; a test checks this.
+
+### Tests (fork `tests/phone-access.test.ts`)
+
+- Each of the 5 actions reaches the server with the desktop secret.
+- Refused before the server: an unknown action, an extra key, a long name, a control character, a body over 4 KB (declared and real), not JSON, the `DELETE` route.
+- The 500-folder limit (if chosen).
