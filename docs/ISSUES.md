@@ -661,6 +661,11 @@ User decision 2026-11-18: add this issue after the walkthrough numbers. The app 
   - How to record: the debugger proxy of Metro (`/json/list`, then CDP `Profiler.start` and `Profiler.stop` over its WebSocket, with the origin `http://127.0.0.1:8081` and a browser user agent; other values close the socket). Map the frames with the bundle's `.map` from Metro.
 
 - B. Fix the WebView leak: an island WebView ends when its slot unmounts or goes far. An E2E check of the WebKit process count after a session closes.
+  - **iPhone count (2026-11-18, Release `fdb5370`, `perf/results/2026-11-18-iphone-webkit-count.log`):** `xcrun devicectl device info processes --device <id> --json-output <file>` lists the iPhone processes over the network (no Instruments). The script counted `com.apple.WebKit.WebContent` every 5 s. The user opened the longest session 3 times, scrolled up through about half of it each time, went back to the list, then quit the app.
+    - Before the app started: 1 to 2 (other apps).
+    - During the scroll up: peaks of 61, 51 and 48. The count falls again in 5 to 30 s (to 4, 6 and 11), so the processes end when the islands unmount. The old leak (about 29 processes for each open that never end) is gone.
+    - On the session list for 60 s after the 3rd open: 11, with no change. After the quit: 1.
+    - Open points: the peak of about 50 to 60 processes during a scroll, and the 10 processes that stay on the list (this can be a WebKit process cache or a slow growth; 3 opens do not show which).
 - C. Spinner on the UI thread (native driver or `ActivityIndicator`).
 - D. Do not mount the whole transcript at once: a virtualized list from the end, or the last rows first and older rows in idle chunks. Make the reveal gate cheaper (ordered insert, notify only changed slots). Absorbs the bug "Choppy load of a large session". Show the title and phase from the list item at once.
 - E. Prefetch, only if A shows that the fetch matters on the iPhone: first keep the record that the continue card read and give it to the session screen.
