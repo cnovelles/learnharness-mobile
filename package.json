@@ -75,6 +75,8 @@
     "e2e:perf-open": "sh scripts/e2e-test.sh e2e/perf-open.yaml",
     "e2e:practice-shelf": "sh scripts/e2e-test.sh e2e/practice-shelf.yaml",
     "e2e:teach-folders": "sh scripts/e2e-test.sh e2e/teach-folders.yaml",
+    "e2e:suite": "sh scripts/e2e-suite.sh",
+    "e2e:tabs": "sh scripts/e2e-test.sh e2e/tabs.yaml",
     "e2e:dictation": "sh scripts/e2e-test.sh e2e/dictation.yaml",
     "e2e:dictation-settings": "sh scripts/e2e-test.sh e2e/dictation-settings.yaml",
     "islands": "node scripts/island-pages/build.cjs",

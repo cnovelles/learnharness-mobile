@@ -534,7 +534,7 @@ The app gets a tab bar (issue 20). Issue 08 now lives in the **Graph tab**. The 
 - **E. Pipeline cost (if 4A).** The cost chip, the cost sheet and the run rows; refresh on the `activity-changed` event.
 - **F. Checks.** `npm run test:integration` against the fork server on a copy of the golden data (the phone values equal the desktop helper values); a Maestro flow on both Simulators (Pro Max and SE); screenshots for the user.
 
-## 20 Tab bar, Teach and Practice tabs, folders `doing`
+## 20 Tab bar, Teach and Practice tabs, folders `done`
 
 User request 2026-11-17 (screenshots of the "Hello Interview" app as the reference; keep our colors, no theme change now). Plan: `~/.claude/plans/twinkly-swinging-snowglobe.md`.
 
@@ -593,7 +593,11 @@ User request 2026-11-17 (screenshots of the "Hello Interview" app as the referen
   - Simulator check (2026-11-18, dev build, `LH_E2E_GOLDEN=1 LH_E2E_SHELF=1 npm run e2e:mac`, flow `npm run e2e:teach-folders`): passed on the Pro Max (light) and the SE (dark). The flow moves "Bayes rule" into the empty "Reading list" from the long press menu and the Move sheet, adds the subfolder "Algebra › Matrices" from the folder menu, and deletes it after the confirm. Each change goes through the real gateway checks of the test Mac. The screenshots match the mockups (the grey Delete on a folder with sessions, the red Delete in the confirm).
   - Two fixes from the Simulator check: the menu backdrop was one accessible button, so VoiceOver and Maestro did not see the menu items (the backdrop is now its own layer behind the menu). The icons added their names to the row labels ("move, Move to folder…"); each menu row and Move row now has a plain label.
   - Tip: the test Mac makes one pairing code for each start. Start it again before each flow run.
-- E. Checks: Maestro flows updated for the tabs, a folder move flow with `LH_E2E_GOLDEN=1`, both Simulators, screenshots light and dark.
+- E. `done` (2026-11-19). Checks: all Maestro flows on both Simulators after the tabs, screenshots light and dark.
+  - New runner `npm run e2e:suite -- <udid> <output dir> [flow ...]` (`scripts/e2e-suite.sh`): it starts a new test Mac with the right options for each flow, runs the flow, and writes `summary.txt`. It tries the test Mac start again, at most 3 times (next dev stops at its notice on about every second start), and stops a flow after `FLOW_LIMIT` seconds (default 600; Maestro hung once for 2 hours after "Request for viewHierarchy failed"). The flow `dictation` (`e2e/dictation-suite.yaml`, both dictation flows on one test Mac) runs only by name, with Metro started with `EXPO_PUBLIC_LH_E2E_DICTATION_TEXT`.
+  - New flow `e2e/tabs.yaml` (`npm run e2e:tabs`): Teach, Practice and Graph, the gear opens Settings over the tab bar, back returns to Graph, and Teach keeps its list. One screenshot of each.
+  - Flow fix: `first-turn.yaml` scrolls up to the answered card ("CORRECT"); on the SE, the teacher's reply pushes it off the top.
+  - Results (screenshots in `e2e/screenshots/slice-e/promax` and `.../se`, not in git): first-turn, teach-cycle, rich-lesson, wide-content, practice, open-long, teach-shelf, teach-folders, practice-shelf, tabs and dictation all pass on the Pro Max (light) and the SE (dark). Flakes seen, none from the app: the Maestro driver hang (SE practice; the rerun passed) and the lost pairing text (Pro Max first-turn; the rerun passed).
 
 ### Error states
 

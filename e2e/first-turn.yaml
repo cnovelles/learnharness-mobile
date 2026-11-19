@@ -55,6 +55,9 @@ appId: dev.local.learnharnessmobile
 - extendedWaitUntil:
     visible: ".*two bulges.*"
     timeout: 60000
-- assertVisible: "CORRECT"
+# On the SE, the teacher's reply pushes the answered card off the top.
+- scrollUntilVisible:
+    element: "CORRECT"
+    direction: UP
 - assertNotVisible:
     id: "dock-question"

@@ -1,0 +1,78 @@
+# The tab bar (issue 20, slice E): Teach, Practice and Graph, the gear to
+# Settings from a tab, and back to the same tab. The flow takes one screenshot
+# of each tab, so a run on a light and a dark Simulator shows both themes.
+# It needs:
+#   1. The test Mac with the golden data and the shelves:
+#      LH_E2E_GOLDEN=1 LH_E2E_SHELF=1 LH_E2E_PRACTICE_SHELF=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:tabs
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+# 1. Teach: the first tab after the pairing.
+- extendedWaitUntil:
+    visible: "CONTINUE LEARNING"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Eigenvalues, .*"
+    timeout: 30000
+- takeScreenshot: tabs-1-teach
+# 2. Practice. A tab tap right after the pairing sometimes does not change
+# the tab on the SE: tap again if it did not.
+- repeat:
+    times: 3
+    while:
+      notVisible: "CONTINUE PRACTICE"
+    commands:
+      - tapOn: "Practice"
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "CONTINUE PRACTICE"
+    timeout: 30000
+- assertVisible: "Linear recurrences, .*1 problem.*"
+- assertNotVisible: "CONTINUE LEARNING"
+- takeScreenshot: tabs-2-practice
+# 3. Graph: the note until issue 08.
+- tapOn: "Graph"
+- extendedWaitUntil:
+    visible: "The graph comes in a later update."
+    timeout: 10000
+- assertNotVisible: "CONTINUE PRACTICE"
+- takeScreenshot: tabs-3-graph
+# 4. The gear opens Settings over the tab bar; back returns to Graph.
+- tapOn:
+    id: "open-settings"
+- extendedWaitUntil:
+    visible: "Forget this Mac"
+    timeout: 10000
+- assertVisible:
+    id: "mac-name"
+    text: "Test Mac"
+- assertNotVisible: "Graph"
+- takeScreenshot: tabs-4-settings
+- tapOn:
+    id: "BackButton"
+- extendedWaitUntil:
+    visible: "The graph comes in a later update."
+    timeout: 10000
+# 5. Back to Teach: the tab keeps its list.
+- tapOn: "Teach"
+- extendedWaitUntil:
+    visible: "CONTINUE LEARNING"
+    timeout: 10000
+- assertVisible: "Eigenvalues, .*"
