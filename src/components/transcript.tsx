@@ -12,6 +12,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { AnsweredCard } from "@/lib/answer-card";
 import { PHASE_LABEL } from "@/lib/plan";
+import { teacherText } from "@/lib/teacher-text";
 import { PlanBlock } from "./plan-graph";
 import type { TranscriptRow } from "@/lib/transcript";
 import type { ToolRowData } from "@/lib/tool-row";
@@ -226,7 +227,11 @@ function Reasoning({ row }: { row: Extract<TranscriptRow, { kind: "reasoning" }>
 				{row.streaming ? "AGENT'S THINKING…" : `AGENT'S THINKING ${open ? "▴" : "▾"}`}
 			</Text>
 			{open ? (
-				<Markdown text={row.text} compact style={[styles.thought, { color: c.muted }]} />
+				<Markdown
+					text={teacherText(row.text)}
+					compact
+					style={[styles.thought, { color: c.muted }]}
+				/>
 			) : null}
 		</Pressable>
 	);
@@ -314,7 +319,7 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 		case "text":
 			return (
 				<Markdown
-					text={row.text}
+					text={teacherText(row.text)}
 					style={[styles.body, { color: c.text }]}
 					testID={`text-${row.id}`}
 				/>

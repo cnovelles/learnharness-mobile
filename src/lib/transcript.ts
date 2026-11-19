@@ -55,6 +55,9 @@ export type QuestionStatus =
 
 export type TranscriptRow =
 	| { kind: "user"; id: string; text: string }
+	// `text` of a text or reasoning row is the text as the Mac stores it. The
+	// row repairs it with teacherText when it draws (components/transcript.tsx),
+	// because the screen draws only the last rows of a long session.
 	| { kind: "text"; id: string; text: string; streaming: boolean }
 	| { kind: "reasoning"; id: string; text: string; streaming: boolean }
 	| {
@@ -159,9 +162,7 @@ export function transcriptRows(
 			if (part.type === "text") {
 				if (!text.trim()) return;
 				rows.push(
-					m.role === "user"
-						? { kind: "user", id, text }
-						: { kind: "text", id, text: teacherText(text), streaming },
+					m.role === "user" ? { kind: "user", id, text } : { kind: "text", id, text, streaming },
 				);
 			} else if (part.type === "data-compaction" || part.type === "data-compaction-cut") {
 				const before = (part.data as { details?: { tokensBefore?: unknown } } | undefined)?.details
@@ -177,8 +178,7 @@ export function transcriptRows(
 			} else if (part.type === "data-practice-next") {
 				rows.push({ kind: "practice-next", id });
 			} else if (part.type === "reasoning") {
-				if (text.trim() || streaming)
-					rows.push({ kind: "reasoning", id, text: teacherText(text), streaming });
+				if (text.trim() || streaming) rows.push({ kind: "reasoning", id, text, streaming });
 			} else if (part.type.startsWith("tool-")) {
 				const name = part.type.slice("tool-".length);
 				if (isQuestionTool(name)) {

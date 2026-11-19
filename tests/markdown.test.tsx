@@ -429,6 +429,22 @@ describe("in the transcript", () => {
 		expect(screen.getByRole("header")).toHaveTextContent("Step 1");
 		expect(screen.getByTestId("md-inline-code")).toHaveTextContent("count", { exact: false });
 	});
+
+	it("repairs a literal \\n in the teacher's text and the reasoning when it draws them", async () => {
+		await render(
+			<Transcript
+				rows={[
+					{ kind: "reasoning", id: "r1", text: "Plan:\\n\\n## Probe first", streaming: false },
+					{ kind: "text", id: "t1", text: "Intro\\n\\n## Step 1", streaming: false },
+				]}
+				onOpenPlan={() => {}}
+			/>,
+		);
+		expect(screen.getByRole("header")).toHaveTextContent("Step 1");
+		await act(async () => fireEvent.press(screen.getByTestId("reasoning-r1")));
+		expect(screen.getAllByRole("header")).toHaveLength(2);
+		expect(screen.queryByText(/\\n/)).toBeNull();
+	});
 });
 
 describe("parser helpers", () => {

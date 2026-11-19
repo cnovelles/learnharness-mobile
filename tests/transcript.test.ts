@@ -400,11 +400,19 @@ describe("literal \\n text from the teacher (seen with the Claude Code CLI)", ()
 		]),
 	];
 
-	it("the teacher's text, the reasoning and a waiting question get real line breaks", () => {
+	it("a waiting question gets real line breaks", () => {
 		const rows = transcriptRows(projectView(turn));
-		expect(rows[1]).toMatchObject({ kind: "reasoning", text: "Plan:\n\nprobe first." });
-		expect(rows[2]).toMatchObject({ kind: "text", text: "First:\n\n- a probe" });
 		expect(rows[3]).toMatchObject({ kind: "question", question: FIXED, status: "waiting" });
+	});
+
+	// The repair runs the Markdown parser 3 times for each text (the Hermes
+	// profile of issue 21: 1.5 s for each open of a 407-message session).
+	// The screen draws only the last rows, so the row repairs its own text
+	// when it draws (components/transcript.tsx).
+	it("the teacher's text and the reasoning keep the stored text: the drawn row repairs it", () => {
+		const rows = transcriptRows(projectView(turn));
+		expect(rows[1]).toMatchObject({ kind: "reasoning", text: "Plan:\\n\\nprobe first." });
+		expect(rows[2]).toMatchObject({ kind: "text", text: "First:\\n\\n- a probe" });
 	});
 
 	it("the learner's own text stays as typed", () => {
