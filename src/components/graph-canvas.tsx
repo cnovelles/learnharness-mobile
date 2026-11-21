@@ -23,9 +23,10 @@ import {
 	Group,
 	Image,
 	MipmapMode,
+	Paint,
 	PaintStyle,
-	Path,
 	Picture,
+	Points,
 	RadialGradient,
 	Skia,
 	StrokeCap,
@@ -35,6 +36,7 @@ import {
 	vec,
 	type SkFont,
 	type SkImage,
+	type SkRect,
 } from "@shopify/react-native-skia";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, View, useColorScheme, type LayoutChangeEvent } from "react-native";
@@ -48,6 +50,7 @@ import {
 	useTapGesture,
 } from "react-native-gesture-handler";
 import {
+	useAnimatedReaction,
 	useDerivedValue,
 	useSharedValue,
 	withTiming,
@@ -60,12 +63,17 @@ import {
 	buildScene,
 	fitCamera,
 	labelLineHeight,
+	labelShow,
 	nodeLabelOpacity,
 	panCamera,
 	pickNode,
-	pinchCamera,
+	pinchStep,
+	tapAllowed,
+	DOUBLE_TAP_MAX_DISTANCE,
 	regionFill,
 	regionLabelColor,
+	type LabelShow,
+	type PinchFocus,
 	type Scene,
 	type SceneMeasure,
 } from "@/lib/graph-scene";
@@ -141,6 +149,57 @@ function regionImage(splat: RegionSplat, ring: number, edgeAlpha: number): SkIma
 	return Skia.Image.MakeImage(info, Skia.Data.fromBytes(pixels), splat.width * 4);
 }
 
+/**
+ * The cull rect of a picture: the box of the points (x, y pairs) with a pad.
+ * Skia's default starts at (0, 0) and drops what is at negative positions.
+ */
+function cullRect(points: ArrayLike<number>, pad: number): SkRect {
+	let minX = 0;
+	let minY = 0;
+	let maxX = 0;
+	let maxY = 0;
+	for (let i = 0; i + 1 < points.length; i += 2) {
+		minX = Math.min(minX, points[i]!);
+		maxX = Math.max(maxX, points[i]!);
+		minY = Math.min(minY, points[i + 1]!);
+		maxY = Math.max(maxY, points[i + 1]!);
+	}
+	return Skia.XYWHRect(minX - pad, minY - pad, maxX - minX + 2 * pad, maxY - minY + 2 * pad);
+}
+
+/**
+ * The arrow heads and the node discs as one picture in world units (drawn
+ * once per scene). Each head and each disc is its own draw: the GPU draws a
+ * circle or a small convex path directly. One path with all the shapes is
+ * not convex, and Skia then fills it on the CPU at screen size on each
+ * frame (the zoom-in stutter, iPhone profile 2026-11-21).
+ */
+function markPicture(scene: Scene, headColor: string, discColor: string) {
+	const heads = Skia.Paint();
+	heads.setAntiAlias(true);
+	heads.setColor(Skia.Color(headColor));
+	const discs = Skia.Paint();
+	discs.setAntiAlias(true);
+	discs.setColor(Skia.Color(discColor));
+	const r = CANVAS_SETTINGS.nodeSize;
+	const h = scene.glyphs.heads;
+	const d = scene.discs;
+	return createPicture(
+		(canvas) => {
+			for (let i = 0; i + 5 < h.length; i += 6) {
+				const path = Skia.PathBuilder.Make();
+				path.moveTo(h[i]!, h[i + 1]!);
+				path.lineTo(h[i + 2]!, h[i + 3]!);
+				path.lineTo(h[i + 4]!, h[i + 5]!);
+				path.close();
+				canvas.drawPath(path.detach(), heads);
+			}
+			for (let i = 0; i + 1 < d.length; i += 2) canvas.drawCircle(d[i]!, d[i + 1]!, r, discs);
+		},
+		cullRect([...d, ...h], 2 * r),
+	);
+}
+
 /** The node labels as one picture in world units (drawn once per scene). */
 function labelPicture(scene: Scene, font: SkFont, color: string) {
 	const paint = Skia.Paint();
@@ -148,20 +207,11 @@ function labelPicture(scene: Scene, font: SkFont, color: string) {
 	paint.setColor(Skia.Color(color));
 	const ascent = -font.getMetrics().ascent;
 	const lineH = labelLineHeight();
-	// The cull rect: Skia's default starts at (0, 0) and drops the labels at
-	// negative world positions.
-	let minX = 0;
-	let minY = 0;
-	let maxX = 0;
-	let maxY = 0;
-	for (const l of scene.labels) {
-		minX = Math.min(minX, l.x);
-		maxX = Math.max(maxX, l.x);
-		minY = Math.min(minY, l.top);
-		maxY = Math.max(maxY, l.top);
-	}
 	const pad = 2 * labelWrapWidth(CANVAS_SETTINGS.labelSize) + 10 * lineH;
-	const rect = Skia.XYWHRect(minX - pad, minY - pad, maxX - minX + 2 * pad, maxY - minY + 2 * pad);
+	const rect = cullRect(
+		scene.labels.flatMap((l) => [l.x, l.top]),
+		pad,
+	);
 	return createPicture((canvas) => {
 		for (const label of scene.labels) {
 			label.lines.forEach((line, i) => {
@@ -273,28 +323,22 @@ export function GraphCanvas({
 		[model, visible, measure],
 	);
 
-	const paths = useMemo(() => {
+	// The edge shafts as separate lines (point pairs). The GPU draws a single
+	// straight line with flat ends directly. One path with all the shafts, or
+	// round ends, makes Skia fill the stroke on the CPU at screen size on each
+	// frame (the zoom-in stutter, iPhone profiles 2026-11-21).
+	const shafts = useMemo(() => {
 		if (!scene) return null;
-		const nodes = Skia.PathBuilder.Make();
-		const d = scene.discs;
-		for (let i = 0; i < d.length; i += 2)
-			nodes.addCircle(d[i]!, d[i + 1]!, CANVAS_SETTINGS.nodeSize);
-		const shafts = Skia.PathBuilder.Make();
 		const s = scene.glyphs.shafts;
-		for (let i = 0; i < s.length; i += 4) {
-			shafts.moveTo(s[i]!, s[i + 1]!);
-			shafts.lineTo(s[i + 2]!, s[i + 3]!);
-		}
-		const heads = Skia.PathBuilder.Make();
-		const h = scene.glyphs.heads;
-		for (let i = 0; i < h.length; i += 6) {
-			heads.moveTo(h[i]!, h[i + 1]!);
-			heads.lineTo(h[i + 2]!, h[i + 3]!);
-			heads.lineTo(h[i + 4]!, h[i + 5]!);
-			heads.close();
-		}
-		return { nodes: nodes.detach(), shafts: shafts.detach(), heads: heads.detach() };
+		const points = [];
+		for (let i = 0; i + 3 < s.length; i += 4)
+			points.push(vec(s[i]!, s[i + 1]!), vec(s[i + 2]!, s[i + 3]!));
+		return points;
 	}, [scene]);
+	const marks = useMemo(
+		() => (scene ? markPicture(scene, c.muted, c.primary) : null),
+		[scene, c.muted, c.primary],
+	);
 
 	const labels = useMemo(
 		() => (scene && labelFont ? labelPicture(scene, labelFont, c.muted) : null),
@@ -317,7 +361,9 @@ export function GraphCanvas({
 	const kFit = useSharedValue(1);
 	const fit = useSharedValue({ x: 0, y: 0, k: 1 });
 	const pinching = useSharedValue(false);
-	const focal = useSharedValue<{ x: number; y: number } | null>(null);
+	/** The time of the last pinch step (ms): a tap just after a pinch is a finger of it. */
+	const pinchAt = useSharedValue(-Infinity);
+	const focal = useSharedValue<PinchFocus | null>(null);
 
 	// Fit once for the first graph and each new view size; a new snapshot
 	// (the Mac changed the graph) keeps the camera, as the desktop does.
@@ -352,6 +398,24 @@ export function GraphCanvas({
 			: 0,
 	);
 
+	// Skia draws a picture with no paint, so a group opacity does not reach
+	// it. Each label layer is drawn only while it shows, and the node labels
+	// go through a layer paint only while they fade.
+	const [nodeLabels, setNodeLabels] = useState<LabelShow>("off");
+	const [regionLabels, setRegionLabels] = useState(true);
+	useAnimatedReaction(
+		() => labelShow(nodeLabelAlpha.get()),
+		(now, before) => {
+			if (now !== before) scheduleOnRN(setNodeLabels, now);
+		},
+	);
+	useAnimatedReaction(
+		() => regionLabelAlpha.get() > 0,
+		(now, before) => {
+			if (now !== before) scheduleOnRN(setRegionLabels, now);
+		},
+	);
+
 	const pick = useCallback(
 		(x: number, y: number, camX: number, camY: number, camK: number) => {
 			if (!scene) return;
@@ -380,19 +444,19 @@ export function GraphCanvas({
 		},
 		onUpdate: (e) => {
 			"worklet";
-			const from = focal.get() ?? { x: e.focalX, y: e.focalY };
-			const cam = pinchCamera(
+			const { cam, focus } = pinchStep(
 				{ x: tx.get(), y: ty.get(), k: k.get() },
+				focal.get(),
 				e.scaleChange,
-				from.x,
-				from.y,
 				e.focalX,
 				e.focalY,
+				e.numberOfPointers,
 			);
+			pinchAt.set(Date.now());
 			tx.set(cam.x);
 			ty.set(cam.y);
 			k.set(cam.k);
-			focal.set({ x: e.focalX, y: e.focalY });
+			focal.set(focus);
 		},
 		onFinalize: () => {
 			"worklet";
@@ -403,8 +467,10 @@ export function GraphCanvas({
 	const doubleTap = useTapGesture({
 		numberOfTaps: 2,
 		maxDelay: DOUBLE_TAP_MAX_DELAY_MS,
+		maxDistance: DOUBLE_TAP_MAX_DISTANCE,
 		onActivate: () => {
 			"worklet";
+			if (!tapAllowed(pinching.get(), pinchAt.get(), Date.now())) return;
 			tx.set(withTiming(fit.get().x, { duration: FIT_MS }));
 			ty.set(withTiming(fit.get().y, { duration: FIT_MS }));
 			k.set(withTiming(fit.get().k, { duration: FIT_MS }));
@@ -413,6 +479,7 @@ export function GraphCanvas({
 	const tap = useTapGesture({
 		onActivate: (e) => {
 			"worklet";
+			if (!tapAllowed(pinching.get(), pinchAt.get(), Date.now())) return;
 			scheduleOnRN(pick, e.x, e.y, tx.get(), ty.get(), k.get());
 		},
 	});
@@ -448,7 +515,7 @@ export function GraphCanvas({
 					accessibilityLabel={label}
 					testID={testID}
 				>
-					{paths && size.w > 0 ? (
+					{shafts && marks && size.w > 0 ? (
 						<Canvas style={styles.fill}>
 							<Group transform={transform}>
 								{regions ? (
@@ -462,17 +529,18 @@ export function GraphCanvas({
 										sampling={{ filter: FilterMode.Linear, mipmap: MipmapMode.None }}
 									/>
 								) : null}
-								<Path
-									path={paths.shafts}
+								<Points
+									points={shafts}
+									mode="lines"
 									style="stroke"
 									strokeWidth={edgeStroke}
-									strokeCap="round"
+									strokeCap="butt"
 									color={c.muted}
 								/>
-								<Path path={paths.heads} color={c.muted} />
-								<Path path={paths.nodes} color={c.primary} />
-								{labels ? (
-									<Group opacity={nodeLabelAlpha}>
+								<Picture picture={marks} />
+								{labels && nodeLabels === "on" ? <Picture picture={labels} /> : null}
+								{labels && nodeLabels === "fade" ? (
+									<Group layer={<Paint opacity={nodeLabelAlpha} />}>
 										<Picture picture={labels} />
 									</Group>
 								) : null}
@@ -490,7 +558,7 @@ export function GraphCanvas({
 										/>
 									</Circle>
 								) : null}
-								{regionFont ? (
+								{regionFont && regionLabels ? (
 									<Group opacity={regionLabelAlpha}>
 										{regionText.map((line) => (
 											<RegionLabel key={line.key} line={line} font={regionFont} inverse={inverse} />

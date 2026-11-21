@@ -9,10 +9,14 @@ import {
 	fitCamera,
 	hslaColor,
 	labelLineHeight,
+	labelShow,
 	nodeLabelOpacity,
 	panCamera,
 	pickNode,
 	pinchCamera,
+	pinchStep,
+	PINCH_QUIET_MS,
+	tapAllowed,
 	regionFill,
 	regionLabelColor,
 } from "@/lib/graph-scene";
@@ -148,6 +152,45 @@ describe("the camera", () => {
 		expect(clampScale(5)).toBe(5);
 	});
 
+	it("a pinch step scales about the fingers' center", () => {
+		const cam = { x: 10, y: 20, k: 2 };
+		const step = pinchStep(cam, { x: 100, y: 100, pointers: 2 }, 1.5, 100, 100, 2);
+		expect(step.cam).toEqual(pinchCamera(cam, 1.5, 100, 100, 100, 100));
+		expect(step.focus).toEqual({ x: 100, y: 100, pointers: 2 });
+	});
+
+	it("the first pinch step only sets the center", () => {
+		const cam = { x: 10, y: 20, k: 2 };
+		const step = pinchStep(cam, null, 1.2, 80, 90, 2);
+		expect(step.cam).toBe(cam);
+		expect(step.focus).toEqual({ x: 80, y: 90, pointers: 2 });
+	});
+
+	it("a lifted finger does not move the graph (the jump to the side)", () => {
+		const cam = { x: 10, y: 20, k: 2 };
+		// Two fingers at 100 and 300: center 200. One lifts: the center jumps to 300.
+		const lift = pinchStep(cam, { x: 200, y: 150, pointers: 2 }, 1, 300, 150, 1);
+		expect(lift.cam).toBe(cam);
+		expect(lift.focus).toEqual({ x: 300, y: 150, pointers: 1 });
+		// One finger that moves does not pan or zoom in the pinch.
+		expect(pinchStep(cam, lift.focus, 1.1, 320, 160, 1).cam).toBe(cam);
+	});
+
+	it("a finger that touches again starts the center again", () => {
+		const cam = { x: 10, y: 20, k: 2 };
+		const back = pinchStep(cam, { x: 300, y: 150, pointers: 1 }, 1, 200, 150, 2);
+		expect(back.cam).toBe(cam);
+		const next = pinchStep(cam, back.focus, 1, 210, 150, 2);
+		expect(next.cam).toEqual({ x: 20, y: 20, k: 2 });
+	});
+
+	it("a tap during or just after a pinch does not count (a fit by the pinch fingers)", () => {
+		expect(tapAllowed(false, -Infinity, 1000)).toBe(true);
+		expect(tapAllowed(true, -Infinity, 1000)).toBe(false);
+		expect(tapAllowed(false, 1000, 1000 + PINCH_QUIET_MS - 1)).toBe(false);
+		expect(tapAllowed(false, 1000, 1000 + PINCH_QUIET_MS)).toBe(true);
+	});
+
 	it("the label opacity is the desktop labelAlpha rule", () => {
 		const kFit = 2;
 		for (const k of [0.5, 1, 2, 3, 3.5, 4, 5, 6, 8, 20]) {
@@ -159,6 +202,18 @@ describe("the camera", () => {
 		// At fit zoom only the region labels show; zoomed in 2x, only the node labels.
 		expect(nodeLabelOpacity(kFit, kFit, CANVAS_SETTINGS.labelZoom)).toBe(0);
 		expect(nodeLabelOpacity(kFit, kFit * 2, CANVAS_SETTINGS.labelZoom)).toBe(1);
+	});
+
+	it("the node labels draw only while they show, with a layer only while they fade", () => {
+		const kFit = 2;
+		const at = (k: number) => labelShow(nodeLabelOpacity(kFit, k, CANVAS_SETTINGS.labelZoom));
+		expect(at(kFit)).toBe("off");
+		expect(at(kFit * 2)).toBe("on");
+		const fading = [3, 3.25, 3.5, 3.75].map(at);
+		expect(fading).toContain("fade");
+		expect(labelShow(0)).toBe("off");
+		expect(labelShow(0.4)).toBe("fade");
+		expect(labelShow(1)).toBe("on");
 	});
 
 	it("a tap picks the nearest proposition within the disc and the pad", () => {

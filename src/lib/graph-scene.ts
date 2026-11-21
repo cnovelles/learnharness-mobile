@@ -189,6 +189,50 @@ export function pinchCamera(
 	return { x: toX - wx * k, y: toY - wy * k, k };
 }
 
+/** The fingers' center of the last pinch step, and the number of fingers. */
+export interface PinchFocus {
+	x: number;
+	y: number;
+	pointers: number;
+}
+
+/**
+ * One pinch event: the next camera and the next focus. When the number of
+ * fingers changes (a finger lifts or touches), the center jumps to the
+ * other fingers: the step then keeps the camera and starts again from the
+ * new center, so the graph does not jump. With fewer than 2 fingers the
+ * camera stays.
+ */
+export function pinchStep(
+	cam: Camera,
+	focus: PinchFocus | null,
+	scaleChange: number,
+	x: number,
+	y: number,
+	pointers: number,
+): { cam: Camera; focus: PinchFocus } {
+	"worklet";
+	const next = { x, y, pointers };
+	if (!focus || focus.pointers !== pointers || pointers < 2) return { cam, focus: next };
+	return { cam: pinchCamera(cam, scaleChange, focus.x, focus.y, x, y), focus: next };
+}
+
+/**
+ * The quiet time after a pinch step, ms. The fingers of a pinch touch and
+ * lift too, and two of them can look like a double tap (a fit) or a tap
+ * (a node sheet).
+ */
+export const PINCH_QUIET_MS = 400;
+
+/** The longest distance between the two taps of a double tap, points. */
+export const DOUBLE_TAP_MAX_DISTANCE = 30;
+
+/** A tap counts only when no pinch runs and the last pinch step is old enough. */
+export function tapAllowed(pinching: boolean, pinchAt: number, now: number): boolean {
+	"worklet";
+	return !pinching && now - pinchAt >= PINCH_QUIET_MS;
+}
+
 /**
  * The node label opacity at a camera scale (the desktop `labelAlpha` on
  * `zoomRatioOf(kFit, k)`): 1 when zoomed in past the gate, then a fade to
@@ -200,6 +244,18 @@ export function nodeLabelOpacity(kFit: number, k: number, gate: number): number 
 	const ratio = kFit / k;
 	const v = 1 - (ratio - gate) / (gate * LABELS_FADE_RATIO);
 	return Math.min(Math.max(v, 0), 1);
+}
+
+/**
+ * How a label layer draws at an opacity: not at all, through a fade layer,
+ * or plain. Skia draws a picture with no paint, so a group opacity does not
+ * reach a picture: the canvas uses a layer paint only while the labels fade.
+ */
+export type LabelShow = "off" | "fade" | "on";
+
+export function labelShow(alpha: number): LabelShow {
+	"worklet";
+	return alpha <= 0 ? "off" : alpha >= 1 ? "on" : "fade";
 }
 
 /** The node under a tap at screen point (px, py), or null (the desktop `pickAt`). */
