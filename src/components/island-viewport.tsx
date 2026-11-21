@@ -114,9 +114,11 @@ export function showsLatest(m: ScrollMetrics): boolean {
  * stop the follow. Only a clear drag up (OPEN_DRAG_UP) does. The opening
  * ends when the reveal is idle, or with a tap on the status bar.
  */
-export function createEndFollow() {
-	let following = true;
-	let opening = true;
+export function createEndFollow({ atEnd = true }: { atEnd?: boolean } = {}) {
+	// A graph link opens the session at a message (issue 08 slice C2): no
+	// follow and no opening, until the reader taps "↓ Latest".
+	let following = atEnd;
+	let opening = atEnd;
 	let userScroll = false;
 	let dragFrom: number | null = null;
 	const read = (m: ScrollMetrics) => {

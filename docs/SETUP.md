@@ -90,7 +90,7 @@ The signing team is `ios.appleTeamId` in `app.json`. If you change to another Ap
 
 ## Free Apple ID: install again every 7 days
 
-On a free Apple ID (Personal Team), the app stops opening 7 days after the install. Do step 4 again. Your pairing stays in the Keychain, so you do not have to pair again.
+On a free Apple ID (Personal Team), the app stops opening 7 days after the install. Do step 4 again. Xcode can reuse the old profile, so the expiry date does not change. Check the date with `security cms -D -i build/release/Build/Products/Release-iphoneos/LearnHarness.app/embedded.mobileprovision | plutil -extract ExpirationDate raw -o - -`. If it is the old date, move the old profile out of `~/Library/Developer/Xcode/UserData/Provisioning Profiles`, then build again. Your pairing stays in the Keychain, so you do not have to pair again.
 
 A paid Apple Developer Program membership gives a profile for 1 year, and TestFlight.
 

@@ -101,3 +101,13 @@ describe("the Latest button", () => {
 		expect(showsLatest(at(0, 1500))).toBe(false);
 	});
 });
+
+describe("the open at a message (issue 08 slice C2)", () => {
+	it("does not follow the end and has no opening; Latest follows again", () => {
+		const follow = createEndFollow({ atEnd: false });
+		expect(follow.follows()).toBe(false);
+		expect(follow.opening()).toBe(false);
+		follow.toEnd();
+		expect(follow.follows()).toBe(true);
+	});
+});
