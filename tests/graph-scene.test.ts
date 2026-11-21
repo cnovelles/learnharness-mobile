@@ -15,6 +15,9 @@ import {
 	pickNode,
 	pinchCamera,
 	pinchStep,
+	PHONE_REGION_LABEL,
+	regionLabelBoxes,
+	placeRegionLabels,
 	PINCH_QUIET_MS,
 	tapAllowed,
 	regionFill,
@@ -75,12 +78,23 @@ describe("buildScene", () => {
 		expect(scene.splat?.layers).toHaveLength(2);
 	});
 
-	it("long region labels wrap at the desktop width and line cap", () => {
+	it("long region labels wrap at the phone width (140 pt) and the desktop line cap", () => {
 		const m = model();
 		m.regions[0]!.label = "a very long session title that does not fit in one region label line";
-		const lines = buildScene(m, null, measure).anchors[0]!.lines!;
-		expect(lines.length).toBeLessThanOrEqual(3);
-		for (const line of lines) expect(measure.region(line)).toBeLessThanOrEqual(220);
+		const anchor = buildScene(m, null, measure).anchors[0]!;
+		const lines = anchor.lines!;
+		expect(lines.length).toBeLessThanOrEqual(PHONE_REGION_LABEL.maxLines);
+		expect(lines.length).toBeGreaterThan(1);
+		for (const line of lines) expect(measure.region(line)).toBeLessThanOrEqual(140);
+		// The box: the widest line, and one line height (11 pt x 1.3) for each line.
+		expect(anchor.w).toBe(Math.max(...lines.map(measure.region)));
+		expect(anchor.h).toBeCloseTo(lines.length * 11 * 1.3);
+	});
+
+	it("the label order puts the larger region first and skips unlabeled regions", () => {
+		const scene = buildScene(model(), null, measure);
+		expect(scene.anchors.map((a) => a.weight)).toEqual([2, 1]);
+		expect(scene.labelOrder).toEqual([0]);
 	});
 
 	it("search: hidden nodes have no disc, label, tap, edge or region", () => {
@@ -100,9 +114,86 @@ describe("buildScene", () => {
 			glyphs: { shafts: [], heads: [] },
 			labels: [],
 			anchors: [],
+			labelOrder: [],
 			splat: null,
 			pickable: [],
 		});
+	});
+
+	it("region labels: a label that overlaps a larger region's label is hidden", () => {
+		// Three boxes (cx, cy, w, h) in world units; w and h are screen points.
+		const boxes = [0, 0, 60, 14, 20, 0, 60, 14, 200, 0, 60, 14];
+		const order = [0, 1, 2];
+		const shown = (o: number[], k: number) =>
+			placeRegionLabels(boxes, o, { x: 0, y: 0, k }, 0, 0).shown;
+		// At k = 1, box 1 is 20 pt from box 0 and overlaps it; box 2 is clear.
+		expect(shown(order, 1)).toEqual([true, false, true]);
+		// Zoomed in 4x, box 1 is 80 pt away: all show.
+		expect(shown(order, 4)).toEqual([true, true, true]);
+		// The order decides which of two labels stays.
+		expect(shown([1, 0, 2], 1)).toEqual([false, true, true]);
+		// A label not in the order (no text) never shows.
+		expect(shown([0], 1)).toEqual([true, false, false]);
+	});
+
+	it("region labels keep the clearance between two shown boxes", () => {
+		const w = 60;
+		const clear = w + PHONE_REGION_LABEL.clearance;
+		const shown = (x: number) =>
+			placeRegionLabels([0, 0, w, 10, x, 0, w, 10], [0, 1], { x: 0, y: 0, k: 1 }, 0, 0).shown;
+		expect(shown(clear - 0.1)).toEqual([true, false]);
+		expect(shown(clear)).toEqual([true, true]);
+	});
+
+	it("a label near the canvas edge moves inside it (the cut label on the SE)", () => {
+		// A 140 pt label at screen x = 320 in a 343 pt canvas: its right end
+		// would be at 390. It moves left to end 8 pt from the edge.
+		const p = placeRegionLabels([320, 100, 140, 14], [0], { x: 0, y: 0, k: 1 }, 343, 400);
+		expect(p.shown).toEqual([true]);
+		expect(320 + p.dx[0]! + 70).toBe(343 - PHONE_REGION_LABEL.inset);
+		expect(p.dy[0]).toBe(0);
+		// The camera counts: the same world point, moved 100 pt left, needs no move.
+		expect(
+			placeRegionLabels([320, 100, 140, 14], [0], { x: -100, y: 0, k: 1 }, 343, 400).dx,
+		).toEqual([0]);
+	});
+
+	it("a label of a region outside the canvas does not move into it", () => {
+		const p = placeRegionLabels([500, 100, 140, 14], [0], { x: 0, y: 0, k: 1 }, 343, 400);
+		expect(p.dx).toEqual([0]);
+	});
+
+	it("a label wider than the canvas is centered in it", () => {
+		const p = placeRegionLabels([50, 100, 400, 14], [0], { x: 0, y: 0, k: 1 }, 343, 400);
+		expect(50 + p.dx[0]!).toBe(343 / 2);
+	});
+
+	it("the overlap rule uses the moved boxes", () => {
+		// Box 0 sits at the right edge; box 1 is 160 pt to its left. Box 0
+		// moves left onto box 1, so box 1 is hidden.
+		const boxes = [330, 100, 140, 14, 170, 100, 60, 14];
+		expect(placeRegionLabels(boxes, [0, 1], { x: 0, y: 0, k: 1 }, 343, 400).shown).toEqual([
+			true,
+			false,
+		]);
+		expect(placeRegionLabels(boxes, [0, 1], { x: 0, y: 0, k: 1 }, 0, 0).shown).toEqual([
+			true,
+			true,
+		]);
+	});
+
+	it("the label boxes come from the scene anchors", () => {
+		const scene = buildScene(model(), null, measure);
+		expect(regionLabelBoxes(scene.anchors)).toEqual([
+			50,
+			0,
+			measure.region("Plato"),
+			11 * 1.3,
+			50,
+			80,
+			0,
+			0,
+		]);
 	});
 
 	it("the label line height is the desktop one", () => {

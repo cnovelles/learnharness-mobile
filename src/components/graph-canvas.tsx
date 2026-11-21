@@ -68,6 +68,10 @@ import {
 	panCamera,
 	pickNode,
 	pinchStep,
+	PHONE_REGION_LABEL,
+	regionLabelBoxes,
+	placeRegionLabels,
+	type RegionLabelPlacement,
 	tapAllowed,
 	DOUBLE_TAP_MAX_DISTANCE,
 	regionFill,
@@ -225,6 +229,8 @@ function labelPicture(scene: Scene, font: SkFont, color: string) {
 /** One region label line, laid out at the region centroid (world units). */
 interface RegionLine {
 	key: string;
+	/** The anchor index (for `regionLabelsShown`). */
+	anchor: number;
 	text: string;
 	/** The centroid: the origin of the label's 1/k scale. */
 	cx: number;
@@ -236,19 +242,20 @@ interface RegionLine {
 }
 
 function regionLines(scene: Scene, font: SkFont, lightness: number): RegionLine[] {
-	const size = CANVAS_SETTINGS.clusterLabelSize;
+	const size = PHONE_REGION_LABEL.size;
 	const lineH = size * REGION_LABEL_LINE_HEIGHT;
 	const m = font.getMetrics();
 	// The desktop `textBaseline: middle`: the baseline under the em-box middle.
 	const middle = (-m.ascent - m.descent) / 2;
 	const out: RegionLine[] = [];
-	for (const a of scene.anchors) {
-		if (!a.lines) continue;
+	scene.anchors.forEach((a, anchor) => {
+		if (!a.lines) return;
 		const first = (-(a.lines.length - 1) / 2) * lineH;
 		const color = Float32Array.from(regionLabelColor(a.hue, lightness));
 		a.lines.forEach((text, i) =>
 			out.push({
 				key: `${a.id}:${i}`,
+				anchor,
 				text,
 				cx: a.cx,
 				cy: a.cy,
@@ -257,22 +264,39 @@ function regionLines(scene: Scene, font: SkFont, lightness: number): RegionLine[
 				color,
 			}),
 		);
-	}
+	});
 	return out;
 }
 
-/** A region label line at a constant size on screen (scale 1/k about its centroid). */
+/**
+ * A region label line at a constant size on screen (scale 1/k about its
+ * centroid). It moves inside the canvas edge, and it is hidden while it
+ * overlaps the label of a larger region (`placeRegionLabels`).
+ */
 function RegionLabel({
 	line,
 	font,
-	inverse,
+	k,
+	place,
 }: {
 	line: RegionLine;
 	font: SkFont;
-	inverse: SharedValue<{ scale: number }[]>;
+	k: SharedValue<number>;
+	place: SharedValue<RegionLabelPlacement>;
 }) {
+	const opacity = useDerivedValue(() => (place.get().shown[line.anchor] ? 1 : 0));
+	// The move is in screen points; the group is in world units (scale k).
+	const transform = useDerivedValue(() => {
+		const p = place.get();
+		const s = k.get();
+		return [
+			{ translateX: p.dx[line.anchor]! / s },
+			{ translateY: p.dy[line.anchor]! / s },
+			{ scale: 1 / s },
+		];
+	});
 	return (
-		<Group transform={inverse} origin={vec(line.cx, line.cy)}>
+		<Group transform={transform} origin={vec(line.cx, line.cy)} opacity={opacity}>
 			<Text
 				x={line.cx + line.dx}
 				y={line.cy + line.dy}
@@ -308,7 +332,7 @@ export function GraphCanvas({
 	const mode = useColorScheme() === "dark" ? "dark" : "light";
 	const lightness = CLUSTER_LIGHTNESS[mode];
 	const labelFont = useFont(LABEL_FONT, CANVAS_SETTINGS.labelSize);
-	const regionFont = useFont(LABEL_FONT, CANVAS_SETTINGS.clusterLabelSize);
+	const regionFont = useFont(LABEL_FONT, PHONE_REGION_LABEL.size);
 	const [size, setSize] = useState({ w: 0, h: 0 });
 
 	const measure = useMemo<SceneMeasure | null>(
@@ -387,10 +411,14 @@ export function GraphCanvas({
 		{ translateY: ty.get() },
 		{ scale: k.get() },
 	]);
-	const inverse = useDerivedValue(() => [{ scale: 1 / k.get() }]);
 	const edgeStroke = useDerivedValue(() => CANVAS_SETTINGS.edgeWidth / k.get());
 	const nodeLabelAlpha = useDerivedValue(() =>
 		nodeLabelOpacity(kFit.get(), k.get(), CANVAS_SETTINGS.labelZoom),
+	);
+	const boxes = useMemo(() => (scene ? regionLabelBoxes(scene.anchors) : []), [scene]);
+	const order = useMemo(() => scene?.labelOrder ?? [], [scene]);
+	const regionPlace = useDerivedValue(() =>
+		placeRegionLabels(boxes, order, { x: tx.get(), y: ty.get(), k: k.get() }, size.w, size.h),
 	);
 	const regionLabelAlpha = useDerivedValue(() =>
 		CANVAS_SETTINGS.clusterLabels
@@ -561,7 +589,13 @@ export function GraphCanvas({
 								{regionFont && regionLabels ? (
 									<Group opacity={regionLabelAlpha}>
 										{regionText.map((line) => (
-											<RegionLabel key={line.key} line={line} font={regionFont} inverse={inverse} />
+											<RegionLabel
+												key={line.key}
+												line={line}
+												font={regionFont}
+												k={k}
+												place={regionPlace}
+											/>
 										))}
 									</Group>
 								) : null}
