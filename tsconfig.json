@@ -3,18 +3,24 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@/assets/*": [
-        "./assets/*"
+      "@/*": ["./src/*"],
+      "@/assets/*": ["./assets/*"],
+      "@lh/*": ["../learnharness/*"],
+      "mdast": ["../learnharness/node_modules/@types/mdast"],
+      "mdast-util-from-markdown": ["../learnharness/node_modules/mdast-util-from-markdown"],
+      "mdast-util-gfm": ["../learnharness/node_modules/mdast-util-gfm"],
+      "mdast-util-math": ["../learnharness/node_modules/mdast-util-math"],
+      "micromark-extension-gfm": ["../learnharness/node_modules/micromark-extension-gfm"],
+      "micromark-extension-math": ["../learnharness/node_modules/micromark-extension-math"],
+      "remend": ["../learnharness/node_modules/remend"],
+      "katex": ["../learnharness/node_modules/katex"],
+      "@shikijs/core": ["../learnharness/node_modules/@streamdown/code/node_modules/@shikijs/core"],
+      "@shikijs/engine-javascript": [
+        "../learnharness/node_modules/@streamdown/code/node_modules/@shikijs/engine-javascript"
       ]
-    }
+    },
+    "types": ["jest"],
+    "allowImportingTsExtensions": true
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-  ]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }

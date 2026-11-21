@@ -1,0 +1,133 @@
+# Issue 04 end-to-end test: a refused first text (no model set), the model
+# set on the Mac, Try again, then probe → plan → teach → check (through the
+# reveal) → the answered card. It needs a new test Mac (npm run e2e:mac):
+# the scripted lesson and the one-use pairing code are for one run.
+# Run: npm run e2e:teach
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+
+# models_not_configured: the Mac refuses the first text with a clear message.
+- runScript:
+    file: scripts/models.js
+    env:
+      ACTION: clear
+- tapOn:
+    id: "new-session"
+- tapOn:
+    id: "opening-text"
+- inputText: "Teach me how the tides work."
+- tapOn:
+    id: "new-session-prompt"
+- tapOn:
+    id: "start-session"
+- extendedWaitUntil:
+    visible: "Your Mac has no .* model set.*"
+    timeout: 60000
+- assertNotVisible: ".*models_not_configured.*"
+# Set the model on the Mac, then send the same text again.
+- runScript:
+    file: scripts/models.js
+    env:
+      ACTION: set
+- tapOn:
+    id: "retry-turn"
+
+# Probe.
+- extendedWaitUntil:
+    visible:
+      id: "dock-question"
+    timeout: 60000
+- assertVisible:
+    id: "session-phase"
+    text: "PROBING"
+- tapOn:
+    id: "option-moon"
+- scrollUntilVisible:
+    element:
+      id: "submit-answer"
+- tapOn:
+    id: "submit-answer"
+
+# Plan: the teacher's text, the plan divider, the Plan sheet.
+- extendedWaitUntil:
+    visible: "This is the plan: two steps.*"
+    timeout: 60000
+- assertVisible:
+    id: "session-phase"
+    text: "PLANNING"
+- assertVisible: "PLAN · 2 STEPS"
+- tapOn:
+    id: "open-plan"
+- extendedWaitUntil:
+    visible:
+      id: "plan-sheet"
+    timeout: 10000
+- assertVisible: "Uneven pull"
+- assertVisible:
+    id: "plan-step-status-pull"
+    text: "NEXT"
+- tapOn:
+    id: "plan-close"
+
+# Teach: the check waits behind the reveal.
+# The composer stays above the keyboard.
+- tapOn:
+    id: "composer"
+- inputText: "Ready."
+- tapOn:
+    id: "send"
+- extendedWaitUntil:
+    visible: "Check your understanding"
+    timeout: 60000
+- assertVisible:
+    id: "session-phase"
+    text: "TEACHING"
+- tapOn:
+    id: "reading-thinking"
+- inputText: "Closer means stronger."
+- tapOn: "Check your understanding"
+- tapOn:
+    id: "reveal-open"
+- extendedWaitUntil:
+    visible:
+      id: "dock-question"
+    timeout: 10000
+- tapOn:
+    id: "option-closer"
+- scrollUntilVisible:
+    element:
+      id: "submit-answer"
+- tapOn:
+    id: "submit-answer"
+
+# The answered card and the lesson map with the current step.
+- extendedWaitUntil:
+    visible: "Right. Next we look at the two bulges."
+    timeout: 60000
+- scrollUntilVisible:
+    element: "CHECK"
+    direction: UP
+- assertVisible: "CORRECT"
+- assertVisible: "Closer means stronger."
+- tapOn:
+    id: "open-plan"
+- assertVisible:
+    id: "plan-step-status-pull"
+    text: "NOW"
+- tapOn:
+    id: "plan-close"

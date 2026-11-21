@@ -1,0 +1,63 @@
+# Issue 03 end-to-end test: pair, start a session, answer one probe, see
+# the teacher's turn. It needs:
+#   1. The test Mac: npm run e2e:mac (wait for "Test Mac ready").
+#   2. Metro: npx expo start (the development build loads the app from it).
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:test
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+# hideKeyboard fails for a multiline field on iOS. A tap on static text
+# closes the keyboard (Screen uses keyboardShouldPersistTaps="handled").
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+- tapOn:
+    id: "new-session"
+- tapOn:
+    id: "opening-text"
+- inputText: "Teach me how the tides work."
+- tapOn:
+    id: "new-session-prompt"
+- tapOn:
+    id: "start-session"
+- extendedWaitUntil:
+    visible: "Welcome. First, one short question to see what you already know."
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: "dock-question"
+    timeout: 30000
+- assertVisible: "What mainly causes the ocean tides on Earth?"
+- tapOn:
+    id: "option-moon"
+- scrollUntilVisible:
+    element:
+      id: "confidence-90"
+- tapOn:
+    id: "confidence-90"
+- scrollUntilVisible:
+    element:
+      id: "submit-answer"
+- tapOn:
+    id: "submit-answer"
+- extendedWaitUntil:
+    visible: ".*two bulges.*"
+    timeout: 60000
+# On the SE, the teacher's reply pushes the answered card off the top.
+- scrollUntilVisible:
+    element: "CORRECT"
+    direction: UP
+- assertNotVisible:
+    id: "dock-question"

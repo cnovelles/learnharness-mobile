@@ -1,0 +1,30 @@
+# Issue 07 slice D: the Dictation section of Settings. Run it right after
+# e2e/dictation.yaml with the same test Mac (the phone is still paired).
+# Run: npm run e2e:dictation-settings
+appId: dev.local.learnharnessmobile
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "open-settings"
+    timeout: 60000
+- tapOn:
+    id: "open-settings"
+- scrollUntilVisible:
+    element:
+      id: "dictation-model"
+- assertVisible: "en (set on the Mac)"
+- takeScreenshot: dictation-settings-1-on-device
+- tapOn:
+    id: "dictation-engine-deepgram"
+- extendedWaitUntil:
+    notVisible:
+      id: "dictation-model"
+    timeout: 5000
+- takeScreenshot: dictation-settings-2-deepgram
+- tapOn:
+    id: "dictation-engine-on-device"
+- extendedWaitUntil:
+    visible:
+      id: "dictation-model"
+    timeout: 10000

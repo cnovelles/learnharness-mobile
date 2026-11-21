@@ -3,20 +3,33 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
+    "@expo-google-fonts/source-sans-3": "^0.4.2",
     "@expo/ui": "~58.0.28",
+    "@noble/hashes": "1.8.0",
+    "@shopify/react-native-skia": "2.14.0",
+    "@types/jest": "30.0.0",
     "expo": "~58.0.25",
+    "expo-camera": "~58.0.14",
+    "expo-clipboard": "~58.0.4",
     "expo-constants": "~58.0.16",
+    "expo-crypto": "~58.0.8",
     "expo-device": "~58.0.5",
+    "expo-file-system": "~58.0.14",
     "expo-font": "~58.0.12",
     "expo-glass-effect": "~58.0.5",
     "expo-image": "~58.0.18",
     "expo-linking": "~58.0.17",
     "expo-router": "~58.0.31",
+    "expo-screen-orientation": "~58.0.4",
+    "expo-secure-store": "~58.0.3",
     "expo-splash-screen": "~58.0.14",
     "expo-status-bar": "~58.0.5",
     "expo-symbols": "~58.0.5",
     "expo-system-ui": "~58.0.7",
     "expo-web-browser": "~58.0.8",
+    "jest": "~30.5.2",
+    "jest-expo": "~58.0.14",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.1",
@@ -24,20 +37,109 @@
     "react-native-reanimated": "4.7.1",
     "react-native-safe-area-context": "~5.11.1",
     "react-native-screens": "~4.30.1",
+    "react-native-svg": "15.16.0",
     "react-native-web": "~0.21.4",
+    "react-native-webview": "14.0.1",
     "react-native-worklets": "0.13.0"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^14.1.0",
+    "@types/node": "^26.6.6",
     "@types/react": "~19.3.0",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~58.0.4",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.10.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:native-pin": "sh modules/pinned-fetch/tests/run-pin-check-test.sh",
+    "test:integration": "../learnharness/node_modules/.bin/tsx --test --test-concurrency=1 tests/integration/*.test.ts",
+    "e2e:mac": "../learnharness/node_modules/.bin/tsx scripts/e2e-mac.ts",
+    "e2e:test": "sh scripts/e2e-test.sh e2e/first-turn.yaml",
+    "e2e:teach": "sh scripts/e2e-test.sh e2e/teach-cycle.yaml",
+    "e2e:rich": "sh scripts/e2e-test.sh e2e/rich-lesson.yaml",
+    "e2e:wide": "sh scripts/e2e-test.sh e2e/wide-content.yaml",
+    "e2e:open-long": "sh scripts/e2e-test.sh e2e/open-long-session.yaml",
+    "e2e:practice": "sh scripts/e2e-test.sh e2e/practice.yaml",
+    "e2e:teach-shelf": "sh scripts/e2e-test.sh e2e/teach-shelf.yaml",
+    "e2e:perf-open": "sh scripts/e2e-test.sh e2e/perf-open.yaml",
+    "e2e:practice-shelf": "sh scripts/e2e-test.sh e2e/practice-shelf.yaml",
+    "e2e:teach-folders": "sh scripts/e2e-test.sh e2e/teach-folders.yaml",
+    "e2e:suite": "sh scripts/e2e-suite.sh",
+    "e2e:tabs": "sh scripts/e2e-test.sh e2e/tabs.yaml",
+    "e2e:dictation": "sh scripts/e2e-test.sh e2e/dictation.yaml",
+    "e2e:dictation-settings": "sh scripts/e2e-test.sh e2e/dictation-settings.yaml",
+    "islands": "node scripts/island-pages/build.cjs",
+    "hermes:run": "sh scripts/hermes-run/run.sh",
+    "test:native-dictation": "sh modules/dictation/tests/run-engine-test.sh",
+    "test:native-deepgram": "sh modules/dictation/tests/run-deepgram-test.sh",
+    "perf:collect": "../learnharness/node_modules/.bin/tsx scripts/perf-collect.ts",
+    "perf:chart": "../learnharness/node_modules/.bin/tsx scripts/perf-chart.ts"
   },
-  "private": true
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.ts?(x)"
+    ],
+    "moduleNameMapper": {
+      "^lh-island-pages$": "<rootDir>/.cache/island-pages/islands.js",
+      "^katex$": "<rootDir>/../learnharness/node_modules/katex/dist/katex.js",
+      "^micromark-extension-math$": "<rootDir>/tests/.cache/esm-cjs/micromark-extension-math.cjs",
+      "^mdast-util-math$": "<rootDir>/tests/.cache/esm-cjs/mdast-util-math.cjs",
+      "^mdast-util-from-markdown$": "<rootDir>/tests/.cache/esm-cjs/mdast-util-from-markdown.cjs",
+      "^mdast-util-gfm$": "<rootDir>/tests/.cache/esm-cjs/mdast-util-gfm.cjs",
+      "^micromark-extension-gfm$": "<rootDir>/tests/.cache/esm-cjs/micromark-extension-gfm.cjs",
+      "^remend$": "<rootDir>/tests/.cache/esm-cjs/remend.cjs",
+      "^@shikijs/(.*)$": "<rootDir>/tests/.cache/esm-cjs/shikijs/$1.cjs",
+      "^d3-force$": "<rootDir>/tests/.cache/esm-cjs/d3-force.cjs",
+      "^d3-shape$": "<rootDir>/tests/.cache/esm-cjs/d3-shape.cjs",
+      "^dagre-d3-es$": "<rootDir>/tests/.cache/esm-cjs/dagre-d3-es.cjs",
+      "^dagre-d3-es/src/dagre/index\\.js$": "<rootDir>/tests/.cache/esm-cjs/dagre-d3-es-dagre.cjs",
+      "^typebox$": "<rootDir>/tests/.cache/esm-cjs/typebox.cjs",
+      "^typebox/compile$": "<rootDir>/tests/.cache/esm-cjs/typebox-compile.cjs",
+      "^typebox/format$": "<rootDir>/tests/.cache/esm-cjs/typebox-format.cjs",
+      "^typebox/system$": "<rootDir>/tests/.cache/esm-cjs/typebox-system.cjs",
+      "^typebox/value$": "<rootDir>/tests/.cache/esm-cjs/typebox-value.cjs",
+      "^@lh/(.*)$": "<rootDir>/../learnharness/$1",
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|typebox|standard-navigation)",
+      "<rootDir>/.cache/"
+    ],
+    "transform": {
+      "^.+\\.mjs$": "babel-jest"
+    },
+    "globalSetup": "<rootDir>/tests/setup/esm-to-cjs.cjs",
+    "fakeTimers": {
+      "doNotFake": [
+        "nextTick",
+        "queueMicrotask"
+      ]
+    },
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/tests/integration/"
+    ],
+    "setupFiles": [
+      "react-native-gesture-handler/jestSetup.js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup/gestures.ts",
+      "<rootDir>/tests/setup/graph-canvas.ts"
+    ]
+  }
 }

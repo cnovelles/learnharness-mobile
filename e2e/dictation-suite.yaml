@@ -1,0 +1,8 @@
+# Both dictation flows with one test Mac (npm run e2e:suite runs this as
+# "dictation"): the settings flow needs the pairing of the first flow.
+# It needs Metro with the scripted text:
+#   EXPO_PUBLIC_LH_E2E_DICTATION_TEXT="The Moon makes two bulges." npx expo start --clear
+appId: dev.local.learnharnessmobile
+---
+- runFlow: dictation.yaml
+- runFlow: dictation-settings.yaml

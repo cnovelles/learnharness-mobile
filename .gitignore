@@ -41,3 +41,21 @@ example
 # generated native folders
 /ios
 /android
+
+# Jest: CommonJS copies of ES-only packages (tests/setup/esm-to-cjs.cjs)
+tests/.cache/
+
+# The test Mac's pairing text (scripts/e2e-mac.ts)
+e2e/.pairing.txt
+e2e/.control.txt
+
+# Generated island pages (issue 05 slice C)
+.cache/
+
+# Maestro screenshots of the rich lesson (npm run e2e:rich)
+e2e/screenshots/
+
+# Local Release builds (docs/SETUP.md)
+/build
+perf/chart.html
+perf/inbox/

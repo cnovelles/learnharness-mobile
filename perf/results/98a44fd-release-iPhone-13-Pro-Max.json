@@ -1,0 +1,171 @@
+{
+  "v": 1,
+  "exportedAt": "2026-11-19T00:35:24.631Z",
+  "opens": [
+    {
+      "v": 1,
+      "chatId": "chat_mwgnc2pb_0ac6597c",
+      "title": "I want to understand how LearnHarness is built so I can design my own…",
+      "messages": 22,
+      "at": "2026-11-18T22:17:26.526Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "98a44fd",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 95,
+        "parsed": 138,
+        "drawn": 218,
+        "idle": 234,
+        "atEnd": 574
+      },
+      "longestFrameMs": 119,
+      "islands": 0,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mwgnc2pb_0ac6597c",
+      "title": "I want to understand how LearnHarness is built so I can design my own…",
+      "messages": 22,
+      "at": "2026-11-18T22:17:36.109Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "98a44fd",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 85,
+        "parsed": 120,
+        "drawn": 192,
+        "idle": 198,
+        "atEnd": 509
+      },
+      "longestFrameMs": 91,
+      "islands": 0,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mwgnc2pb_0ac6597c",
+      "title": "I want to understand how LearnHarness is built so I can design my own…",
+      "messages": 22,
+      "at": "2026-11-18T22:17:41.251Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "98a44fd",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 64,
+        "parsed": 97,
+        "drawn": 162,
+        "idle": 167,
+        "atEnd": 482
+      },
+      "longestFrameMs": 79,
+      "islands": 0,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mvzg6o0l_334d1c64",
+      "title": "So my goal is to learn about data structures and algorithms to the…",
+      "messages": 407,
+      "at": "2026-11-18T22:17:52.561Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "98a44fd",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 152,
+        "parsed": 688,
+        "drawn": 7345,
+        "idle": 34621,
+        "atEnd": 47774
+      },
+      "longestFrameMs": 15249,
+      "islands": 542,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mvzg6o0l_334d1c64",
+      "title": "So my goal is to learn about data structures and algorithms to the…",
+      "messages": 407,
+      "at": "2026-11-18T22:18:48.827Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "98a44fd",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 437,
+        "parsed": 1689,
+        "drawn": 15338
+      },
+      "longestFrameMs": 16870,
+      "islands": 508,
+      "outcome": "timeout"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mwds08ww_e892a3ee",
+      "title": "I'm a React/TypeScript developer preparing for a take-home where I…",
+      "messages": 240,
+      "at": "2026-11-18T22:21:34.251Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "98a44fd",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 217,
+        "parsed": 427,
+        "drawn": 4758,
+        "idle": 6527,
+        "atEnd": 10411
+      },
+      "longestFrameMs": 6219,
+      "islands": 5,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mvzg6o0l_334d1c64",
+      "title": "So my goal is to learn about data structures and algorithms to the…",
+      "messages": 407,
+      "at": "2026-11-18T22:21:47.276Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "98a44fd",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 1267,
+        "parsed": 1999,
+        "drawn": 12324,
+        "idle": 50031
+      },
+      "longestFrameMs": 20913,
+      "islands": 518,
+      "outcome": "timeout"
+    }
+  ]
+}

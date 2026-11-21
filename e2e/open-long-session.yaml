@@ -1,0 +1,65 @@
+# A long session opens and scrolls down to its last message, also when the
+# learner touches the screen during the opening (bug 2026-11-17). Then the
+# "Latest" button brings a reader who scrolled up back to the end. It needs:
+#   1. The test Mac with the golden data and a formula in each teacher reply:
+#      LH_E2E_GOLDEN=1 LH_E2E_MATH=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:open-long
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+# Tap the row, not the title on the "Continue learning" card (plain text).
+# A row is one button: its label ends with the concept count.
+- extendedWaitUntil:
+    visible: "test session, no probing.*concepts.*"
+    timeout: 30000
+- tapOn: "test session, no probing.*concepts.*"
+# A short touch while the formulas draw and the view scrolls down.
+- extendedWaitUntil:
+    visible: "TEACHING"
+    timeout: 30000
+- swipe:
+    start: 50%, 50%
+    end: 50%, 54%
+    duration: 120
+# The last teacher text shows with no further scroll by the learner.
+- extendedWaitUntil:
+    visible: ".*PDF extraction remains untested.*"
+    timeout: 60000
+- takeScreenshot: open-long-session-end
+# Scroll up more than one screen: the Latest button shows.
+- swipe:
+    start: 50%, 30%
+    end: 50%, 85%
+    duration: 300
+- swipe:
+    start: 50%, 30%
+    end: 50%, 85%
+    duration: 300
+- extendedWaitUntil:
+    visible:
+      id: "go-latest"
+    timeout: 10000
+- takeScreenshot: open-long-session-latest
+- tapOn:
+    id: "go-latest"
+- extendedWaitUntil:
+    visible: ".*PDF extraction remains untested.*"
+    timeout: 10000
+- assertNotVisible:
+    id: "go-latest"

@@ -1,14 +1,21 @@
 {
   "expo": {
-    "name": "learnharness-mobile",
+    "name": "LearnHarness",
     "slug": "learnharness-mobile",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "learnharnessmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/learnharness.icon",
+      "bundleIdentifier": "dev.local.learnharnessmobile",
+      "appleTeamId": "52B7323R6Q",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "LearnHarness connects to the LearnHarness desktop app on your Mac over your local network.",
+        "NSMicrophoneUsageDescription": "LearnHarness uses the microphone when you tap the dictation button. Speech becomes text on this iPhone."
+      },
+      "requireFullScreen": true
     },
     "android": {
       "adaptiveIcon": {
@@ -26,11 +33,53 @@
     "plugins": [
       "expo-router",
       [
+        "./plugins/with-transport-security",
+        {
+          "policy": "pinned"
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo-google-fonts/jetbrains-mono/400Regular/JetBrainsMono_400Regular.ttf",
+            "node_modules/@expo-google-fonts/jetbrains-mono/400Regular_Italic/JetBrainsMono_400Regular_Italic.ttf",
+            "node_modules/@expo-google-fonts/jetbrains-mono/500Medium/JetBrainsMono_500Medium.ttf",
+            "node_modules/@expo-google-fonts/jetbrains-mono/700Bold/JetBrainsMono_700Bold.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/400Regular_Italic/SourceSans3_400Regular_Italic.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/700Bold_Italic/SourceSans3_700Bold_Italic.ttf",
+            "node_modules/@expo-google-fonts/source-sans-3/900Black/SourceSans3_900Black.ttf",
+            "./assets/fonts/cmunbx.ttf"
+          ]
+        }
+      ],
+      [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#faf9f5",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 120,
+          "dark": {
+            "backgroundColor": "#141414",
+            "image": "./assets/images/splash-icon-dark.png"
+          }
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "LearnHarness uses the camera to scan the pairing QR code on your Mac.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
         }
       ]
     ],

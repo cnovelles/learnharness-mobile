@@ -1,0 +1,97 @@
+# Issue 05, wide content, slice F: the fitted blocks and the full-screen
+# viewer, with a screenshot of each step. It needs a test Mac with the rich
+# script (LH_E2E_RICH=1 npm run e2e:mac) and Metro. Run, for each phone:
+#   npm run e2e:wide -- --device <udid> --test-output-dir e2e/screenshots/se
+# Maestro puts the screenshots in <dir>/<run>/wide-content/takeScreenshot/.
+# They are not in git (.gitignore).
+appId: dev.local.learnharnessmobile
+---
+- runFlow: teach-cycle.yaml
+
+# Mermaid: the chart fits the width; the viewer; a double-tap zooms in.
+- scrollUntilVisible:
+    element:
+      id: "md-expand-diagram"
+    direction: UP
+    centerElement: true
+- takeScreenshot: 01-mermaid-fit
+- tapOn:
+    id: "md-expand-diagram"
+- extendedWaitUntil:
+    visible:
+      id: "zoom-web"
+    timeout: 10000
+- assertVisible:
+    id: "zoom-kind"
+    text: "MERMAID"
+- takeScreenshot: 02-mermaid-viewer
+- doubleTapOn:
+    point: "50%,50%"
+- takeScreenshot: 03-mermaid-zoom
+- tapOn:
+    id: "zoom-close"
+
+# The table: smaller text and wrapped columns; the viewer at natural widths.
+- scrollUntilVisible:
+    element:
+      id: "md-table"
+    direction: UP
+    centerElement: true
+- takeScreenshot: 04-table-fit
+- tapOn:
+    id: "md-expand-table"
+- assertVisible:
+    id: "zoom-pane"
+- takeScreenshot: 05-table-viewer
+- doubleTapOn:
+    id: "zoom-pane"
+- takeScreenshot: 06-table-zoom
+- tapOn:
+    id: "zoom-close"
+
+# Code: long lines wrap; the viewer has no wrap.
+- scrollUntilVisible:
+    element: "Step 1: the pull"
+    direction: UP
+    centerElement: true
+- takeScreenshot: 07-code-wrap
+- tapOn:
+    id: "md-expand-code"
+    index: 0
+- assertVisible:
+    id: "zoom-pane"
+- takeScreenshot: 08-code-viewer
+# At the fit (11 pt), a long line goes past the edge: a drag moves it.
+- swipe:
+    start: 80%, 50%
+    end: 20%, 50%
+    duration: 600
+- takeScreenshot: 08b-code-drag
+- tapOn:
+    id: "zoom-fit"
+- doubleTapOn:
+    id: "zoom-pane"
+- takeScreenshot: 09-code-zoom
+
+# Landscape in the viewer, then back to portrait when it closes.
+- setOrientation: LANDSCAPE_LEFT
+- takeScreenshot: 10-code-landscape
+- tapOn:
+    id: "zoom-close"
+- setOrientation: PORTRAIT
+- takeScreenshot: 11-portrait-again
+
+# The plan block: always fits; the viewer.
+- scrollUntilVisible:
+    element:
+      id: "plan-block-.*"
+    direction: UP
+    centerElement: true
+- takeScreenshot: 12-plan-fit
+- tapOn:
+    id: "plan-expand-.*"
+- assertVisible:
+    id: "zoom-pane"
+- takeScreenshot: 13-plan-viewer
+- tapOn:
+    id: "zoom-close"

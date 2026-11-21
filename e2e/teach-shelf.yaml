@@ -1,0 +1,50 @@
+# The Teach tab (issue 20, slice B): the continue card, the sessions in the
+# desktop folders with path labels, the empty folder, "Not in a folder".
+# A row is one button, so Maestro reads one label: "Eigenvalues, 0 concepts, Forward".
+# It needs:
+#   1. The test Mac with the golden data and the shelf:
+#      LH_E2E_GOLDEN=1 LH_E2E_SHELF=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:teach-shelf
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "CONTINUE LEARNING"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Eigenvalues, .*"
+    timeout: 30000
+- assertVisible: "ALGEBRA"
+- assertVisible: "Indexes, 0 concepts, .*"
+- assertVisible: "DATABASES"
+- takeScreenshot: teach-shelf-top
+- assertVisible: "DATABASES › POSTGRES"
+- scrollUntilVisible:
+    element: "Bayes rule, .*"
+    direction: DOWN
+- assertVisible: "No sessions in this folder."
+- assertVisible: "Bayes rule, .*"
+- takeScreenshot: teach-shelf-end
+- scrollUntilVisible:
+    element: "test session, no probing.*concepts.*"
+    direction: UP
+- tapOn: "test session, no probing.*concepts.*"
+- extendedWaitUntil:
+    visible: "TEACHING"
+    timeout: 30000

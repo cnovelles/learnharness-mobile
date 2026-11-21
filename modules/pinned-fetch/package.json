@@ -1,0 +1,9 @@
+{
+  "name": "pinned-fetch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Expo module: a streaming fetch that pins the server certificate's public key (SPKI SHA-256).",
+  "license": "MIT",
+  "author": "LearnHarness Mobile",
+  "main": "src/index.ts"
+}

@@ -1,0 +1,68 @@
+# Issue 07 end-to-end test: dictation into "Your thinking" of the first
+# question: the mic, the Stop row with the meter, and the text in the field.
+# The Simulator's SpeechAnalyzer gives no text, so Metro runs the scripted
+# engine (src/lib/dictation-scripted.ts, dev builds only). The native engine
+# has its own test: npm run test:native-dictation. It needs:
+#   1. The test Mac: npm run e2e:mac (wait for "Test Mac ready").
+#   2. Metro with the scripted text:
+#      EXPO_PUBLIC_LH_E2E_DICTATION_TEXT="The Moon makes two bulges." npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:dictation
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+- tapOn:
+    id: "new-session"
+- tapOn:
+    id: "opening-text"
+- inputText: "Teach me how the tides work."
+- tapOn:
+    id: "new-session-prompt"
+- tapOn:
+    id: "start-session"
+- extendedWaitUntil:
+    visible:
+      id: "dock-question"
+    timeout: 60000
+- tapOn:
+    id: "option-moon"
+- scrollUntilVisible:
+    element:
+      id: "dictate"
+- takeScreenshot: dictation-1-idle
+- tapOn:
+    id: "dictate"
+# The meter is hidden from accessibility (and Maestro): wait for Stop.
+- extendedWaitUntil:
+    visible:
+      id: "dictation-stop"
+    timeout: 10000
+- assertNotVisible:
+    id: "submit-answer"
+- takeScreenshot: dictation-2-listening
+- tapOn:
+    id: "dictation-stop"
+- extendedWaitUntil:
+    visible:
+      id: "thinking"
+      text: "The Moon makes two bulges."
+    timeout: 10000
+- takeScreenshot: dictation-3-text
+- assertVisible:
+    id: "submit-answer"
+- assertNotVisible:
+    id: "dictation-problem"

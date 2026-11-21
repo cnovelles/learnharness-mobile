@@ -1,0 +1,116 @@
+# Issue 06 end-to-end test: a practice session from "New practice". The
+# practitioner poses a problem, the learner sends the thinking, the
+# practitioner concludes (the model solution shows), Next problem poses the
+# second problem, and Dismiss ends it. It needs a new test Mac
+# (npm run e2e:mac): the scripted practice and the one-use pairing code
+# are for one run.
+# Run: npm run e2e:practice
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+
+# Start practice from the Practice tab (issue 20).
+- tapOn: "Practice"
+- tapOn:
+    id: "new-practice"
+- extendedWaitUntil:
+    visible: "Start practice"
+    timeout: 10000
+- tapOn:
+    id: "opening-text"
+- inputText: "Tides"
+- tapOn:
+    id: "new-session-prompt"
+- tapOn:
+    id: "start-session"
+
+# The first problem: the header says PRACTICE (no phases), the dock replaces the composer, the solution stays hidden.
+- extendedWaitUntil:
+    visible:
+      id: "practice-dock"
+    timeout: 60000
+- assertVisible:
+    id: "session-phase"
+    text: "PRACTICE"
+- assertVisible: "PROBLEM"
+- assertVisible: "YOUR THINKING"
+- assertNotVisible:
+    id: "composer"
+- assertNotVisible: ".*about 33 cm per hour.*"
+- takeScreenshot: practice-1-dock
+- tapOn:
+    id: "practice-thinking-field"
+- inputText: "200 cm / 6 h, about 33 cm per hour."
+- tapOn:
+    id: "practice-send"
+
+# The conclusion: verdict, model solution, then the pause with Next problem.
+- extendedWaitUntil:
+    visible: "Well done. Ask about it, or take the next problem."
+    timeout: 60000
+- assertVisible:
+    id: "next-problem"
+- assertVisible:
+    id: "composer"
+- scrollUntilVisible:
+    element: "MODEL SOLUTION"
+    direction: UP
+- assertVisible: "CONCLUDED"
+- takeScreenshot: practice-2-concluded
+- tapOn: "METADATA"
+- assertVisible: "recall"
+- takeScreenshot: practice-3-metadata
+- tapOn: "METADATA"
+
+# Next problem: the second problem opens the dock.
+- tapOn:
+    id: "next-problem"
+- extendedWaitUntil:
+    visible: "Why are there two high tides each day, not one?"
+    timeout: 60000
+- assertVisible:
+    id: "practice-dock"
+- assertNotVisible:
+    id: "next-problem"
+
+# Dismiss: the iOS alert, then the pause again.
+- tapOn:
+    id: "dismiss-problem"
+- extendedWaitUntil:
+    visible: "Dismiss this problem?"
+    timeout: 10000
+- takeScreenshot: practice-5-dismiss-alert
+# The alert's button (while the alert shows, the dock is not in the hierarchy).
+- tapOn: "Dismiss"
+- extendedWaitUntil:
+    visible:
+      id: "next-problem"
+    timeout: 30000
+- assertNotVisible:
+    id: "practice-dock"
+- takeScreenshot: practice-4-pause
+
+# The next input carries the dismissal: "Problem dismissed." shows (as on the desktop).
+- tapOn:
+    id: "next-problem"
+- extendedWaitUntil:
+    visible: "Which body causes most of the tides: the Sun or the Moon\\?"
+    timeout: 60000
+- scrollUntilVisible:
+    element: "Problem dismissed."
+    direction: UP
+- takeScreenshot: practice-6-dismissed

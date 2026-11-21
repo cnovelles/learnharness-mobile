@@ -1,0 +1,150 @@
+{
+  "v": 1,
+  "exportedAt": "2026-11-19T00:35:24.634Z",
+  "opens": [
+    {
+      "v": 1,
+      "chatId": "chat_mvzg6o0l_334d1c64",
+      "title": "So my goal is to learn about data structures and algorithms to the…",
+      "messages": 407,
+      "at": "2026-11-19T00:34:10.477Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "fdb5370",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 173,
+        "parsed": 661,
+        "drawn": 1929,
+        "idle": 4315,
+        "atEnd": 4649
+      },
+      "longestFrameMs": 3791,
+      "islands": 7,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mvzg6o0l_334d1c64",
+      "title": "So my goal is to learn about data structures and algorithms to the…",
+      "messages": 407,
+      "at": "2026-11-19T00:34:18.936Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "fdb5370",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 126,
+        "parsed": 601,
+        "drawn": 1356,
+        "idle": 3471,
+        "atEnd": 3471
+      },
+      "longestFrameMs": 3112,
+      "islands": 9,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mvzg6o0l_334d1c64",
+      "title": "So my goal is to learn about data structures and algorithms to the…",
+      "messages": 407,
+      "at": "2026-11-19T00:34:25.341Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "fdb5370",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 211,
+        "parsed": 734,
+        "drawn": 1531,
+        "idle": 3803,
+        "atEnd": 3869
+      },
+      "longestFrameMs": 3301,
+      "islands": 7,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mvzg6o0l_334d1c64",
+      "title": "So my goal is to learn about data structures and algorithms to the…",
+      "messages": 407,
+      "at": "2026-11-19T00:34:31.998Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "fdb5370",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 143,
+        "parsed": 749,
+        "drawn": 1540,
+        "idle": 3713,
+        "atEnd": 3713
+      },
+      "longestFrameMs": 3287,
+      "islands": 9,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mwds08ww_e892a3ee",
+      "title": "I'm a React/TypeScript developer preparing for a take-home where I…",
+      "messages": 240,
+      "at": "2026-11-19T00:34:39.030Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "fdb5370",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 80,
+        "parsed": 284,
+        "drawn": 2056,
+        "idle": 4215,
+        "atEnd": 4308
+      },
+      "longestFrameMs": 4190,
+      "islands": 0,
+      "outcome": "end"
+    },
+    {
+      "v": 1,
+      "chatId": "chat_mvzg6o0l_334d1c64",
+      "title": "So my goal is to learn about data structures and algorithms to the…",
+      "messages": 407,
+      "at": "2026-11-19T00:34:46.121Z",
+      "from": "tap",
+      "build": {
+        "type": "release",
+        "commit": "fdb5370",
+        "device": "iPhone 13 Pro Max",
+        "os": "ios 26.5.2"
+      },
+      "marks": {
+        "fetched": 110,
+        "parsed": 608,
+        "drawn": 1959,
+        "idle": 4425,
+        "atEnd": 4717
+      },
+      "longestFrameMs": 4158,
+      "islands": 7,
+      "outcome": "end"
+    }
+  ]
+}

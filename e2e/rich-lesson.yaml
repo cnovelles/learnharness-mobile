@@ -1,0 +1,74 @@
+# Issue 05 slice F (acceptance): the scripted lesson with every rich block,
+# with a screenshot of each one. It needs a test Mac with the rich script
+# (LH_E2E_RICH=1 npm run e2e:mac) and Metro. Run, for each phone:
+#   npm run e2e:rich -- --device <udid> --test-output-dir e2e/screenshots/se
+# Maestro puts the screenshots in <dir>/rich-lesson/takeScreenshot/.
+# They are not in git (.gitignore).
+appId: dev.local.learnharnessmobile
+---
+- runFlow: teach-cycle.yaml
+
+# The rich teaching text, from the end of the transcript up.
+- scrollUntilVisible:
+    element:
+      id: "md-mermaid-failed"
+    direction: UP
+    centerElement: true
+- assertVisible: "The phone cannot draw this diagram."
+- takeScreenshot: 07-mermaid
+- scrollUntilVisible:
+    element:
+      id: "md-math-paragraph"
+    direction: UP
+    centerElement: true
+- assertVisible: "The phone cannot show this formula."
+- takeScreenshot: 06-math
+- scrollUntilVisible:
+    element:
+      id: "md-table"
+    direction: UP
+    centerElement: true
+- assertVisible: ".*Image blocked: moon.*"
+- takeScreenshot: 05-table
+- scrollUntilVisible:
+    element: "Step 1: the pull"
+    direction: UP
+    centerElement: true
+- assertVisible:
+    id: "md-code-colored"
+- takeScreenshot: 04-markdown-code
+
+# The lesson plan as a graph, then the probe assessment, opened.
+- scrollUntilVisible:
+    element:
+      id: "plan-block-.*"
+    direction: UP
+    centerElement: true
+- takeScreenshot: 03-plan-block
+# The composer covers the bottom of the transcript, and Maestro counts an
+# element under it as visible. So center the refused-call note above the
+# card, then move both into the top half of the screen before the tap.
+- scrollUntilVisible:
+    element: "The assessment was malformed.*"
+    direction: UP
+    centerElement: true
+- swipe:
+    start: 50%, 60%
+    end: 50%, 35%
+    duration: 800
+- tapOn:
+    id: "probe-head-.*"
+- assertVisible:
+    id: "probe-strand-.*-0"
+- takeScreenshot: 02-probe-card
+
+# The Plan sheet: the graph with the statuses above the list.
+- tapOn:
+    id: "open-plan"
+- extendedWaitUntil:
+    visible:
+      id: "plan-graph-svg"
+    timeout: 10000
+- takeScreenshot: 08-plan-sheet
+- tapOn:
+    id: "plan-close"

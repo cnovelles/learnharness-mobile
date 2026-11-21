@@ -1,0 +1,13 @@
+node_modules/
+ios/
+android/
+dist/
+.expo/
+coverage/
+package-lock.json
+.claude/
+tests/.cache/
+.cache/
+
+# Icon Composer document (written by Xcode)
+assets/learnharness.icon/
