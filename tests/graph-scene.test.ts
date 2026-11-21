@@ -20,6 +20,7 @@ import {
 	placeRegionLabels,
 	PINCH_QUIET_MS,
 	tapAllowed,
+	regionBlurSigma,
 	regionFill,
 	regionLabelColor,
 } from "@/lib/graph-scene";
@@ -320,6 +321,35 @@ describe("the camera", () => {
 	it("a node hidden by search cannot be picked", () => {
 		const scene = buildScene(model(), new Set(["b"]), measure);
 		expect(pickNode(scene, { x: 0, y: 0, k: 1 }, 0, 0)).toBeNull();
+	});
+});
+
+describe("the region blur", () => {
+	// Three box blurs of radius r on one bright pixel, as blurRegionPixels does.
+	function threeBoxes(r: number): number[] {
+		let v = new Array<number>(20 * r + 1).fill(0);
+		v[10 * r] = 1;
+		for (let round = 0; round < 3; round++) {
+			v = v.map((_, i) => {
+				let sum = 0;
+				for (let j = i - r; j <= i + r; j++) sum += v[j] ?? 0;
+				return sum / (2 * r + 1);
+			});
+		}
+		return v;
+	}
+
+	it("gives the sigma of three box blurs", () => {
+		for (const r of [1, 4, 13]) {
+			const v = threeBoxes(r);
+			const center = 10 * r;
+			const variance = v.reduce((sum, w, i) => sum + w * (i - center) ** 2, 0);
+			expect(regionBlurSigma(r) ** 2).toBeCloseTo(variance, 6);
+		}
+	});
+
+	it("gives no blur for a radius of 0", () => {
+		expect(regionBlurSigma(0)).toBe(0);
 	});
 });
 

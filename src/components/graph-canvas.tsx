@@ -15,10 +15,8 @@
  * thread and calls `onSelect`. The scene math is in src/lib/graph-scene.ts.
  */
 import {
-	AlphaType,
 	Canvas,
 	Circle,
-	ColorType,
 	FilterMode,
 	Group,
 	Image,
@@ -30,6 +28,7 @@ import {
 	RadialGradient,
 	Skia,
 	StrokeCap,
+	TileMode,
 	Text,
 	createPicture,
 	useFont,
@@ -74,6 +73,7 @@ import {
 	type RegionLabelPlacement,
 	tapAllowed,
 	DOUBLE_TAP_MAX_DISTANCE,
+	regionBlurSigma,
 	regionFill,
 	regionLabelColor,
 	type LabelShow,
@@ -87,7 +87,6 @@ import {
 	GLOW_ALPHA,
 	GLOW_SCALE,
 	REGION_LABEL_LINE_HEIGHT,
-	blurRegionPixels,
 	labelWrapWidth,
 	type RegionSplat,
 } from "@/lib/shared";
@@ -109,14 +108,21 @@ function textWidth(font: SkFont, text: string): number {
 }
 
 /**
- * Paint the region splat on a CPU surface, then blur it and scale its alpha
- * as the desktop does (`blurRegionPixels`). Null when Skia cannot make the
- * surface: the graph then draws with no region tints.
+ * Paint the region splat on a CPU surface, blurred and with the alpha scaled
+ * as the desktop does (`blurRegionPixels`: premultiplied blur, then the
+ * alpha times `edgeAlpha`). Skia does the blur in C++ through a layer with a
+ * Gaussian filter (`regionBlurSigma`) and the layer opacity. Null when Skia
+ * cannot make the surface: the graph then draws with no region tints.
  */
 function regionImage(splat: RegionSplat, ring: number, edgeAlpha: number): SkImage | null {
 	const surface = Skia.Surface.Make(splat.width, splat.height);
 	if (!surface) return null;
 	const canvas = surface.getCanvas();
+	const tint = Skia.Paint();
+	tint.setAlphaf(edgeAlpha);
+	const sigma = regionBlurSigma(splat.blurPx);
+	if (sigma > 0) tint.setImageFilter(Skia.ImageFilter.MakeBlur(sigma, sigma, TileMode.Clamp));
+	canvas.saveLayer(tint);
 	const stroke = Skia.Paint();
 	stroke.setAntiAlias(true);
 	stroke.setStyle(PaintStyle.Stroke);
@@ -140,17 +146,9 @@ function regionImage(splat: RegionSplat, ring: number, edgeAlpha: number): SkIma
 		const d = layer.discs;
 		for (let i = 0; i < d.length; i += 2) canvas.drawCircle(d[i]!, d[i + 1]!, splat.discR, fill);
 	}
+	canvas.restore();
 	surface.flush();
-	const info = {
-		width: splat.width,
-		height: splat.height,
-		colorType: ColorType.RGBA_8888,
-		alphaType: AlphaType.Unpremul,
-	};
-	const pixels = surface.makeImageSnapshot().readPixels(0, 0, info);
-	if (!(pixels instanceof Uint8Array)) return null;
-	blurRegionPixels(pixels, splat.width, splat.height, splat.blurPx, edgeAlpha);
-	return Skia.Image.MakeImage(info, Skia.Data.fromBytes(pixels), splat.width * 4);
+	return surface.makeImageSnapshot();
 }
 
 /**

@@ -57,6 +57,17 @@ export const CANVAS_SETTINGS = {
 export type CanvasSettings = typeof CANVAS_SETTINGS;
 
 /**
+ * The Gaussian sigma (px) that matches the desktop region blur: three box
+ * blurs of radius r (`blurRegionPixels`). One box of width 2r + 1 has the
+ * variance r(r + 1) / 3, so three boxes have r(r + 1). The phone blurs in
+ * Skia (C++), because the JS blur took about 170 ms on each search key
+ * (iPhone profile 2026-11-21). 0: no blur.
+ */
+export function regionBlurSigma(blurPx: number): number {
+	return blurPx > 0 ? Math.sqrt(blurPx * (blurPx + 1)) : 0;
+}
+
+/**
  * The region labels on the phone (user choice 2026-11-21, option D): a
  * smaller size and wrap width than the desktop (14 pt, 220 pt), because at
  * fit zoom on a 375 pt screen the desktop labels overlap. A label stays
