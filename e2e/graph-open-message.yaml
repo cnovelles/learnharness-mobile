@@ -1,0 +1,68 @@
+# The open at a node's message (issue 08 slice C2, D-014). A node's session
+# row opens the session at the node's message: the page with the message
+# first, and the message near the top. The flow opens the same route by a
+# link (a canvas node has no element that Maestro can tap).
+# It needs:
+#   1. The test Mac with the golden data and the message link:
+#      LH_E2E_GOLDEN=1 LH_E2E_LINK=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:graph-open
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+# 1. The Graph tab finds the linked node. A tab tap right after the pairing
+# sometimes does not change the tab on the SE: tap again if it did not.
+- extendedWaitUntil:
+    visible: "CONTINUE LEARNING"
+    timeout: 30000
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "graph-search"
+    commands:
+      - tapOn: "Graph"
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "graph-search"
+    timeout: 20000
+- tapOn:
+    id: "graph-search"
+- inputText: "Information Principle"
+- extendedWaitUntil:
+    visible: "[0-9]+ of .* nodes"
+    timeout: 10000
+# 2. The node's session row: the route that the sheet pushes.
+- openLink: "learnharnessmobile://session/chat_mv27rrra_feff23b6?message=msg_mv28341k_00f1355e"
+# iOS asks before it opens the link.
+- tapOn:
+    text: "Open"
+    optional: true
+- extendedWaitUntil:
+    visible: "Before I present: the goal wasn.t set explicitly.*"
+    timeout: 30000
+- takeScreenshot: graph-open-1-message
+# 3. Latest goes to the last page: the message is not drawn there.
+- tapOn:
+    id: "go-latest"
+    optional: true
+- extendedWaitUntil:
+    notVisible: "Before I present: the goal wasn.t set explicitly.*"
+    timeout: 10000
+- takeScreenshot: graph-open-2-latest

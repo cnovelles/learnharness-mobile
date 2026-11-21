@@ -55,6 +55,10 @@
  * problem) and "Bayes rule practice" (3 days ago, 2 problems). The golden
  * session itself (2 problems) is in Earlier.
  *
+ * LH_E2E_LINK=1 (with LH_E2E_GOLDEN=1) links the node "Relational model
+ * (Information Principle)" to a teacher message in the middle of the golden
+ * teach session (issue 08 slice C2). The golden graph has no message links.
+ *
  * LH_E2E_GATEWAY_HOST=<IPv4> makes the gateway listen on that address and
  * puts only that address in the pairing text (default 127.0.0.1). Use the
  * Mac's Tailscale address (100.x) to check the phone's App Transport
@@ -178,6 +182,27 @@ function addPracticeShelf(chats: string) {
 		};
 		fs.writeFileSync(path.join(chats, `${c.id}.json`), JSON.stringify(record));
 	}
+}
+
+/** LH_E2E_LINK=1: the node and the message of the open at a message (issue 08 slice C2). */
+export const LINK_NODE = "n_465398b5356a";
+export const LINK_MESSAGE = "msg_mv28341k_00f1355e";
+
+function addMessageLink(graph: string) {
+	const file = path.join(graph, "nodes.jsonl");
+	const chatId = GOLDEN_TEACH.replace(/\.json$/, "");
+	const lines = fs.readFileSync(file, "utf8").split("\n");
+	let found = false;
+	const out = lines.map((line) => {
+		if (!line.trim()) return line;
+		const node = JSON.parse(line) as { id: string; provenance: unknown[] };
+		if (node.id !== LINK_NODE) return line;
+		found = true;
+		node.provenance.push({ chatId, messageId: LINK_MESSAGE });
+		return JSON.stringify(node);
+	});
+	if (!found) throw new Error(`LH_E2E_LINK: no node ${LINK_NODE} in the golden graph`);
+	fs.writeFileSync(file, out.join("\n"));
 }
 
 /** LH_E2E_MATH=1: a display formula after the first text part of each teacher reply. */
@@ -357,6 +382,7 @@ async function main() {
 			addFormulas(path.join(server.dataDir, "chats", GOLDEN_TEACH));
 		if (process.env.LH_E2E_PRACTICE_SHELF === "1")
 			addPracticeShelf(path.join(server.dataDir, "chats"));
+		if (process.env.LH_E2E_LINK === "1") addMessageLink(path.join(server.dataDir, "graph"));
 	}
 
 	const json = { ...DESKTOP, "content-type": "application/json" };

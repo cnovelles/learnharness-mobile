@@ -389,6 +389,7 @@ export function Transcript({
 	rows,
 	onOpenPlan,
 	start = 0,
+	end = null,
 }: {
 	rows: TranscriptRow[];
 	/** Opens the lesson map (the Plan sheet). */
@@ -398,6 +399,8 @@ export function Transcript({
 	 * over it stay in the record but are not drawn.
 	 */
 	start?: number;
+	/** The row after the last row to draw (null: to the end). A graph link sets it (issue 08 slice C2). */
+	end?: number | null;
 }) {
 	const gated = useRevealActive();
 	if (!gated) {
@@ -417,7 +420,7 @@ export function Transcript({
 	// the whole record, so a new page above does not change the keys.
 	return (
 		<>
-			{rows.slice(start).map((row, n) => {
+			{rows.slice(start, end ?? undefined).map((row, n) => {
 				const i = start + n;
 				const key = `${row.kind}-${row.id}`;
 				const space = n === 0 ? 0 : SPACE.md;

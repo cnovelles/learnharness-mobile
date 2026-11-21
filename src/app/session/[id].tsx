@@ -69,7 +69,16 @@ import type { SessionRecord } from "@/lib/sessions";
 import { phaseAt3Lh, type Phase3 } from "@/lib/shared";
 import { revealPlan } from "@/lib/reveal";
 import { transcriptRows } from "@/lib/transcript";
-import { earlierStart, firstStart, keepStart, wantsEarlier } from "@/lib/transcript-window";
+import {
+	earlierStart,
+	keepWindow,
+	laterEnd,
+	messageRow,
+	openWindow,
+	wantsEarlier,
+	wantsLater,
+	type PageWindow,
+} from "@/lib/transcript-window";
 import { COMPACTING, useSessionModel, useSessionRecord } from "@/lib/use-session";
 import { SPACE } from "@/components/spacing";
 
@@ -324,6 +333,21 @@ function EarlierLine({ shown }: { shown: boolean }) {
 	);
 }
 
+/**
+ * The bottom of a window that a graph link opened (issue 08 slice C2):
+ * later rows are in the record but not drawn yet. The next page comes in
+ * when the reader scrolls near it.
+ */
+function LaterLine() {
+	const c = usePalette();
+	return (
+		<View style={styles.later} testID="later-rows">
+			<Spinner />
+			<Text style={[LABEL, { color: c.muted }]}>Loading later messages</Text>
+		</View>
+	);
+}
+
 function confirmStop(onStop: () => void) {
 	Alert.alert("Stop this turn?", "The partial answer stays.", [
 		{ text: "Cancel", style: "cancel" },
@@ -331,7 +355,14 @@ function confirmStop(onStop: () => void) {
 	]);
 }
 
-function SessionBody({ record }: { record: SessionRecord }) {
+function SessionBody({
+	record,
+	messageId,
+}: {
+	record: SessionRecord;
+	/** A graph link: open at this message (issue 08 slice C2). */
+	messageId: string | null;
+}) {
 	const macFetch = useMacFetch();
 	const c = usePalette();
 	const session = useSessionModel(record, macFetch);
@@ -346,8 +377,12 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	);
 	// The page window (issue 21 slice D, D-014): draw the last page first,
 	// and one more page of older rows near the top. The record keeps all rows.
-	const [windowStart, setWindowStart] = useState(() => firstStart(rows.length));
-	const start = keepStart(windowStart, rows.length);
+	// A graph link (issue 08 slice C2) opens one page from its message's row,
+	// and later pages come in near the bottom. A message that is not in the
+	// record gives the normal open (state 15).
+	const [openRow] = useState(() => messageRow(rows, state.messages, messageId));
+	const [pageWindow, setPageWindow] = useState<PageWindow>(() => openWindow(rows.length, openRow));
+	const { start, end } = keepWindow(pageWindow, rows.length);
 	// One page at a time: the next page waits for the content to grow.
 	const pageAsked = useRef(false);
 	const phase = useMemo(() => phaseAt3Lh(state.nativeMessages), [state.nativeMessages]);
@@ -379,7 +414,8 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	// New content scrolls the transcript to the end only when the reader is
 	// at the end. An island that starts near the screen changes its height:
 	// that must not pull a reader who scrolled up back to the end.
-	const [follow] = useState(createEndFollow);
+	// At a graph link's message, the transcript does not follow the end.
+	const [follow] = useState(() => createEndFollow({ atEnd: openRow === null }));
 	// The perf marks of the open (issue 21 slice A): the first commit of the
 	// transcript, the reveal idle, and then the first moment at the end.
 	const shape = useRef<ScrollMetrics>({ offset: 0, visible: 0, content: 0 });
@@ -409,7 +445,12 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	const checkEarlier = () => {
 		if (pageAsked.current || !wantsEarlier(shape.current, start)) return;
 		pageAsked.current = true;
-		setWindowStart(earlierStart(start));
+		setPageWindow({ start: earlierStart(start), end });
+	};
+	const checkLater = () => {
+		if (pageAsked.current || end === null || !wantsLater(shape.current, end)) return;
+		pageAsked.current = true;
+		setPageWindow({ start, end: laterEnd(end, rows.length) });
 	};
 	const onTranscriptScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
 		const m = metrics(event);
@@ -419,6 +460,7 @@ function SessionBody({ record }: { record: SessionRecord }) {
 		viewport.notify();
 		checkEnd();
 		checkEarlier();
+		checkLater();
 	};
 	const onDragStart = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
 		follow.dragStart(metrics(event));
@@ -436,7 +478,14 @@ function SessionBody({ record }: { record: SessionRecord }) {
 	const goToLatest = () => {
 		follow.toEnd();
 		setLatest(false);
+		// From a graph link's window: draw the last page again.
+		if (end !== null) setPageWindow(openWindow(rows.length, null));
 		scroll.current?.scrollToEnd({ animated: true });
+	};
+	// A send from a graph link's window goes to the last page, so the new turn shows.
+	const sendText = (text: string) => {
+		if (end !== null) goToLatest();
+		return session.sendText(text);
 	};
 	// The keyboard covers the screen on iOS: pad the view by its height
 	// (Expo keyboard guide). The offset is the header height.
@@ -485,6 +534,7 @@ function SessionBody({ record }: { record: SessionRecord }) {
 							viewport.notify();
 							checkEnd();
 							checkEarlier();
+							checkLater();
 						}}
 						onScroll={onTranscriptScroll}
 						onScrollBeginDrag={onDragStart}
@@ -501,9 +551,10 @@ function SessionBody({ record }: { record: SessionRecord }) {
 						<EarlierLine shown={start > 0} />
 						<IslandViewportContext.Provider value={viewport}>
 							<RevealProvider onIdle={onRevealIdle} hold={false}>
-								<Transcript rows={rows} start={start} onOpenPlan={openPlan} />
+								<Transcript rows={rows} start={start} end={end} onOpenPlan={openPlan} />
 							</RevealProvider>
 						</IslandViewportContext.Provider>
+						{end !== null ? <LaterLine /> : null}
 						{tail ? (
 							<View style={styles.tail}>
 								{running ? (
@@ -603,7 +654,7 @@ function SessionBody({ record }: { record: SessionRecord }) {
 					  (!pending && (state.status === "ready" || session.unsentText !== null)) ? (
 						<Composer
 							key={session.unsentText ?? ""}
-							onSend={session.sendText}
+							onSend={sendText}
 							onStop={() => void stopTurn()}
 							initialText={session.unsentText ?? ""}
 							steer={running}
@@ -617,7 +668,7 @@ function SessionBody({ record }: { record: SessionRecord }) {
 }
 
 export default function SessionScreen() {
-	const { id } = useLocalSearchParams<{ id: string }>();
+	const { id, message } = useLocalSearchParams<{ id: string; message?: string }>();
 	const macFetch = useMacFetch();
 	// Before the record read starts (the effects run in order): an open that
 	// no tap started (a new session, a link) starts here.
@@ -649,7 +700,11 @@ export default function SessionScreen() {
 					/>
 				</Screen>
 			) : (
-				<SessionBody key={load.record.id} record={load.record} />
+				<SessionBody
+					key={load.record.id}
+					record={load.record}
+					messageId={typeof message === "string" && message ? message : null}
+				/>
 			)}
 		</>
 	);
@@ -665,6 +720,13 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		gap: SPACE.sm,
 		paddingBottom: SPACE.md,
+	},
+	later: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: SPACE.sm,
+		paddingTop: SPACE.md,
 	},
 	tail: { gap: SPACE.lg, paddingTop: SPACE.lg },
 	row: { flexDirection: "row", gap: SPACE.md },

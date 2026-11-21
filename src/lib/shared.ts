@@ -149,5 +149,9 @@ export {
 	type RegionAnchor,
 	type RegionSplat,
 } from "@lh/src/core/graph-canvas-geometry";
-export { messageIdFromHash, propositionSessionHref } from "@lh/src/core/session-navigation";
+export {
+	firstSourceTextParts,
+	messageIdFromHash,
+	propositionSessionHref,
+} from "@lh/src/core/session-navigation";
 export type { GraphCostSummary, RecentRun, StageCost } from "@lh/src/core/cost-summary";
