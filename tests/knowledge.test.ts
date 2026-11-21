@@ -19,8 +19,16 @@ import {
 	NO_SESSIONS_RECORDED,
 	canvasModel,
 	canvasPositions,
+	CLOSED_CHAINS,
+	UNFILED_SECTION,
 	canvasSearch,
+	chainLines,
 	chainList,
+	chainSections,
+	chainSheet,
+	chainSortLabel,
+	isChainEntryOpen,
+	toggleChainEntry,
 	describeKnowledgeError,
 	graphTabView,
 	KNOWLEDGE_LOADING,
@@ -36,7 +44,7 @@ import { SessionApiError } from "@/lib/sessions";
 import { describeError } from "@/lib/user-error";
 import type { GraphSnapshot, SourceDirectory } from "@/lib/shared";
 
-import { snapshot } from "./helpers/graph-snapshot";
+import { node, snapshot } from "./helpers/graph-snapshot";
 
 const json = (body: unknown, status = 200) =>
 	new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -369,6 +377,115 @@ describe("the chain list", () => {
 
 	it("writes one prop, and no date when the source has none", () => {
 		expect(sourceRowDetail({ nodeIds: ["n_a"], newestCreatedAt: "" })).toBe("1 prop");
+	});
+});
+
+describe("the Chains screen model (slice D)", () => {
+	/** Folders: Math (with the subfolder Linear), and Physics (empty). */
+	const NESTED: SourceDirectory = {
+		organization: {
+			version: 1,
+			folders: [
+				{ id: "f1", name: "Math", parentId: null, createdAt: "2026-11-01T00:00:00.000Z" },
+				{ id: "f2", name: "Linear", parentId: "f1", createdAt: "2026-11-02T00:00:00.000Z" },
+				{ id: "f3", name: "Physics", parentId: null, createdAt: "2026-11-03T00:00:00.000Z" },
+			],
+			placements: { chat_a: { folderId: "f2" } },
+		},
+		sources: DIRECTORY.sources,
+	};
+
+	it("writes the sort button text with the order", () => {
+		expect(chainSortLabel({ col: "name", dir: 1 })).toBe("Name ↑");
+		expect(chainSortLabel({ col: "props", dir: -1 })).toBe("Props ↓");
+		expect(chainSortLabel({ col: "created", dir: 1 })).toBe("Created ↑");
+	});
+
+	it("with no folders (state 6), one section with no label holds all sources", () => {
+		const sections = chainSections(chainList({ snapshot: snapshot(), directory: null }, ""));
+		expect(sections).toHaveLength(1);
+		expect(sections[0]!.label).toBeNull();
+		expect(sections[0]!.entries.map((e) => e.kind === "source" && e.row.name)).toEqual([
+			"Eigenvalues",
+			"unlabeled",
+		]);
+	});
+
+	it("gives each top folder a section, a subfolder a row, and the unfiled sources last", () => {
+		const sections = chainSections(chainList({ snapshot: snapshot(), directory: NESTED }, ""));
+		expect(sections.map((s) => s.label)).toEqual(["Math", "Physics", UNFILED_SECTION]);
+		const [math, physics, unfiled] = sections;
+		expect(math!.entries).toMatchObject([
+			{ kind: "folder", key: "f2", name: "Linear", detail: "3 props · 2026-11-02" },
+		]);
+		const linear = math!.entries[0]!;
+		expect(linear.kind === "folder" && linear.entries.map((e) => e.key)).toEqual(["chat_a"]);
+		expect(physics!.entries).toEqual([]);
+		expect(unfiled!.entries.map((e) => e.kind === "source" && e.row.name)).toEqual(["unlabeled"]);
+	});
+
+	it("during a search, shows only the folders with a match", () => {
+		const sections = chainSections(chainList({ snapshot: snapshot(), directory: NESTED }, "alpha"));
+		expect(sections.map((s) => s.label)).toEqual(["Math"]);
+	});
+
+	it("opens only the tapped entries with no search; a search opens all but the closed ones", () => {
+		let state = CLOSED_CHAINS;
+		expect(isChainEntryOpen(state, "source:chat_a", "")).toBe(false);
+		state = toggleChainEntry(state, "source:chat_a", "");
+		expect(isChainEntryOpen(state, "source:chat_a", "")).toBe(true);
+		// A search opens all the sources.
+		expect(isChainEntryOpen(state, "source:chat_gone", "al")).toBe(true);
+		state = toggleChainEntry(state, "source:chat_gone", "al");
+		expect(isChainEntryOpen(state, "source:chat_gone", "al")).toBe(false);
+		// A new search forgets the closed ones; the open set without a search stays.
+		expect(isChainEntryOpen(state, "source:chat_gone", "alp")).toBe(true);
+		expect(isChainEntryOpen(state, "source:chat_a", "")).toBe(true);
+		state = toggleChainEntry(state, "source:chat_a", "");
+		expect(isChainEntryOpen(state, "source:chat_a", "")).toBe(false);
+	});
+
+	it("draws a chain line as the desktop chips: the premises, then the conclusion", () => {
+		const list = chainList({ snapshot: snapshot(), directory: null }, "");
+		const lines = chainLines(snapshot(), list.sources[0]!.group);
+		expect(lines).toEqual([
+			{
+				id: "arg_1",
+				members: [
+					{ id: "n_a", name: "Alpha" },
+					{ id: "n_b", name: "Beta" },
+					{ id: "n_c", name: "Gamma" },
+				],
+				text: "Alpha, Beta → Gamma",
+			},
+		]);
+	});
+
+	it("the chain sheet opens the birth session at the conclusion's message", () => {
+		const s = snapshot();
+		s.propositions[2]!.provenance = [{ chatId: "chat_a", messageId: "m3" }];
+		const list = chainList({ snapshot: s, directory: null }, "");
+		const sheet = chainSheet(s, list.sources[0]!.group, "arg_1");
+		expect(sheet?.statements.map((x) => [x.name, x.statement])).toEqual([
+			["Alpha", "Alpha is true."],
+			["Beta", "Beta is true."],
+			["Gamma", "Gamma is true."],
+		]);
+		expect(sheet?.open).toEqual({ chatId: "chat_a", messageId: "m3", title: "Eigenvalues" });
+		expect(chainSheet(s, list.sources[0]!.group, "no_such_chain")).toBeNull();
+	});
+
+	it("the chain sheet of a notes source or an unlabeled source has no session", () => {
+		const s = snapshot();
+		const e = node("n_e", "Epsilon", { provenance: [{ chatId: "src_notes", messageId: "" }] });
+		s.nodes.push(e);
+		s.propositions.push(e);
+		const list = chainList({ snapshot: s, directory: null }, "");
+		const notes = list.sources.find((r) => r.group.kind === "notes")!;
+		expect(notes.name).toBe("linear algebra");
+		expect(chainSheet(s, notes.group, "n_e")?.open).toBeNull();
+		const gone = list.sources.find((r) => r.unlabeled)!;
+		expect(chainSheet(s, gone.group, "n_d")?.open).toBeNull();
 	});
 });
 

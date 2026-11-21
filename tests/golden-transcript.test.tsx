@@ -19,6 +19,8 @@ import { transcriptRows } from "@/lib/transcript";
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 
 const FIXTURES = path.resolve(__dirname, "../../learnharness/tests/fixtures");
+// The long golden session takes more than the default 5 s when the full suite runs.
+jest.setTimeout(20_000);
 
 interface ChatRecord {
 	id: string;

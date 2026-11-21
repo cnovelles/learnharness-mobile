@@ -3,7 +3,8 @@
  * connectivity graph on a Skia canvas, read only. Over the canvas: the
  * search field ("N of M nodes", "No matching nodes."). A tap on a node opens
  * the node sheet; a session row opens the session at the node's message.
- * The Chains screen (slice D) and the cost number (slice F) come later.
+ * "Chains" next to the search field pushes the Chains screen (slice D).
+ * The cost number (slice F) comes later.
  */
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -24,7 +25,7 @@ import {
 	nodeSheet,
 	type Knowledge,
 } from "@/lib/knowledge";
-import { useKnowledge } from "@/lib/use-knowledge";
+import { useGraphKnowledge } from "@/lib/knowledge-context";
 
 function GraphView({ knowledge, stale }: { knowledge: Knowledge; stale: string | null }) {
 	const c = usePalette();
@@ -53,14 +54,24 @@ function GraphView({ knowledge, stale }: { knowledge: Knowledge; stale: string |
 	return (
 		<View style={styles.graph}>
 			<View style={styles.controls}>
-				<Field
-					value={query}
-					onChangeText={setQuery}
-					label="Search nodes"
-					placeholder="Search nodes"
-					search
-					testID="graph-search"
-				/>
+				<View style={styles.searchRow}>
+					<View style={styles.searchField}>
+						<Field
+							value={query}
+							onChangeText={setQuery}
+							label="Search nodes"
+							placeholder="Search nodes"
+							search
+							testID="graph-search"
+						/>
+					</View>
+					<Button
+						title="Chains"
+						kind="plain"
+						onPress={() => router.push("/graph/chains")}
+						testID="open-chains"
+					/>
+				</View>
 				{search.empty ? (
 					<Text style={[styles.note, { color: c.muted }]} testID="graph-search-empty">
 						{search.empty}
@@ -94,7 +105,7 @@ export default function GraphTab() {
 	const { state } = useConnection();
 	const c = usePalette();
 	const connected = state.status === "connected";
-	const data = useKnowledge(connected);
+	const data = useGraphKnowledge();
 	const view = graphTabView(data.knowledge, data.error, connected);
 
 	if (view.kind === "graph")
@@ -143,6 +154,8 @@ export default function GraphTab() {
 const styles = StyleSheet.create({
 	graph: { flex: 1, gap: SPACE.sm },
 	controls: { gap: SPACE.xs },
+	searchRow: { flexDirection: "row", alignItems: "center", gap: SPACE.sm },
+	searchField: { flex: 1 },
 	canvas: {
 		flex: 1,
 		borderWidth: StyleSheet.hairlineWidth,

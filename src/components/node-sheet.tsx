@@ -6,10 +6,10 @@
  * on the Mac shows "unlabeled" and opens nothing (error state 16). The sheet
  * has no delete: the phone is read only.
  */
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { NodeSheet as NodeSheetModel, NodeSourceRow } from "@/lib/knowledge";
+import { BottomSheet } from "./bottom-sheet";
 import { Markdown } from "./markdown";
 import { SPACE } from "./spacing";
 import { Body, FONT, Icon, LABEL, TYPE, alpha, usePalette } from "./ui";
@@ -75,86 +75,47 @@ export function NodeSheet({
 }) {
 	const c = usePalette();
 	return (
-		<Modal visible={sheet !== null} transparent animationType="slide" onRequestClose={onClose}>
-			<View style={styles.frame}>
-				<Pressable
-					style={styles.backdrop}
-					onPress={onClose}
-					accessibilityRole="button"
-					accessibilityLabel="Close"
-					testID="node-sheet-backdrop"
-				/>
-				{sheet ? (
-					<SafeAreaView
-						edges={["bottom"]}
-						style={[styles.sheet, { backgroundColor: c.panel, borderColor: c.line }]}
-						testID="node-sheet"
-					>
-						<View style={[styles.grabber, { backgroundColor: c.line }]} />
-						<View style={styles.header}>
-							<Text
-								style={[styles.name, { color: c.text }]}
-								accessibilityRole="header"
-								testID="node-sheet-name"
-							>
-								{sheet.name}
-							</Text>
-							<Pressable
-								onPress={onClose}
-								hitSlop={SPACE.sm}
-								accessibilityRole="button"
-								accessibilityLabel="Close"
-								testID="node-sheet-close"
-							>
-								<Icon name="xmark" size={14} color={c.muted} />
-							</Pressable>
+		<BottomSheet
+			visible={sheet !== null}
+			onClose={onClose}
+			testID="node-sheet"
+			title={
+				<Text
+					style={[styles.name, { color: c.text }]}
+					accessibilityRole="header"
+					testID="node-sheet-name"
+				>
+					{sheet?.name}
+				</Text>
+			}
+		>
+			{sheet ? (
+				<>
+					<Markdown text={sheet.statement} style={[styles.statement, { color: c.text }]} />
+					<Text style={[LABEL, { color: c.muted }]}>Sessions</Text>
+					{sheet.empty ? (
+						<Body muted testID="node-sheet-empty">
+							{sheet.empty}
+						</Body>
+					) : (
+						<View>
+							{sheet.rows.map((row) => (
+								<SourceRow
+									key={row.kind === "session" ? row.chatId : row.sourceId}
+									row={row}
+									onOpen={onOpen}
+								/>
+							))}
 						</View>
-						<ScrollView contentContainerStyle={styles.body}>
-							<Markdown text={sheet.statement} style={[styles.statement, { color: c.text }]} />
-							<Text style={[LABEL, { color: c.muted }]}>Sessions</Text>
-							{sheet.empty ? (
-								<Body muted testID="node-sheet-empty">
-									{sheet.empty}
-								</Body>
-							) : (
-								<View>
-									{sheet.rows.map((row) => (
-										<SourceRow
-											key={row.kind === "session" ? row.chatId : row.sourceId}
-											row={row}
-											onOpen={onOpen}
-										/>
-									))}
-								</View>
-							)}
-						</ScrollView>
-					</SafeAreaView>
-				) : null}
-			</View>
-		</Modal>
+					)}
+				</>
+			) : null}
+		</BottomSheet>
 	);
 }
 
 const styles = StyleSheet.create({
-	frame: { flex: 1, justifyContent: "flex-end" },
-	backdrop: { ...StyleSheet.absoluteFill },
-	sheet: {
-		maxHeight: "60%",
-		borderTopLeftRadius: 14,
-		borderTopRightRadius: 14,
-		borderWidth: StyleSheet.hairlineWidth,
-		paddingHorizontal: SPACE.lg,
-	},
-	grabber: { alignSelf: "center", width: 36, height: 4, borderRadius: 2, marginTop: SPACE.sm },
-	header: {
-		flexDirection: "row",
-		alignItems: "flex-start",
-		gap: SPACE.md,
-		paddingTop: SPACE.md,
-		paddingBottom: SPACE.sm,
-	},
-	name: { ...TYPE.lg, fontFamily: FONT.title, fontWeight: "700", flex: 1 },
-	body: { gap: SPACE.md, paddingBottom: SPACE.lg },
+	name: { ...TYPE.lg, fontFamily: FONT.title, fontWeight: "700" },
 	statement: { ...TYPE.base },
 	row: {
 		flexDirection: "row",
