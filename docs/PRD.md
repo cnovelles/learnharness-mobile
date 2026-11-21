@@ -5,7 +5,7 @@ Local tracker: this file and `docs/issues/`. Do not publish to GitHub: the fork'
 
 ## Status (read this first when you resume)
 
-Last update: 2026-11-21 (issue 08 in the Graph tab, D-016. Slices B and C1 are done. Slice C2 is done on branch `feat/08-c2-open-at-message`: a node's session row opens the session at the node's message (one page from it, later pages near the bottom; state 15 gives the normal open); checked on the SE and the Pro Max. Branches: `master` now has all earlier work as one squash commit (`4a7ab79`); each slice gets its own branch and PR. The iPhone Release build with Skia is installed (profile until 2026-11-28 17:08 UTC). Next: the frame rate during a pinch on the iPhone with the user's graph, then the region label size question).
+Last update: 2026-11-21 (issue 08 in the Graph tab, D-016. Slices B and C1 are done. Slice C2 is done (`4471458`, PR #2): a node's session row opens the session at the node's message (one page from it, later pages near the bottom; state 15 gives the normal open); checked on the SE and the Pro Max. Branches: `master` now has all earlier work as one squash commit (`4a7ab79`); each slice gets its own branch and PR. The iPhone Release build with Skia is installed (profile until 2026-11-28 17:08 UTC). Next: the frame rate during a pinch on the iPhone with the user's graph, then the region label size question).
 
 **Done**
 
