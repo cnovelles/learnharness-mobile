@@ -59,6 +59,11 @@
  * (Information Principle)" to a teacher message in the middle of the golden
  * teach session (issue 08 slice C2). The golden graph has no message links.
  *
+ * LH_E2E_CHAIN_BIRTH=1 (with LH_E2E_LINK=1) puts that link first, so the
+ * teach session is the birth of the node, and its chains show "Open
+ * <session>" in the Chains screen (issue 08 slice D). The golden graph has
+ * no chain that was born in a session that still exists.
+ *
  * LH_E2E_GATEWAY_HOST=<IPv4> makes the gateway listen on that address and
  * puts only that address in the pairing text (default 127.0.0.1). Use the
  * Mac's Tailscale address (100.x) to check the phone's App Transport
@@ -198,7 +203,9 @@ function addMessageLink(graph: string) {
 		const node = JSON.parse(line) as { id: string; provenance: unknown[] };
 		if (node.id !== LINK_NODE) return line;
 		found = true;
-		node.provenance.push({ chatId, messageId: LINK_MESSAGE });
+		const link = { chatId, messageId: LINK_MESSAGE };
+		if (process.env.LH_E2E_CHAIN_BIRTH === "1") node.provenance.unshift(link);
+		else node.provenance.push(link);
 		return JSON.stringify(node);
 	});
 	if (!found) throw new Error(`LH_E2E_LINK: no node ${LINK_NODE} in the golden graph`);

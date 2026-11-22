@@ -1,0 +1,139 @@
+# The Chains screen (issue 08 slice D, user choice 3C). "Chains" in the
+# Graph tab opens the list: the folder sections, a subfolder that opens in
+# place, a source that opens its chain lines, the chain sheet with
+# "Open <session>", the native sort menu, the search, and "No matching
+# chains.".
+# It needs:
+#   1. The test Mac with the golden data, the folders, and a chain born in
+#      the teach session:
+#      LH_E2E_GOLDEN=1 LH_E2E_SHELF=1 LH_E2E_LINK=1 LH_E2E_CHAIN_BIRTH=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:graph-chains
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+# 1. The Graph tab, then Chains. A tab tap right after the pairing
+# sometimes does not change the tab on the SE: tap again if it did not.
+- extendedWaitUntil:
+    visible: "CONTINUE LEARNING"
+    timeout: 30000
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "open-chains"
+    commands:
+      - tapOn: "Graph"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "open-chains"
+- extendedWaitUntil:
+    visible: "[0-9]+ chains · 278 nodes"
+    timeout: 20000
+- takeScreenshot: chains-1-list
+# 2. The subfolder opens in place, then the teach session opens its chain lines.
+- tapOn: "Folder Postgres.*"
+- tapOn: "test session, no probing.*"
+- scrollUntilVisible:
+    element:
+      id: "chain-line-arg_5c4d492b7e6e"
+    direction: DOWN
+    centerElement: true
+    timeout: 10000
+- takeScreenshot: chains-2-open
+# 3. The chain sheet: the statements with math, and Open for the birth session.
+- tapOn:
+    id: "chain-line-arg_5c4d492b7e6e"
+- extendedWaitUntil:
+    visible:
+      id: "chain-sheet"
+    timeout: 10000
+- takeScreenshot: chains-3-sheet
+# The button is under the statements: scroll the sheet (a swipe inside
+# the sheet; scrollUntilVisible moves the list behind the sheet).
+- repeat:
+    times: 5
+    while:
+      notVisible:
+        id: "chain-sheet-open"
+    commands:
+      - swipe:
+          start: 50%, 85%
+          end: 50%, 60%
+          duration: 400
+- takeScreenshot: chains-3b-sheet-open
+- tapOn:
+    id: "chain-sheet-close"
+- extendedWaitUntil:
+    notVisible:
+      id: "chain-sheet"
+    timeout: 10000
+# 4. The native sort menu; a new column starts with the largest first.
+- scrollUntilVisible:
+    element:
+      id: "chains-search"
+    direction: UP
+    timeout: 10000
+- tapOn: "Name ↑"
+- extendedWaitUntil:
+    visible: "Created"
+    timeout: 5000
+- takeScreenshot: chains-4-sort-menu
+- tapOn: "Props"
+- extendedWaitUntil:
+    visible: "Props ↓"
+    timeout: 5000
+- takeScreenshot: chains-5-sorted
+# 5. The search: no match, then a match that opens its sources.
+- tapOn:
+    id: "chains-search"
+- inputText: "zz-no-match-zz"
+- extendedWaitUntil:
+    visible: "No matching chains."
+    timeout: 5000
+- takeScreenshot: chains-6-no-match
+- eraseText: 20
+- inputText: "One fact per row"
+# The Search key closes the keyboard.
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: "chain-line-arg_5c4d492b7e6e"
+    direction: DOWN
+    centerElement: true
+    timeout: 10000
+- takeScreenshot: chains-7-search
+# 6. Open goes to the teach session at the conclusion's message.
+- tapOn:
+    id: "chain-line-arg_5c4d492b7e6e"
+- repeat:
+    times: 5
+    while:
+      notVisible:
+        id: "chain-sheet-open"
+    commands:
+      - swipe:
+          start: 50%, 85%
+          end: 50%, 60%
+          duration: 400
+- tapOn:
+    id: "chain-sheet-open"
+- extendedWaitUntil:
+    visible: "Before I present: the goal wasn.t set explicitly.*"
+    timeout: 30000
+- takeScreenshot: chains-8-session

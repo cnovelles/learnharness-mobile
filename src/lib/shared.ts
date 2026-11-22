@@ -77,7 +77,12 @@ export {
 } from "@lh/components/plan-layout";
 // The desktop folder order (issue 20): the Chains folders and their order.
 // Import the files directly: the src/core barrel is not needed here.
-export { folderTree, type FolderTree, type FolderTreeSource } from "@lh/src/core/folder-order";
+export {
+	folderTree,
+	type FolderLevelItem,
+	type FolderTree,
+	type FolderTreeSource,
+} from "@lh/src/core/folder-order";
 export type {
 	OrganizationAction,
 	SourceDirectory,
@@ -102,6 +107,7 @@ export {
 	DEFAULT_CHAIN_SORT,
 	UNLABELED_SOURCE,
 	buildChainRows,
+	isSourceOpen,
 	nextChainSort,
 	sourceDisplayName,
 	type ChainRows,

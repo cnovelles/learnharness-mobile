@@ -29,16 +29,21 @@ import {
 	buildChainRows,
 	clusterHue,
 	folderTree,
+	formatChainLine,
 	isImpNodeId,
+	isSourceOpen,
 	isNodeVisible,
 	messageIdFromHash,
 	propositionSessionHref,
 	seedMissingNodePositions,
 	sourceDisplayName,
 	type ChainSort,
+	type ChainSortCol,
 	type ChainSourceGroup,
 	type FolderTree,
+	type FolderLevelItem,
 	type GraphCostSummary,
+	type GraphNode,
 	type GraphSnapshot,
 	type ReasoningChain,
 	type SourceDirectory,
@@ -317,9 +322,14 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function sourceRowDetail(
 	group: Pick<ChainSourceGroup, "nodeIds" | "newestCreatedAt">,
 ): string {
-	const count = plural(group.nodeIds.length, "prop", "props");
-	const date = group.newestCreatedAt.slice(0, 10);
-	return date ? `${count} · ${date}` : count;
+	return countDetail(group.nodeIds.length, group.newestCreatedAt);
+}
+
+/** "41 props · 2026-11-10": the node count and the day of a date. */
+function countDetail(count: number, createdAt: string): string {
+	const props = plural(count, "prop", "props");
+	const date = createdAt.slice(0, 10);
+	return date ? `${props} · ${date}` : props;
 }
 
 /**
@@ -366,6 +376,184 @@ export function chainList(
 			rows.groups.length === 0 && organization.folders.length === 0 ? NO_MATCHING_CHAINS : null,
 		chains: rows.chains,
 	};
+}
+
+// ─── The Chains screen (slice D, user choice 3C) ────────────────────────────
+
+/** The names of the sort columns, as the desktop column heads. */
+export const CHAIN_SORT_NAMES: Record<ChainSortCol, string> = {
+	name: "Name",
+	props: "Props",
+	created: "Created",
+};
+
+/** The sort button text: the column and the order ("Name ↑"). */
+export function chainSortLabel(sort: ChainSort): string {
+	return `${CHAIN_SORT_NAMES[sort.col]} ${sort.dir === 1 ? "↑" : "↓"}`;
+}
+
+/** One entry of a section: a source row, or a folder with its own entries. */
+export type ChainEntry =
+	| { kind: "source"; key: string; row: ChainSourceRow }
+	| { kind: "folder"; key: string; name: string; detail: string; entries: ChainEntry[] };
+
+/** One inset grouped card: a top folder, or the sources that are in no folder. */
+export interface ChainSection {
+	key: string;
+	/** The folder name, "Unfiled", or null when there are no folders. */
+	label: string | null;
+	entries: ChainEntry[];
+}
+
+/** The label of the sources that are in no folder (when folders exist). */
+export const UNFILED_SECTION = "Unfiled";
+
+/**
+ * The sections of the Chains screen. Each top folder is one section, in the
+ * desktop order. A folder in a folder is a row that opens in place. The
+ * sources that are in no folder go last, in the "Unfiled" section. With no
+ * folders (also state 6), one section with no label holds all sources.
+ */
+export function chainSections(list: Pick<ChainList, "sources" | "folders">): ChainSection[] {
+	const rows = new Map(list.sources.map((row) => [row.group.key, row]));
+	const entry = (item: FolderLevelItem<ChainSourceGroup>): ChainEntry =>
+		item.kind === "source"
+			? { kind: "source", key: item.id, row: rows.get(item.id)! }
+			: {
+					kind: "folder",
+					key: item.id,
+					name: item.name,
+					detail: countDetail(item.count, item.date),
+					entries: list.folders.level(item.id).map(entry),
+				};
+	const top = list.folders.level(null);
+	const folders = top.filter((item) => item.kind === "folder");
+	const loose = top.filter((item) => item.kind === "source").map(entry);
+	if (folders.length === 0)
+		return loose.length ? [{ key: "\0all", label: null, entries: loose }] : [];
+	const sections: ChainSection[] = folders.map((item) => ({
+		key: item.id,
+		label: item.name,
+		entries: list.folders.level(item.id).map(entry),
+	}));
+	if (loose.length) sections.push({ key: "\0unfiled", label: UNFILED_SECTION, entries: loose });
+	return sections;
+}
+
+/**
+ * Which sources and folders are open. Without a search, only the entries
+ * that the user opened are open. During a search, all are open except the
+ * ones that the user closed during this search (the desktop rule).
+ */
+export interface ChainOpenState {
+	expanded: ReadonlySet<string>;
+	/** The entries closed during the search `query`. */
+	folded: { query: string; keys: ReadonlySet<string> };
+}
+
+export const CLOSED_CHAINS: ChainOpenState = {
+	expanded: new Set(),
+	folded: { query: "", keys: new Set() },
+};
+
+const foldedFor = (state: ChainOpenState, query: string): ReadonlySet<string> =>
+	state.folded.query === query ? state.folded.keys : new Set();
+
+export function isChainEntryOpen(state: ChainOpenState, key: string, query: string): boolean {
+	return isSourceOpen(key, {
+		searching: query.trim() !== "",
+		expanded: state.expanded,
+		foldedForSearch: foldedFor(state, query),
+	});
+}
+
+/** A tap on a source or a folder row: open it, or close it. */
+export function toggleChainEntry(
+	state: ChainOpenState,
+	key: string,
+	query: string,
+): ChainOpenState {
+	const flip = (set: ReadonlySet<string>) => {
+		const next = new Set(set);
+		if (next.has(key)) next.delete(key);
+		else next.add(key);
+		return next;
+	};
+	if (query.trim() === "") return { ...state, expanded: flip(state.expanded) };
+	return { ...state, folded: { query, keys: flip(foldedFor(state, query)) } };
+}
+
+/** One member of a chain line: a proposition chip. */
+export interface ChainMember {
+	id: string;
+	name: string;
+}
+
+/** A chain line: the premises, then the conclusion (`A ∧ B ⟹ C`). */
+export interface ChainLine {
+	id: string;
+	/** The premises, then the conclusion (the desktop chip order). */
+	members: ChainMember[];
+	/** The plain text for VoiceOver (the desktop `aria-label`). */
+	text: string;
+}
+
+const nodeIndex = (snapshot: Pick<GraphSnapshot, "propositions">) =>
+	new Map(snapshot.propositions.map((n) => [n.id, n]));
+
+function lineOf(chain: ReasoningChain, byId: ReadonlyMap<string, GraphNode>): ChainLine {
+	const names = Object.fromEntries([...byId].map(([id, n]) => [id, { name: n.name }]));
+	return {
+		id: chain.id,
+		members: [...chain.premises, chain.conclusion].map((id) => ({
+			id,
+			name: byId.get(id)?.name ?? id,
+		})),
+		text: formatChainLine(chain, names),
+	};
+}
+
+/** The chain lines of an opened source, in the group order. */
+export function chainLines(
+	snapshot: Pick<GraphSnapshot, "propositions">,
+	group: Pick<ChainSourceGroup, "chains">,
+): ChainLine[] {
+	const byId = nodeIndex(snapshot);
+	return group.chains.map((chain) => lineOf(chain, byId));
+}
+
+/** The chain sheet: the chain line, the statements, and the birth session. */
+export interface ChainSheet {
+	line: ChainLine;
+	statements: { id: string; name: string; statement: string }[];
+	/** The birth session, at the conclusion's message; null for a notes or unlabeled source. */
+	open: { chatId: string; messageId: string | null; title: string } | null;
+}
+
+/** The sheet of one chain of a source group; null when the chain is not in the group. */
+export function chainSheet(
+	snapshot: Pick<GraphSnapshot, "propositions">,
+	group: Pick<ChainSourceGroup, "chains" | "birth" | "kind" | "label">,
+	chainId: string,
+): ChainSheet | null {
+	const chain = group.chains.find((c) => c.id === chainId);
+	if (!chain) return null;
+	const byId = nodeIndex(snapshot);
+	const line = lineOf(chain, byId);
+	const statements = line.members.flatMap(({ id }) => {
+		const node = byId.get(id);
+		return node ? [{ id, name: node.name, statement: node.statement }] : [];
+	});
+	const conclusion = byId.get(chain.conclusion);
+	const open =
+		group.kind === "chat" && group.birth !== null
+			? {
+					chatId: group.birth,
+					messageId: conclusion ? nodeMessageId(conclusion, group.birth) : null,
+					title: sourceDisplayName(group.label),
+				}
+			: null;
+	return { line, statements, open };
 }
 
 // ─── The Graph tab view ─────────────────────────────────────────────────────

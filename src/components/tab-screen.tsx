@@ -95,7 +95,7 @@ const NEW: Record<SessionKind, { testID: string; label: string }> = {
 };
 
 /** The connection status line and, when the Mac is not reachable, the banner. */
-function ConnectionStatus() {
+export function ConnectionStatus() {
 	const { state, monitor } = useConnection();
 	const c = usePalette();
 	const status = statusText(state);
