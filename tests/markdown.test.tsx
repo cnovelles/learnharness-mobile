@@ -488,11 +488,19 @@ describe("golden fixtures", () => {
 	});
 
 	it("draws every teacher text with no fallback", async () => {
-		const error = jest.spyOn(console, "error");
-		for (const text of texts) {
-			await show(text);
-			expect(screen.queryByTestId("md-plain")).toBeNull();
+		// The math islands keep their spinners (the WebView mock sends no
+		// height). With real timers, the 80 ms spinner updates can keep the
+		// `act` of `render` busy on a loaded CPU, so the test never ends.
+		jest.useFakeTimers();
+		try {
+			const error = jest.spyOn(console, "error");
+			for (const text of texts) {
+				await show(text);
+				expect(screen.queryByTestId("md-plain")).toBeNull();
+			}
+			expect(error).not.toHaveBeenCalled();
+		} finally {
+			jest.useRealTimers();
 		}
-		expect(error).not.toHaveBeenCalled();
 	});
 });
