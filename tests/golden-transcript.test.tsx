@@ -39,7 +39,16 @@ const chats: ChatRecord[] = fs
 
 const rowsOf = (chat: ChatRecord) => transcriptRows(projectView(chat.messages));
 
-afterEach(() => jest.restoreAllMocks());
+// The WebView mock never sends a height, so each math island keeps its
+// Spinner, and each Spinner sets its state every 80 ms. With real timers,
+// these updates come inside the `act` of `await render`. On a busy CPU, one
+// pass of updates takes more than 80 ms, so `act` never finishes. Fake timers
+// stop the spinners. These tests check what draws, not the timers.
+beforeEach(() => jest.useFakeTimers());
+afterEach(() => {
+	jest.useRealTimers();
+	jest.restoreAllMocks();
+});
 
 describe("golden sessions", () => {
 	it("finds the recorded sessions", () => {
