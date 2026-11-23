@@ -99,6 +99,8 @@ Compare the desktop: its demo iframe has `sandbox="allow-scripts"` and no CSP (`
 
 ### The canary test (before the merge)
 
+The test: `LH_E2E_ARTIFACTS=1 npm run e2e:mac`, then the flow `e2e/artifacts.yaml`. The canary demo is `canaryDemo` in `scripts/e2e-mac.ts`. Its script makes each tag at run time, so the phone's blocked-host check (error state 9) does not stop the demo, and only the CSP, the frame sandbox and the load rule guard it. The servers are a TCP server (an https or wss request opens a connection before TLS) and a UDP socket (the STUN server). `e2e/scripts/canary.js` fails the flow on any hit. Result: not run yet.
+
 A test demo (a fixture of the scripted Mac) tries each escape. A local HTTPS server on the Mac logs each request it gets. Pass: the server logs nothing, the app stays on the lesson, and no native alert shows.
 
 - `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `navigator.sendBeacon`, `<img src>`, `<script src>`, `<link rel=stylesheet>`, `@import`, CSS `url()`, `<link rel=prefetch>`, a `Worker`.

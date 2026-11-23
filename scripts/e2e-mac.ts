@@ -74,14 +74,25 @@
  * Mac's Tailscale address (100.x) to check the phone's App Transport
  * Security rules for that range in the Simulator (issue 15).
  *
+ * LH_E2E_ARTIFACTS=1 adds the session "Artifacts check" (issue 19,
+ * e2e/artifacts.yaml): a figure, the slider demo, a figure on a learner
+ * photo, a demo that loads a script from jsDelivr, a demo with a blocked
+ * host, a failed demo and the canary demo. The canary demo tries each
+ * escape of the security review (docs/reviews/2026-11-23-artifact-sandbox.md,
+ * section 8) against a TCP and a UDP server on 127.0.0.1 that count each
+ * hit. GET /canary on the control server gives the counts.
+ *
  * Control server (for Maestro, on 127.0.0.1, port in e2e/.control.txt):
  * POST /models/clear removes the model settings (the Mac then refuses a
  * turn with models_not_configured), POST /models/set sets them again.
  */
+import { createHash } from "node:crypto";
+import dgram from "node:dgram";
 import fs from "node:fs";
 import http from "node:http";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
+import net from "node:net";
 import path from "node:path";
 
 const FORK = process.env.LH_FORK_DIR
@@ -426,6 +437,8 @@ async function main() {
 	};
 	await putModels(MODELS);
 	if (process.env.LH_E2E_SHELF === "1") await addShelf(server.url, json);
+	if (process.env.LH_E2E_ARTIFACTS === "1")
+		await addArtifacts(server.url, json, path.join(server.dataDir, "chats"), await startCanary());
 	if (process.env.LH_E2E_RUN === "1") startHeldRun(server.url);
 	await fetch(`${server.url}/api/settings/graph`, {
 		method: "PUT",
@@ -453,6 +466,7 @@ async function main() {
 			res.writeHead(status, { "content-type": "text/plain" });
 			res.end(body);
 		};
+		if (req.method === "GET" && req.url === "/canary") return done(200, JSON.stringify(canaryHits));
 		const action =
 			req.method === "POST" && req.url === "/models/clear"
 				? putModels({})
@@ -561,4 +575,220 @@ async function addShelf(url: string, headers: Record<string, string>) {
 	await move(await session("Eigenvalues"), algebra);
 	await move(await session("Indexes"), databases);
 	await session("Bayes rule");
+}
+
+/** LH_E2E_ARTIFACTS=1: the hits on the canary servers (GET /canary). */
+const canaryHits = { tcp: 0, udp: 0, log: [] as string[] };
+
+/**
+ * The canary servers on 127.0.0.1: a TCP server (each https, wss and
+ * plain request opens a connection here before TLS) and a UDP socket (the
+ * STUN server of a WebRTC test). Each hit adds to `canaryHits`.
+ */
+async function startCanary(): Promise<{ tcp: number; udp: number }> {
+	const tcp = net.createServer((socket) => {
+		canaryHits.tcp += 1;
+		socket.once("data", (data) => {
+			const line = data.toString("latin1").split("\r\n")[0]!.slice(0, 120);
+			canaryHits.log.push(`tcp ${line}`);
+			console.log(`[canary] TCP hit: ${JSON.stringify(line)}`);
+		});
+		socket.on("error", () => {});
+		setTimeout(() => socket.destroy(), 1000);
+	});
+	await new Promise<void>((resolve) => tcp.listen(0, "127.0.0.1", resolve));
+	const udp = dgram.createSocket("udp4");
+	udp.on("message", (data, from) => {
+		canaryHits.udp += 1;
+		canaryHits.log.push(`udp ${from.address}:${from.port} ${data.length} bytes`);
+		console.log(`[canary] UDP hit from ${from.address}:${from.port}`);
+	});
+	await new Promise<void>((resolve) => udp.bind(0, "127.0.0.1", resolve));
+	const ports = { tcp: (tcp.address() as AddressInfo).port, udp: udp.address().port };
+	console.log(`[canary] TCP port ${ports.tcp}, UDP port ${ports.udp}`);
+	return ports;
+}
+
+/**
+ * The canary demo. Each try runs in its own try block and writes one line
+ * to the page. The scripts make each tag at run time, so the phone's
+ * blocked-host check does not find the URLs and the demo runs: the CSP,
+ * the frame sandbox and the load rule are the only guards. Pass: no hit on
+ * the canary servers, no native panel, the app stays on the lesson.
+ */
+function canaryDemo(ports: { tcp: number; udp: number }): string {
+	const script = `
+var H = "https://127.0.0.1:${ports.tcp}";
+var out = document.getElementById("out");
+function line(text) { var li = document.createElement("li"); li.textContent = text; out.appendChild(li); }
+function attempt(name, fn) {
+	try { var r = fn(); line(name + ": ran" + (r === undefined ? "" : " (" + String(r).slice(0, 30) + ")")); }
+	catch (e) { line(name + ": threw"); }
+}
+function add(tag, attrs, parent) {
+	var el = document.createElement(tag);
+	for (var k in attrs) el.setAttribute(k, attrs[k]);
+	(parent || document.body).appendChild(el);
+	return el;
+}
+attempt("fetch", function () { fetch(H + "/fetch").catch(function () {}); });
+attempt("xhr", function () { var x = new XMLHttpRequest(); x.open("GET", H + "/xhr"); x.send(); });
+attempt("websocket", function () { new WebSocket("wss://127.0.0.1:${ports.tcp}/ws"); });
+attempt("eventsource", function () { new EventSource(H + "/sse"); });
+attempt("beacon", function () { return navigator.sendBeacon(H + "/beacon", "x"); });
+attempt("img", function () { add("img", { src: H + "/img.png" }); });
+attempt("script", function () { add("script", { src: H + "/script.js" }, document.head); });
+attempt("stylesheet", function () { add("link", { rel: "stylesheet", href: H + "/style.css" }, document.head); });
+attempt("prefetch", function () { add("link", { rel: "prefetch", href: H + "/prefetch" }, document.head); });
+attempt("css import", function () { add("style", {}, document.head).textContent = "@import url(" + H + "/import.css);"; });
+attempt("css url", function () { add("style", {}, document.head).textContent = "body{background-image:url(" + H + "/bg.png)}"; });
+attempt("module import", function () { var u = H + "/module.js"; Function("u", "return import(u)")(u).catch(function () {}); });
+attempt("worker", function () { new Worker(H + "/worker.js"); });
+attempt("blob worker", function () {
+	var b = new Blob(["fetch('" + H + "/from-worker')"], { type: "text/javascript" });
+	new Worker(URL.createObjectURL(b));
+});
+attempt("webrtc", function () {
+	var pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:${ports.udp}" }] });
+	pc.createDataChannel("x");
+	pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }).catch(function () {});
+});
+attempt("media", function () { return navigator.mediaDevices.getUserMedia({ audio: true, video: true }).catch(function () {}); });
+attempt("alert", function () { return alert("CANARY ALERT"); });
+attempt("confirm", function () { return confirm("CANARY CONFIRM"); });
+attempt("prompt", function () { return prompt("CANARY PROMPT"); });
+attempt("iframe src", function () { add("iframe", { src: H + "/frame" }); });
+attempt("blank frame", function () {
+	var f = add("iframe", {});
+	var w = f.contentWindow;
+	try { w.prompt("CANARY FRAME PROMPT"); line("frame prompt: ran"); } catch (e) { line("frame prompt: threw"); }
+	try {
+		var pc = new w.RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:${ports.udp}" }] });
+		pc.createDataChannel("x");
+		pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }).catch(function () {});
+		line("frame webrtc: ran");
+	} catch (e) { line("frame webrtc: threw"); }
+});
+attempt("window.open", function () { return window.open(H + "/open"); });
+attempt("blank link", function () { add("a", { href: H + "/blank", target: "_blank" }).click(); });
+attempt("form", function () {
+	var f = add("form", { action: H + "/form", method: "post" });
+	add("input", { name: "x", value: "1" }, f);
+	f.submit();
+});
+// The navigations come last: a navigation that works ends the page.
+setTimeout(function () {
+	attempt("meta refresh", function () { add("meta", { "http-equiv": "refresh", content: "0;url=" + H + "/refresh" }, document.head); });
+	attempt("link tap", function () { add("a", { href: H + "/link" }).click(); });
+	attempt("top.location", function () { top.location.href = H + "/top"; });
+	attempt("location", function () { location.href = H + "/self"; });
+	line("Canary finished");
+	document.getElementById("state").textContent = "Canary finished";
+}, 1500);
+`;
+	// The demo's own doctype, <html> and <head>, and a CSP that allows
+	// everything: the phone's CSP comes first, so this one only adds limits.
+	return (
+		"<!doctype html><html><head>" +
+		"<meta http-equiv=\"Content-Security-Policy\" content=\"default-src * 'unsafe-inline' 'unsafe-eval'; connect-src *; frame-src *\">" +
+		"<style>body{font:14px -apple-system,sans-serif;padding:12px;color:#111}</style></head><body>" +
+		'<h3 id="state">Canary running</h3><ul id="out"></ul>' +
+		`<script>${script}</script></body></html>`
+	);
+}
+
+/** An 8 by 8 teal PNG: the learner photo of the photo figure. */
+const ARTIFACT_PHOTO =
+	"iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGPQmtuPFTEMLQkAT3dVgRdrT9YAAAAASUVORK5CYII=";
+
+const FIGURE_SVG =
+	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160">' +
+	'<rect width="320" height="160" fill="#eef6ff"/>' +
+	'<ellipse cx="110" cy="80" rx="70" ry="45" fill="#7fb3e6"/>' +
+	'<circle cx="110" cy="80" r="36" fill="#3a7d44"/>' +
+	'<circle cx="270" cy="80" r="14" fill="#999"/>' +
+	'<text x="160" y="150" font-size="14" text-anchor="middle" fill="#123">Two tidal bulges</text></svg>';
+
+const SLIDER_DEMO =
+	"<style>body{font:15px -apple-system,sans-serif;padding:16px;color:#111}</style>" +
+	'<label for="d">Distance to the Moon</label> <input id="d" type="range" min="1" max="10" value="5">' +
+	'<p id="pull">Pull: 4.0</p>' +
+	'<script>var d=document.getElementById("d");function show(){var r=Number(d.value);' +
+	'document.getElementById("pull").textContent="Pull: "+(100/(r*r)).toFixed(1);}' +
+	'd.addEventListener("input",show);show();</script>';
+
+const CDN_DEMO =
+	"<style>body{font:15px -apple-system,sans-serif;padding:16px;color:#111}</style>" +
+	'<p id="cdn">Loading the library…</p>' +
+	'<script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>' +
+	'<script>document.getElementById("cdn").textContent = typeof _ === "function" ? "Library loaded: " + _.chunk([1,2,3,4], 2).length + " chunks" : "No library";</script>';
+
+const BLOCKED_DEMO =
+	'<script src="https://example.com/plot.js"></script><p>This needs a blocked host.</p>';
+
+/**
+ * LH_E2E_ARTIFACTS=1: the session "Artifacts check", made through the
+ * desktop API, then filled with one learner message, the steer messages
+ * (fork buildSubagentSteer) and the photo snapshot.
+ */
+async function addArtifacts(
+	url: string,
+	headers: Record<string, string>,
+	chats: string,
+	ports: { tcp: number; udp: number },
+) {
+	const res = await fetch(`${url}/api/chats`, {
+		method: "POST",
+		headers,
+		body: JSON.stringify({ title: "Artifacts check" }),
+	});
+	if (!res.ok) throw new Error(`artifacts: ${await res.text()}`);
+	const id = String(((await res.json()) as { id: unknown }).id);
+	const file = path.join(chats, `${id}.json`);
+	const record = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
+	const snapshotId = createHash("sha256")
+		.update(Buffer.from(ARTIFACT_PHOTO, "base64"))
+		.digest("hex");
+	const start = Date.now() - 600_000;
+	let n = 0;
+	const steer = (name: string, kind: "visual" | "demo", result: unknown) => {
+		n += 1;
+		return {
+			id: `steer_job_e2e_${name}`,
+			role: "custom",
+			customType: "subagent-steer",
+			content: `The ${kind} sub-agent finished (${name}).`,
+			display: true,
+			details: { jobId: `job_e2e_${name}`, kind, toolCallId: `call_e2e_${name}`, result },
+			timestamp: start + n * 1000,
+		};
+	};
+	const demo = (title: string, html: string) => ({ title, html, tested: true });
+	record.messages = [
+		{
+			id: "msg_e2e_artifacts_user",
+			role: "user",
+			content: "Show me the tides with figures and demos.",
+			timestamp: start,
+		},
+		steer("figure", "visual", { svg: FIGURE_SVG, notes: "The near and the far bulge." }),
+		steer("slider", "demo", demo("Pull and distance", SLIDER_DEMO)),
+		steer("photo", "visual", {
+			svg:
+				'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120">' +
+				'<image href="learner-image" x="0" y="0" width="200" height="120" preserveAspectRatio="none"/>' +
+				'<circle cx="100" cy="60" r="30" fill="none" stroke="#c00" stroke-width="4"/></svg>',
+			image: { path: "/tmp/e2e-photo.png", snapshotId },
+		}),
+		steer("cdn", "demo", demo("Library from jsDelivr", CDN_DEMO)),
+		steer("blocked", "demo", demo("Blocked host", BLOCKED_DEMO)),
+		steer("failed", "demo", demo("Empty demo", "")),
+		steer("canary", "demo", demo("Canary", canaryDemo(ports))),
+	];
+	record.imageSnapshots = {
+		[snapshotId]: { mimeType: "image/png", data: ARTIFACT_PHOTO, width: 8, height: 8 },
+	};
+	record.updatedAt = new Date().toISOString();
+	fs.writeFileSync(file, JSON.stringify(record));
+	console.log(`[artifacts] session ${id} with ${n} artifacts`);
 }
