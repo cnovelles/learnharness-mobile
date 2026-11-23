@@ -183,6 +183,129 @@ it("the folders, costs and runs can fail; the graph still shows (states 6 and 11
 	const tab = await openGraph();
 	expect(await tab.findByTestId("graph-canvas")).toBeTruthy();
 	expect(tab.queryByTestId("graph-error")).toBeNull();
+	expect(tab.queryByTestId("graph-cost")).toBeNull();
+	expect(tab.queryByTestId(/^run-pill-/)).toBeNull();
+});
+
+// ─── Slice F: the pipeline cost number, the cost sheet and the run pills ────
+
+const STAGE_TOKENS = { cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0 };
+function goodCosts(runs = 1) {
+	return {
+		totalDollars: 0.0233,
+		unpricedRuns: 0,
+		stages: {
+			extraction: {
+				dollars: 0.0135,
+				unpricedRuns: 0,
+				runs: 8,
+				tokens: { inputTokens: 71193, outputTokens: 80854, ...STAGE_TOKENS },
+			},
+			audit: {
+				dollars: 0.0098,
+				unpricedRuns: 0,
+				runs: 8,
+				tokens: { inputTokens: 111675, outputTokens: 42617, ...STAGE_TOKENS },
+			},
+		},
+		runs: Array.from({ length: runs }, (_, i) => ({
+			startedAt: Date.now() - (i + 1) * 12 * 60_000,
+			at: "2026-11-23T11:50:00.000Z",
+			durationMs: 1000,
+			kind: "extraction",
+			title: `notes ${i + 1}.md`,
+			dollars: 0.0023,
+			tokens: { inputTokens: 10, outputTokens: 10, ...STAGE_TOKENS },
+			merged: { nodes: 13 },
+		})),
+	};
+}
+const RUN = { id: "chat_a", chatId: "chat_a", title: "Eigenvalues", phase: "extracting" };
+
+it("shows the cost number; a tap opens the cost sheet with the desktop rows", async () => {
+	costs = ok(goodCosts(2));
+	const tab = await openGraph();
+	const number = await tab.findByTestId("graph-cost");
+	expect(number).toHaveTextContent("$0.02");
+	await fireEvent.press(number);
+	const sheet = await screen.findByTestId("cost-sheet");
+	expect(sheet).toHaveTextContent(/Graph pipeline costs/);
+	expect(screen.getByTestId("cost-sheet-total")).toHaveTextContent("$0.02");
+	expect(screen.getByTestId("cost-stage-extraction")).toHaveTextContent(
+		/Extraction\$0\.01371\.2k in \/ 80\.9k out/,
+	);
+	expect(screen.getByTestId("cost-stage-audit")).toHaveTextContent(
+		/Audit\$0\.010111\.7k in \/ 42\.6k out/,
+	);
+	const runs = screen.getAllByTestId("cost-run");
+	expect(runs).toHaveLength(2);
+	expect(runs[0]).toHaveTextContent("12m notes 1.md +13n$0.002");
+	await fireEvent.press(screen.getByTestId("cost-sheet-close"));
+	await waitFor(() => expect(screen.queryByTestId("cost-sheet")).toBeNull());
+});
+
+it("hides the cost number when the Mac has no recent run, as the desktop", async () => {
+	costs = ok(goodCosts(0));
+	const tab = await openGraph();
+	await tab.findByTestId("graph-canvas");
+	expect(tab.queryByTestId("graph-cost")).toBeNull();
+});
+
+it("shows one pill for each run in progress, and the seconds count up", async () => {
+	status = ok({ runs: [{ ...RUN, startedAt: Date.now() - 5000 }] });
+	const tab = await openGraph();
+	const pill = await tab.findByTestId("run-pill-chat_a");
+	expect(pill).toHaveTextContent(/Extracting.*Eigenvalues.*5s/);
+	expect(pill.props.accessibilityLabel).toBe("Extracting Eigenvalues, 5s");
+	await act(async () => {
+		await jest.advanceTimersByTimeAsync(2000);
+	});
+	expect(tab.getByTestId("run-pill-chat_a")).toHaveTextContent(/7s$/);
+});
+
+it("reads the costs and the runs again when the Mac reports activity", async () => {
+	costs = ok(goodCosts(1));
+	status = ok({ runs: [{ ...RUN, startedAt: Date.now() }] });
+	const tab = await openGraph();
+	await tab.findByTestId("run-pill-chat_a");
+	const next = goodCosts(2);
+	next.stages.audit.dollars = 1.5;
+	costs = ok(next);
+	status = ok({ runs: [] });
+	await act(async () => mac.emit("activity-changed", {}));
+	await waitFor(() => expect(tab.getByTestId("graph-cost")).toHaveTextContent("$1.51"));
+	expect(tab.queryByTestId("run-pill-chat_a")).toBeNull();
+});
+
+it("state 11: a failed costs call hides the number, the pills still show", async () => {
+	costs = { status: 500, body: { error: "fold crashed: ENOENT /Users/x" } };
+	status = ok({ runs: [{ ...RUN, startedAt: Date.now() }] });
+	const tab = await openGraph();
+	expect(await tab.findByTestId("run-pill-chat_a")).toBeTruthy();
+	expect(tab.queryByTestId("graph-cost")).toBeNull();
+	expect(tab.queryByText(/ENOENT|fold crashed/)).toBeNull();
+	expect(tab.queryByTestId("graph-error")).toBeNull();
+});
+
+it("state 11: a failed status call hides the pills, the number still shows", async () => {
+	costs = ok(goodCosts(1));
+	status = { status: 500, body: { error: "status exploded" } };
+	const tab = await openGraph();
+	expect(await tab.findByTestId("graph-cost")).toHaveTextContent("$0.02");
+	expect(tab.queryByTestId(/^run-pill-/)).toBeNull();
+	expect(tab.queryByText(/exploded/)).toBeNull();
+});
+
+it("state 11: the open cost sheet closes when a new read has no costs", async () => {
+	costs = ok(goodCosts(1));
+	const tab = await openGraph();
+	await fireEvent.press(await tab.findByTestId("graph-cost"));
+	await screen.findByTestId("cost-sheet");
+	costs = "network";
+	await act(async () => mac.emit("activity-changed", {}));
+	await waitFor(() => expect(screen.queryByTestId("cost-sheet")).toBeNull());
+	expect(tab.queryByTestId("graph-cost")).toBeNull();
+	expect(tab.getByTestId("graph-canvas")).toBeTruthy();
 });
 
 it("a failed read after a good one keeps the graph, marked not up to date (state 1)", async () => {

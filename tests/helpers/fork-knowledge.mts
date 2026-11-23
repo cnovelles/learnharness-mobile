@@ -3,7 +3,8 @@
  * tests/knowledge-golden.test.ts). It copies the fork's golden data to a
  * temporary folder and reads it through the fork's server code: the same
  * bodies that `GET /api/graph`, `/api/graph/sources` and `/api/graph/costs`
- * send. Then it runs the desktop code on these bodies, step by step as the
+ * send. Then it runs the desktop code on these bodies (also the cost panel
+ * labels of slice F), step by step as the
  * desktop components do, and prints the results as JSON. The phone test
  * compares its own model with them. The real data folder is never read.
  */
@@ -28,6 +29,8 @@ try {
 		path.join(fork, "src/core/session-navigation.ts")
 	);
 	const { DEFAULT_RENDER_SETTINGS } = await import(path.join(fork, "src/core/render-settings.ts"));
+	const costFormat = await import(path.join(fork, "src/core/graph-cost-format.ts"));
+	const { displayCostTotals } = await import(path.join(fork, "src/core/graph-view-model.ts"));
 
 	const snapshot = graphView();
 	const directory = sourceDirectory.read();
@@ -114,6 +117,24 @@ try {
 		},
 	);
 
+	// The cost number and the cost panel (graph-view.tsx GraphCostControl and
+	// GraphCostPanel), as text, at a fixed time for the run ages.
+	const COST_NOW = Date.parse("2026-11-23T12:00:00.000Z");
+	const unpriced = displayCostTotals(costs).unpricedRuns;
+	const costPanel = {
+		now: COST_NOW,
+		number: costs.runs.length > 0 ? costFormat.graphUsageLabel(costs) : null,
+		header: `${costFormat.graphUsageLabel(costs)}${unpriced > 0 ? ` · ${unpriced} unpriced` : ""}`,
+		stages: costFormat.graphCostStageRows(costs).map(([label, stage]: [string, unknown]) => {
+			const count = costFormat.stageUnpricedCount(stage);
+			return `${label} ${costFormat.stageCostLabel(stage)}${count !== null ? ` +${count} unpriced` : ""} · ${costFormat.stageTokensLabel(stage)}`;
+		}),
+		runs: costs.runs.map(
+			(run: { startedAt: number; title: string; merged?: { nodes: number } }) =>
+				`${costFormat.runTimeAgo(run.startedAt, COST_NOW)} ${run.title}${run.merged ? ` +${run.merged.nodes}n` : ""} ${costFormat.recentRunCostLabel(run)}`,
+		),
+	};
+
 	process.stdout.write(
 		JSON.stringify({
 			snapshot,
@@ -126,6 +147,7 @@ try {
 				search,
 				cards,
 				renderSettings: DEFAULT_RENDER_SETTINGS,
+				costPanel,
 			},
 		}),
 	);
