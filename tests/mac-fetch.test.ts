@@ -70,3 +70,15 @@ it("refuses when the phone is not paired, and sends nothing", async () => {
 	await expect(macFetch("/api/chats")).rejects.toThrow("This phone is not paired with a Mac.");
 	expect(calls).toHaveLength(0);
 });
+
+it("gives the session list to the mirror (issue 09), and not when the phone is not paired", async () => {
+	const list = jest.fn();
+	const pinned: PinnedFetch = async () => new Response('{"chats":[]}');
+	let state: ConnectionState = connected(connection.urls[0]!);
+	const macFetch = createMacFetch({ state: () => state }, pinned, { list, record: jest.fn() });
+	expect(await (await macFetch("/api/chats")).json()).toEqual({ chats: [] });
+	expect(list).toHaveBeenCalledWith({ chats: [] });
+	state = { status: "unpaired" } as ConnectionState;
+	await expect(macFetch("/api/chats")).rejects.toThrow("not paired");
+	expect(list).toHaveBeenCalledTimes(1);
+});

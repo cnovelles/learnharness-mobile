@@ -21,6 +21,8 @@ import { secureConnectionStore } from "./connection-store";
 import { createMacFetch } from "./mac-fetch";
 import { nativePinnedFetch } from "./native-pinned-fetch";
 import type { PinnedFetch } from "./pairing";
+import type { SessionMirror } from "@/store/mirror";
+import { phoneSessionMirror } from "@/store/phone-mirror";
 
 const MonitorContext = createContext<ConnectionMonitor | null>(null);
 export const MacFetchContext = createContext<typeof globalThis.fetch | null>(null);
@@ -29,18 +31,27 @@ export function ConnectionProvider({
 	children,
 	monitor: injected,
 	pinnedFetch,
+	mirror,
 }: {
 	children: ReactNode;
 	monitor?: ConnectionMonitor;
 	/** The pinned fetch for the Mac fetch. Default: the native module. */
 	pinnedFetch?: PinnedFetch;
+	/** The session mirror (issue 09). Default: the app's mirror; null: none. */
+	mirror?: SessionMirror | null;
 }) {
 	const [monitor] = useState(
 		() =>
 			injected ??
 			createConnectionMonitor({ store: secureConnectionStore, fetchImpl: nativePinnedFetch() }),
 	);
-	const [macFetch] = useState(() => createMacFetch(monitor, pinnedFetch ?? nativePinnedFetch()));
+	const [macFetch] = useState(() =>
+		createMacFetch(
+			monitor,
+			pinnedFetch ?? nativePinnedFetch(),
+			mirror === undefined ? phoneSessionMirror() : mirror,
+		),
+	);
 	// The monitor lives as long as the app. Start it once, even when React
 	// runs the effect twice in development.
 	const started = useRef(false);

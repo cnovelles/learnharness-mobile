@@ -838,6 +838,73 @@ Blocked by: 04.
 - Outbox table for changes made on the phone.
   Acceptance: adapter unit tests for each port; golden fixtures load and project the same view as upstream `projectView`.
 
+### Facts (fork `0a9bb9d`, read 2026-11-23)
+
+- The ports are in `../learnharness/src/core/ports.ts`. They are synchronous (the fs adapters in `src/store/` use sync fs). `expo-sqlite` 58.0.17 (the version in `expo/bundledNativeModules.json` for SDK 58) has a sync API: `openDatabaseSync`, `execSync`, `runSync`, `getAllSync`, `getFirstSync`, `withTransactionSync`. So the phone adapters can implement the ports as they are.
+- Each `LhMessage` has an `id`. The golden teach record has 95 messages; the largest real session has 407 messages (2.1 MB).
+- `ChatStore.listChats()` derives `phase`, `pendingQuestion`, `pendingProblem`, `problemCount` and `messageCount` from the full messages each time. The summary index stores these values when a record is written.
+- `GET /api/graph` sends the merged snapshot (`propositions`, `chains`), not the raw ledger lines. Coverage and checkpoints are not in it.
+- The phone reads sessions through one function, `createMacFetch` (`src/lib/mac-fetch.ts`). The shared `SessionModel` reads `GET /api/chats/:id` through it too.
+- Node 22.23 (`.nvmrc`) has `node:sqlite` (`DatabaseSync`). It works under Jest (checked 2026-11-23), so Jest can run the adapters on a real SQLite with no new dependency.
+
+### Decisions (user, 2026-11-23, from the plan)
+
+- SQLite library: `expo-sqlite` (~58.0.17, the Expo SDK module).
+- Ports with SQLite adapters now: ChatStore, GraphStore, JobStore, SettingsStore.
+- The mode 1 and 2 mirror copies sessions only. The graph ledgers come with issue 10 sync.
+- The mirror is on by default. It turns itself off when the native module is missing.
+
+### Slices (plan, 2026-11-23, accepted by the user)
+
+Code goes in a new folder `src/store/`. Nothing in it imports React or the screens.
+
+**A. Database and schema.** `src/store/sql.ts`: a small `SqlDatabase` interface (exec, run, all, first, transaction). Two implementations: `expo-sqlite` on the phone, `node:sqlite` in Jest. `src/store/schema.ts`: `PRAGMA journal_mode = WAL`, `foreign_keys = ON`, migrations by `PRAGMA user_version`. Tables:
+
+| Table                                                                | Key                                      | Columns                                                                                                                                                                   |
+| -------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chats`                                                              | `id`                                     | `title`, `kind`, `created_at`, `updated_at`, `version`, `settings_json`, `tree_json`, `turns_json`, `extractions_json`, `side_chats_json`, `origin` (`local` or `mirror`) |
+| `messages`                                                           | `(chat_id, seq)`, unique `(chat_id, id)` | `id`, `role`, `json` (one row per message)                                                                                                                                |
+| `chat_summaries`                                                     | `chat_id`                                | `title`, `kind`, `created_at`, `updated_at`, `message_count`, `phase`, `pending_question`, `pending_problem`, `problem_count`, `settings_json` (the summary index)        |
+| `image_snapshots`                                                    | `(chat_id, snapshot_id)`                 | `mime_type`, `width`, `height`; the bytes are a file `images/<snapshot_id>.<ext>`                                                                                         |
+| `graph_nodes`, `graph_chains`, `graph_checkpoints`, `graph_coverage` | `seq` (append order)                     | `json`; `graph_nodes` also has a unique `id`                                                                                                                              |
+| `graph_sources`                                                      | `id`                                     | `json`                                                                                                                                                                    |
+| `graph_positions`                                                    | `node_id`                                | `x`, `y`                                                                                                                                                                  |
+| `jobs`                                                               | `id`                                     | `chat_id`, `tool_call_id`, `updated_at`, `json`                                                                                                                           |
+| `settings`                                                           | one row                                  | `json`                                                                                                                                                                    |
+| `outbox`                                                             | `seq`                                    | `entity`, `entity_id`, `op` (`put` or `delete`), `content_hash`, `created_at`, `attempts`; unique `(entity, entity_id)`                                                   |
+| `tombstones`                                                         | `(entity, entity_id)`                    | `deleted_at`                                                                                                                                                              |
+
+**B. ChatStore adapter.** `src/store/chat-store.ts` implements `ChatStore` with the same rules as the fs adapter: a new id format `chat_<base36>_<8 hex>`, rename and settings do not change `updatedAt`, usage appends are idempotent (turn id, `startedAt`), a record with a newer `version` reads as absent, the image snapshot id must be the SHA-256 of the bytes. `saveMessages` compares the new list with the stored rows and writes only the changed rows and the new tail, in one transaction with the summary index. `listChats` reads only `chat_summaries`. Images are files (`expo-file-system`), and the row is written after the file.
+
+**C. GraphStore, JobStore and SettingsStore adapters.** Same behavior as the fs adapters: append order kept, `rewriteLedgers` in one transaction, `upsertSource` keeps the usage log, `appendSourceUsage` is idempotent. `AuthStore` is not in SQLite: API keys go to the Keychain (issue 12). Theme, prompt override, plugin and source organization stores stay desktop-only for now.
+
+**D. Outbox.** Each local write through a port adds or updates one outbox row for the changed entity (`chat`, `job`, `settings`, each graph ledger line, a source, the positions) in the same transaction. One pending row for each entity: a second change adds 1 to its `revision` (built: a revision number, not the content hash of the first plan; a hash of a 2 MB session on each turn costs too much, so issue 10 makes the hash at send time). `confirm(entity, id, revision)` removes the row only when the revision is the same, so a change made during a send stays in the outbox. A delete adds a tombstone and a `delete` row; `rewriteLedgers` replaces the waiting lines of that ledger with one `rewrite` row. API for issue 10: `pending()`, `count()`, `confirm()`, `markAttempt()`, `has()`. The send and the merge are issue 10.
+
+**E. Mirror for mode 1 and 2.** `src/store/mirror.ts` writes what the Mac sends, with no outbox rows (the Mac already has it). One hook in `createMacFetch`: after a successful `GET /api/chats` or `GET /api/chats/:id`, a clone of the response goes to the mirror after the screen has its data. The list upserts summaries; a mirrored session that is not in the Mac's list any more is removed, but never a session with a pending outbox row. The screens do not change in this issue: they still read the Mac. If the native module is missing (an old dev build) or a write fails, the mirror turns off for this app run and logs it; the screen never sees a store error.
+
+**F. Golden parity.** A helper script reads the fork's golden data through the fork's own fs stores (`listChats`, `getChat`, the graph reads) and prints JSON. The test loads a copy of the golden data into SQLite through the adapters and expects: the same `listChats()`, the same records, `projectView(messages)` equal to upstream `projectView` of the fixture messages, and the same graph reads and `getGraph` result. The test never reads the user's real data folder.
+
+### Error states
+
+| Error state                                         | What happens                                               | Message                                                                                  |
+| --------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| The SQLite native module is missing (old dev build) | Mirror off for this run, logged                            | none (no screen change)                                                                  |
+| The database does not open or a migration fails     | Mirror off, logged; the app works from the Mac             | none in this issue; issue 11 shows "The phone cannot open its saved data." before mode 3 |
+| A write fails (disk full, constraint)               | The transaction rolls back; nothing half written           | none in this issue                                                                       |
+| A record has a newer schema version                 | Reads as absent, never rewritten                           | (issue 10 shows "Update the app to read this session.")                                  |
+| An image snapshot id does not match its bytes       | Refused with an error, no row                              | none (programmer error)                                                                  |
+| An image file is missing for a row                  | The row reads as absent                                    | none                                                                                     |
+| The Mac sends a bad list or record body             | The mirror skips it (the parse is shared with the screens) | the screens keep their present messages                                                  |
+
+Each state gets a test. Messages for the screens come later (issue 11 and 12), through `userMessage`.
+
+### State (2026-11-23, built on branch `feat/09-local-store`)
+
+- Slices A to F are built in `src/store/`: `sql.ts` (the seam), `expo-sql.ts`, `schema.ts`, `chat-store.ts`, `graph-store.ts`, `job-store.ts`, `settings-store.ts`, `outbox.ts`, `image-files.ts`, `phone-image-files.ts`, `local-store.ts`, `mirror.ts`, `mirror-fetch.ts`, `phone-mirror.ts`. The hook is the new `mirror` argument of `createMacFetch`; `ConnectionProvider` passes the app's mirror.
+- Tests: `tests/store/` (chat store, outbox, graph, job and settings stores, schema and WAL, mirror and its fetch hook, golden parity) and one new test in `tests/mac-fetch.test.ts`. Jest runs the adapters on `node:sqlite` (`tests/helpers/node-sql.ts`).
+- The mirror logs with `console.log`, not `console.warn`: a warning shows the dev build toast, which covers buttons in the Maestro flows.
+- Not done: no dev build with `expo-sqlite` yet, so the store has not run on a Simulator or the iPhone. Until the rebuild, the mirror stays off there (the native module is missing) and the app works as before. The write time on the iPhone is not measured.
+
 ## 10 Sync `todo`
 
 Blocked by: 09.
