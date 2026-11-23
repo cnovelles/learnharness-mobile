@@ -6,9 +6,13 @@
  *   desktop does (fork components/artifacts/svg-image.tsx): scripts in the
  *   SVG never run, and an SVG image loads nothing. The page has no script
  *   source; only the app's injected script runs.
- * - The demo page is the model's HTML after our own doctype and CSP. A CSP
- *   in the demo can only add limits. The lock script runs before the page's
- *   own scripts (`injectedJavaScriptBeforeContentLoaded`).
+ * - The demo runs in a frame with `sandbox="allow-scripts"` (as the desktop's
+ *   iframe): no `allow-modals`, so WebKit blocks `alert`, `confirm` and
+ *   `prompt` in the frame and in every frame under it; no
+ *   `allow-same-origin`, so the frame has an opaque origin. The frame's own
+ *   document starts with our doctype, our CSP (a CSP in the demo can only
+ *   add limits) and the lock script, before the first byte of the model
+ *   HTML.
  */
 import { ARTIFACT_CDN_HOSTS } from "./artifacts";
 import { svgImageSource } from "./shared";
@@ -47,16 +51,25 @@ const FIXED = "width=device-width, initial-scale=1, maximum-scale=1, user-scalab
 /** The full-screen viewer: the learner can pinch the page. */
 const ZOOM = "width=device-width, initial-scale=1, maximum-scale=6, user-scalable=yes";
 
+const escapeAttr = (text: string) =>
+	text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
 /**
- * The demo page. The head stays open, so the demo's own head elements go
- * into it; the parser ignores the demo's own doctype and `<head>` tag. The
- * white background is the desktop's (the iframe has `bg-white`).
+ * The demo page: the app's own page with one sandboxed frame. The frame's
+ * document keeps its head open, so the demo's own head elements go into it;
+ * the parser ignores the demo's own doctype and `<head>` tag. The white
+ * background is the desktop's (the iframe has `bg-white`).
  */
 export function demoPage(html: string): string {
+	const inner =
+		`<!doctype html><html><head>${meta(DEMO_CSP, "width=device-width, initial-scale=1")}` +
+		`<script>${DEMO_LOCK_SCRIPT}</script><style>html{background:#fff}</style>` +
+		html;
 	return (
 		`<!doctype html><html><head>${meta(DEMO_CSP, "width=device-width, initial-scale=1")}` +
-		`<style>html{background:#fff}</style>` +
-		html
+		`<style>html,body{margin:0;padding:0;height:100%;background:#fff}` +
+		`iframe{display:block;border:0;width:100%;height:100%;background:#fff}</style></head>` +
+		`<body><iframe sandbox="allow-scripts" srcdoc="${escapeAttr(inner)}"></iframe></body></html>`
 	);
 }
 
@@ -83,11 +96,12 @@ export function figurePage(
 }
 
 /**
- * Runs before the demo's own scripts. It turns off the native alert,
- * confirm and prompt panels (react-native-webview shows them over the app),
- * removes WebRTC (the CSP does not cover it), and reports page errors to
- * the app. The names are locked, so the page cannot put them back; the CSP
- * blocks frames, so the page cannot get a clean copy from a frame.
+ * The first script of the demo frame, before the demo's own scripts. It
+ * reports page errors to the app's page (`DEMO_SCRIPT` forwards them). As a
+ * second layer it also locks `alert`, `confirm` and `prompt` (the sandbox
+ * blocks them) and removes WebRTC (the CSP does not cover it). A child
+ * frame of the demo gets fresh copies, so this lock alone is not a guard:
+ * see the review, section 7.
  */
 export const DEMO_LOCK_SCRIPT = `(function () {
 	var w = window;
@@ -102,15 +116,14 @@ export const DEMO_LOCK_SCRIPT = `(function () {
 	["RTCPeerConnection", "webkitRTCPeerConnection", "RTCDataChannel", "RTCRtpSender",
 	 "RTCRtpReceiver", "RTCRtpTransceiver", "RTCIceCandidate", "RTCSessionDescription"]
 		.forEach(function (name) { lock(name, undefined); });
-	var bridge = null;
+	var parent = w.parent;
 	var seen = {};
 	function send(text) {
 		text = String(text).slice(0, 2000);
 		if (seen[text]) return;
 		seen[text] = true;
 		try {
-			bridge = bridge || w.ReactNativeWebView;
-			if (bridge) bridge.postMessage(JSON.stringify({ type: "page-error", text: text }));
+			parent.postMessage({ type: "lh-demo-error", text: text }, "*");
 		} catch (e) {}
 	}
 	try {
@@ -135,13 +148,25 @@ export const DEMO_LOCK_SCRIPT = `(function () {
 function afterLoadScript(target: "figure" | "demo"): string {
 	return `(function () {
 	var bridge = window.ReactNativeWebView;
-	var root = ${target === "figure" ? 'document.getElementById("root")' : "document.documentElement"};
+	var root = ${target === "figure" ? 'document.getElementById("root")' : 'document.querySelector("iframe")'};
 	function apply(data) {
 		if (data && typeof data === "object")
 			root.style.filter = data.inverted === true ? "invert(1) hue-rotate(180deg)" : "";
 	}
 	apply(window.__lhIslandData);
-	function onMessage(event) {
+	function onMessage(event) {${
+		target === "demo"
+			? `
+		// The demo frame's error report. Only the frame itself, not a frame under it.
+		if (event.source && event.source === root.contentWindow) {
+			var m = event.data;
+			if (m && m.type === "lh-demo-error" && typeof m.text === "string" && bridge)
+				bridge.postMessage(JSON.stringify({ type: "page-error", text: m.text.slice(0, 2000) }));
+			return;
+		}
+		if (event.source) return;`
+			: ""
+	}
 		try { apply(JSON.parse(event.data)); } catch (e) {}
 	}
 	window.addEventListener("message", onMessage);

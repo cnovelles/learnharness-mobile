@@ -29,13 +29,7 @@ import {
 	type Artifact,
 	type ArtifactWhat,
 } from "@/lib/artifacts";
-import {
-	DEMO_LOCK_SCRIPT,
-	DEMO_SCRIPT,
-	FIGURE_SCRIPT,
-	demoPage,
-	figurePage,
-} from "@/lib/artifact-html";
+import { DEMO_SCRIPT, FIGURE_SCRIPT, demoPage, figurePage } from "@/lib/artifact-html";
 import { embedLearnerImage } from "@/lib/shared";
 import { userMessage, type UserMessage } from "@/lib/user-error";
 
@@ -518,7 +512,6 @@ function DemoCard({
 								key={run}
 								html={page}
 								script={DEMO_SCRIPT}
-								beforeScript={DEMO_LOCK_SCRIPT}
 								data={data}
 								live
 								fill

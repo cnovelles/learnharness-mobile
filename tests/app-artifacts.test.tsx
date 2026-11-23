@@ -14,7 +14,7 @@ import {
 	type ArtifactActions,
 } from "@/components/artifact-card";
 import { createIslandViewport, IslandViewportContext } from "@/components/island-viewport";
-import { DEMO_CSP, DEMO_LOCK_SCRIPT, FIGURE_CSP } from "@/lib/artifact-html";
+import { DEMO_CSP, FIGURE_CSP } from "@/lib/artifact-html";
 import type { Artifact } from "@/lib/artifacts";
 
 import {
@@ -264,10 +264,15 @@ describe("the demo", () => {
 		await act(async () => fireEvent.press(screen.getByTestId("artifact-sa_m1-run")));
 		const w = only();
 		expect((w.props.source as { html: string }).html).toContain(`content="${DEMO_CSP}"`);
-		expect((w.props.source as { html: string }).html.endsWith("<p>demo</p>")).toBe(true);
-		expect(String(w.props.injectedJavaScriptBeforeContentLoaded).startsWith(DEMO_LOCK_SCRIPT)).toBe(
-			true,
-		);
+		const html = (w.props.source as { html: string }).html;
+		expect(html).toContain('<iframe sandbox="allow-scripts" srcdoc="');
+		expect(html).toContain("&lt;p>demo&lt;/p>&quot;></iframe>".replace("&quot;>", '">'));
+		const allow = w.props.onShouldStartLoadWithRequest as (r: {
+			url: string;
+			isTopFrame: boolean;
+		}) => boolean;
+		expect(allow({ url: "about:srcdoc", isTopFrame: false })).toBe(true);
+		expect(allow({ url: "https://cdn.jsdelivr.net/", isTopFrame: false })).toBe(false);
 		expect(w.props.mediaCapturePermissionGrantType).toBe("deny");
 		// Done closes the sheet and ends the WebView.
 		await act(async () => fireEvent.press(screen.getByTestId("artifact-sa_m1-done")));

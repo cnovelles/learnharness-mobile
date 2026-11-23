@@ -47,11 +47,12 @@ export function islandDataScript(data: object): string {
 }
 
 /**
- * The page's own HTML loads as `about:blank` in the top frame. Every other
- * load is refused, also a frame's (issue 19: a demo page could make frames).
+ * The page's own HTML loads as `about:blank` in the top frame. A frame may
+ * load only `about:srcdoc` (the demo's sandboxed frame, issue 19): no fetch,
+ * no network. Every other load is refused.
  */
 export function allowIslandLoad(url: string, isTopFrame = true): boolean {
-	return isTopFrame && url === "about:blank";
+	return isTopFrame ? url === "about:blank" : url === "about:srcdoc";
 }
 
 export type WebIslandProps = {
@@ -70,8 +71,6 @@ export type WebIslandProps = {
 	onMessage?: (message: IslandMessage) => void;
 	/** The island cannot load: show the fallback. */
 	onFail: () => void;
-	/** Runs before the page's own scripts, before the data script (issue 19). */
-	beforeScript?: string;
 	/** A message that is not an island message (issue 19: the demo's own). */
 	onOtherMessage?: (raw: string) => void;
 	/** The full-screen viewer: fill the space, scroll and zoom in the page,
@@ -91,7 +90,6 @@ export function WebIsland({
 	onHeight,
 	onMessage,
 	onFail,
-	beforeScript = "",
 	onOtherMessage,
 	fill = false,
 	testID,
@@ -172,7 +170,7 @@ export function WebIsland({
 				source={{ html }}
 				originWhitelist={["*"]}
 				injectedJavaScript={script}
-				injectedJavaScriptBeforeContentLoaded={beforeScript + islandDataScript(load.data)}
+				injectedJavaScriptBeforeContentLoaded={islandDataScript(load.data)}
 				onMessage={handleMessage}
 				onLoadEnd={() => {
 					loaded.current = true;

@@ -6,22 +6,53 @@
 import { runInNewContext } from "node:vm";
 
 import { allowIslandLoad } from "@/components/web-island";
-import { DEMO_CSP, DEMO_LOCK_SCRIPT, FIGURE_CSP, demoPage, figurePage } from "@/lib/artifact-html";
+import {
+	DEMO_CSP,
+	DEMO_LOCK_SCRIPT,
+	DEMO_SCRIPT,
+	FIGURE_CSP,
+	demoPage,
+	figurePage,
+} from "@/lib/artifact-html";
 
 const cspOf = (page: string) =>
 	/http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(page)?.[1];
 
+/** The inner document of the demo page (the sandboxed frame's srcdoc). */
+const innerOf = (page: string) => {
+	const m = /<iframe sandbox="allow-scripts" srcdoc="([^"]*)"><\/iframe>/.exec(page);
+	expect(m).not.toBeNull();
+	return m![1]!
+		.replace(/&quot;/g, '"')
+		.replace(/&lt;/g, "<")
+		.replace(/&amp;/g, "&");
+};
+
 describe("demoPage", () => {
-	it("puts the CSP before the first byte of the model HTML", () => {
+	it("runs the demo in a frame with the scripts-only sandbox (no modals, no same origin)", () => {
+		const page = demoPage("<p>x</p>");
+		expect(cspOf(page)).toBe(DEMO_CSP);
+		expect(page.match(/<iframe /g)).toHaveLength(1);
+		expect(page).toContain('<iframe sandbox="allow-scripts" srcdoc="');
+	});
+
+	it("puts its own CSP and the lock script before the first byte of the model HTML", () => {
 		const html =
-			'<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src *"></head><body>x</body></html>';
-		const page = demoPage(html);
-		expect(page.endsWith(html)).toBe(true);
-		const head = page.slice(0, page.length - html.length);
+			'<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src *"></head><body>"&<x></body></html>';
+		const inner = innerOf(demoPage(html));
+		expect(inner.endsWith(html)).toBe(true);
+		const head = inner.slice(0, inner.length - html.length);
 		expect(head.startsWith("<!doctype html>")).toBe(true);
 		expect(cspOf(head)).toBe(DEMO_CSP);
-		// The first CSP in the page is ours.
-		expect(cspOf(page)).toBe(DEMO_CSP);
+		expect(head).toContain(`<script>${DEMO_LOCK_SCRIPT}</script>`);
+		// The first CSP in the frame is ours.
+		expect(cspOf(inner)).toBe(DEMO_CSP);
+	});
+
+	it("keeps the model HTML inside the srcdoc attribute", () => {
+		const page = demoPage('"></iframe><script>top.x()</script>');
+		expect(page).not.toContain("<script>top.x()");
+		expect(page.match(/<\/iframe>/g)).toHaveLength(1);
 	});
 
 	it("allows only inline code and the 3 CDN hosts", () => {
@@ -71,7 +102,7 @@ describe("figurePage", () => {
 
 /** Runs the lock script in a fake page and returns the page. */
 function lockedPage() {
-	const sent: string[] = [];
+	const sent: unknown[] = [];
 	const listeners: Record<string, ((e: unknown) => void)[]> = {};
 	const original = { alert: jest.fn(), confirm: jest.fn(() => true), prompt: jest.fn(() => "pw") };
 	const page: Record<string, unknown> = {
@@ -79,7 +110,8 @@ function lockedPage() {
 		RTCPeerConnection: function RTCPeerConnection() {},
 		webkitRTCPeerConnection: function webkit() {},
 		RTCDataChannel: function channel() {},
-		ReactNativeWebView: { postMessage: (s: string) => sent.push(s) },
+		// The frame's parent: the app's own page (DEMO_SCRIPT forwards the message).
+		parent: { postMessage: (m: unknown, origin: string) => sent.push([m, origin]) },
 		addEventListener: (type: string, fn: (e: unknown) => void) => {
 			(listeners[type] ??= []).push(fn);
 		},
@@ -119,12 +151,13 @@ describe("DEMO_LOCK_SCRIPT", () => {
 		fire("unhandledrejection", { reason: { message: "async fail" } });
 		// A resource that does not load (a CDN file offline): no message text.
 		fire("error", { target: { src: "https://cdn.jsdelivr.net/npm/d3" } });
-		const messages = sent.map((s) => JSON.parse(s) as { type: string; text: string });
-		expect(messages[0]).toEqual({ type: "page-error", text: "x is not defined" });
+		expect(sent.every((s) => (s as [unknown, string])[1] === "*")).toBe(true);
+		const messages = sent.map((s) => (s as [{ type: string; text: string }])[0]);
+		expect(messages[0]).toEqual({ type: "lh-demo-error", text: "x is not defined" });
 		expect(messages[1]!.text).toHaveLength(2000);
-		expect(messages[2]).toEqual({ type: "page-error", text: "async fail" });
+		expect(messages[2]).toEqual({ type: "lh-demo-error", text: "async fail" });
 		expect(messages[3]).toEqual({
-			type: "page-error",
+			type: "lh-demo-error",
 			text: "A file did not load: https://cdn.jsdelivr.net/npm/d3",
 		});
 	});
@@ -138,12 +171,56 @@ describe("DEMO_LOCK_SCRIPT", () => {
 });
 
 describe("allowIslandLoad", () => {
-	it("allows only the page's own top-frame load", () => {
+	it("allows only the page's own load and srcdoc frames", () => {
 		expect(allowIslandLoad("about:blank")).toBe(true);
 		expect(allowIslandLoad("about:blank", true)).toBe(true);
 		expect(allowIslandLoad("about:blank", false)).toBe(false);
-		expect(allowIslandLoad("about:srcdoc", false)).toBe(false);
+		// The demo's own sandboxed frame (srcdoc): no fetch, no network.
+		expect(allowIslandLoad("about:srcdoc", false)).toBe(true);
+		expect(allowIslandLoad("about:srcdoc", true)).toBe(false);
 		expect(allowIslandLoad("https://cdn.jsdelivr.net/", true)).toBe(false);
 		expect(allowIslandLoad("https://example.com/", false)).toBe(false);
+	});
+});
+
+describe("DEMO_SCRIPT", () => {
+	/** Runs the app's after-load script in a fake outer page with one frame. */
+	function outerPage() {
+		const sent: string[] = [];
+		const listeners: ((e: { source: unknown; data: unknown }) => void)[] = [];
+		const frameWindow = {};
+		const frame = { contentWindow: frameWindow, style: { filter: "" } };
+		const page: Record<string, unknown> = {
+			ReactNativeWebView: { postMessage: (s: string) => sent.push(s) },
+			__lhIslandData: { inverted: true },
+			addEventListener: (_type: string, fn: (e: { source: unknown; data: unknown }) => void) =>
+				listeners.push(fn),
+		};
+		page.window = page;
+		page.document = {
+			querySelector: () => frame,
+			addEventListener: () => {},
+			documentElement: {},
+		};
+		runInNewContext(DEMO_SCRIPT, page);
+		const fire = (source: unknown, data: unknown) =>
+			listeners.forEach((fn) => fn({ source, data }));
+		return { sent, fire, frame, frameWindow };
+	}
+
+	it("forwards the frame's error message, and nothing from other sources", () => {
+		const { sent, fire, frameWindow } = outerPage();
+		fire(frameWindow, { type: "lh-demo-error", text: "boom" });
+		fire({}, { type: "lh-demo-error", text: "from a nested frame" });
+		fire(frameWindow, { type: "other" });
+		fire(frameWindow, { type: "lh-demo-error", text: 3 });
+		expect(sent.map((s) => JSON.parse(s))).toEqual([{ type: "page-error", text: "boom" }]);
+	});
+
+	it("inverts the frame from the data and from each app message", () => {
+		const { fire, frame } = outerPage();
+		expect(frame.style.filter).toBe("invert(1) hue-rotate(180deg)");
+		fire(null, JSON.stringify({ inverted: false }));
+		expect(frame.style.filter).toBe("");
 	});
 });
