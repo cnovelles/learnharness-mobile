@@ -101,6 +101,31 @@ export type {
 	Position,
 	ProvenancePoint,
 } from "@lh/src/core/contracts/graph";
+// Session stats (issue 08 slice E): the desktop stats bar strings and the
+// session usage folds. Import the files directly.
+export {
+	catalogLimits,
+	contextLimitForModel,
+	formatContextMeasurement,
+	formatTokens,
+	formatUsd,
+	planCostLabel,
+	prettyModel,
+} from "@lh/src/core/usage-format";
+export {
+	sessionCacheHitRate,
+	subscriptionLabel,
+	subscriptionLabels,
+	type SessionPricing,
+} from "@lh/src/core/prices";
+export type { ChatSettings, TurnUsage } from "@lh/src/core/contracts/chat";
+// The stats bar strings: the desktop stats bar uses the same function.
+export {
+	sessionStatsSummary,
+	type SessionStatsInput,
+	type SessionStatsSummary,
+	type SessionStatsTurn,
+} from "@lh/src/core/session-stats";
 // The Graph tab (issue 08): the desktop chain rows, the graph view helpers,
 // the canvas math and the session links. Import the files directly: the
 // src/core barrel brings node:crypto.
@@ -162,28 +187,3 @@ export {
 	propositionSessionHref,
 } from "@lh/src/core/session-navigation";
 export type { GraphCostSummary, RecentRun, StageCost } from "@lh/src/core/cost-summary";
-// Session stats (issue 08 slice E): the desktop stats bar strings and the
-// session usage folds. Import the files directly.
-export {
-	catalogLimits,
-	contextLimitForModel,
-	formatContextMeasurement,
-	formatTokens,
-	formatUsd,
-	planCostLabel,
-	prettyModel,
-} from "@lh/src/core/usage-format";
-export {
-	sessionCacheHitRate,
-	subscriptionLabel,
-	subscriptionLabels,
-	type SessionPricing,
-} from "@lh/src/core/prices";
-export type { ChatSettings, TurnUsage } from "@lh/src/core/contracts/chat";
-// The stats bar strings: the desktop stats bar uses the same function.
-export {
-	sessionStatsSummary,
-	type SessionStatsInput,
-	type SessionStatsSummary,
-	type SessionStatsTurn,
-} from "@lh/src/core/session-stats";

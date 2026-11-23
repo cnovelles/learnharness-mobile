@@ -23,13 +23,13 @@ rich-lesson|e2e/rich-lesson.yaml|LH_E2E_RICH=1
 wide-content|e2e/wide-content.yaml|LH_E2E_RICH=1
 practice|e2e/practice.yaml|
 open-long|e2e/open-long-session.yaml|LH_E2E_GOLDEN=1 LH_E2E_MATH=1
+session-stats|e2e/session-stats.yaml|LH_E2E_GOLDEN=1
 teach-shelf|e2e/teach-shelf.yaml|LH_E2E_GOLDEN=1 LH_E2E_SHELF=1
 teach-folders|e2e/teach-folders.yaml|LH_E2E_GOLDEN=1 LH_E2E_SHELF=1
 practice-shelf|e2e/practice-shelf.yaml|LH_E2E_GOLDEN=1 LH_E2E_PRACTICE_SHELF=1
 tabs|e2e/tabs.yaml|LH_E2E_GOLDEN=1 LH_E2E_SHELF=1 LH_E2E_PRACTICE_SHELF=1
 graph-open|e2e/graph-open-message.yaml|LH_E2E_GOLDEN=1 LH_E2E_LINK=1
 graph-chains|e2e/graph-chains.yaml|LH_E2E_GOLDEN=1 LH_E2E_SHELF=1 LH_E2E_LINK=1 LH_E2E_CHAIN_BIRTH=1
-session-stats|e2e/session-stats.yaml|LH_E2E_GOLDEN=1
 "
 # Flows that run only by name. "dictation" needs Metro with the scripted text:
 # EXPO_PUBLIC_LH_E2E_DICTATION_TEXT="The Moon makes two bulges." npx expo start --clear
