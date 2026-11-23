@@ -64,6 +64,11 @@
  * <session>" in the Chains screen (issue 08 slice D). The golden graph has
  * no chain that was born in a session that still exists.
  *
+ * LH_E2E_RUN=1 starts one notes import ("notes/pipeline run.md") and holds
+ * it in the "extracting" phase: the scripted extractor streams its text
+ * slowly (about 15 minutes). The Graph tab then shows one run pill (issue
+ * 08 slice F). The run ends when the test Mac stops.
+ *
  * LH_E2E_GATEWAY_HOST=<IPv4> makes the gateway listen on that address and
  * puts only that address in the pairing text (default 127.0.0.1). Use the
  * Mac's Tailscale address (100.x) to check the phone's App Transport
@@ -355,6 +360,10 @@ async function main() {
 				},
 				{ text: LESSON.afterCheck },
 			],
+			// LH_E2E_RUN=1: an extraction that stays in "extracting" (slice F).
+			...(process.env.LH_E2E_RUN === "1"
+				? { extractor: [{ text: "x".repeat(900), chunkSize: 1, chunkDelayMs: 1000 }] }
+				: {}),
 			practitioner: [
 				{
 					text: PRACTICE.intro,
@@ -417,6 +426,7 @@ async function main() {
 	};
 	await putModels(MODELS);
 	if (process.env.LH_E2E_SHELF === "1") await addShelf(server.url, json);
+	if (process.env.LH_E2E_RUN === "1") startHeldRun(server.url);
 	await fetch(`${server.url}/api/settings/graph`, {
 		method: "PUT",
 		headers: json,
@@ -469,7 +479,11 @@ async function main() {
 		fs.rmSync(PAIRING_FILE, { force: true });
 		fs.rmSync(CONTROL_FILE, { force: true });
 		control.close();
+		// The held import of LH_E2E_RUN=1 must not keep the server busy.
+		heldRun.abort();
+		console.log("Stopping the gateway…");
 		await gateway.stop();
+		console.log("Stopping the fork server…");
 		await server.stop();
 		await fake.close();
 		process.exit(0);
@@ -482,6 +496,38 @@ main().catch((e: unknown) => {
 	console.error(e);
 	process.exit(1);
 });
+
+/**
+ * LH_E2E_RUN=1: one notes import that the scripted extractor holds. The
+ * import request ends only with the run, so the script does not wait for it.
+ */
+const heldRun = new AbortController();
+
+function startHeldRun(url: string) {
+	const form = new FormData();
+	form.append("files", new Blob(["# Pipeline run\n\nA note for the run pill."]), "pipeline run.md");
+	form.append("paths", "notes/pipeline run.md");
+	fetch(`${url}/api/graph/import`, {
+		method: "POST",
+		headers: DESKTOP,
+		body: form,
+		signal: heldRun.signal,
+	}).then(
+		(res) => console.log(`[run] the held import ended: ${res.status}`),
+		(e: unknown) => console.log(`[run] the held import stopped: ${String(e)}`),
+	);
+	// A log line for the run check: the phase of the held run.
+	setTimeout(() => {
+		fetch(`${url}/api/graph/status`, { headers: DESKTOP })
+			.then((res) => res.json() as Promise<{ runs: { title: string; phase: string }[] }>)
+			.then(({ runs }) =>
+				console.log(
+					`[run] runs in progress: ${runs.map((r) => `${r.phase} ${r.title}`).join(", ")}`,
+				),
+			)
+			.catch((e: unknown) => console.log(`[run] no status: ${String(e)}`));
+	}, 5000);
+}
 
 /** The Teach tab data of LH_E2E_SHELF=1, through the desktop API. */
 async function addShelf(url: string, headers: Record<string, string>) {

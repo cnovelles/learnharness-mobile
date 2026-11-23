@@ -45,6 +45,8 @@ Last update: 2026-11-23 (issue 08 in the Graph tab, D-016. Slices B and C1 are d
   - Issue 03 (commits `38b25db`, `41714af` and the follow-up): session list, new session, session screen with streaming, question dock, events channel. Jest 159 pass; `npm run test:integration` (4 tests) runs the phone code against the real fork server; CI has a new `integration` job. Details in `docs/ISSUES.md` (issue 03 State).
   - **Metro on this Mac does not see file changes** (no watchman, and the fallback watcher missed new and changed files). After a change, stop Metro, start it again with `npx expo start --clear`, and reload the app. In the Simulator, typing with the simulator tool is more reliable than the Paste menu.
 
+**Issue 08 slice F (2026-11-23, side session `local_7323e6ae`):** the pipeline cost on the Graph tab is built on branch `feat/08-f-pipeline-cost` (its own PR, not merged yet): the cost number, the cost sheet and the run pills, with the labels from the fork `src/core/graph-cost-format.ts` (fork `7a23c03`, pushed). Details in `docs/ISSUES.md` issue 08 slice F.
+
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
 **Decision log:** `docs/DECISIONS.md` (D-001 to D-012, user request 2026-11-18): the problem, how it was found, the options, the choice, and the validation of each big decision for the phone and the fork. Add an entry for each new big decision (AGENTS.md "Decisions").
