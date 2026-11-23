@@ -754,7 +754,7 @@ User decision 2026-11-18: add this issue after the walkthrough numbers. The app 
 
 Other walkthrough findings go to the issue of their screen: the native network error text is not mapped in `describeError` and a failed send does not call `monitor.check()`; the refresh spinner shows on each tab focus; small rough edges (empty session hint, plan sheet close tap, SE placeholder wraps, "Forget this Mac" blank second, "+" field focus).
 
-## 22 Rebrand: LearnHarness to LearnLoop `todo`
+## 22 Rebrand: LearnHarness to OrbiTutor `todo`
 
 User request 2026-11-23: after the current work, rename the app from LearnHarness to LearnLoop, with a new color scheme and a new logo. Do not start before issue 08 is done.
 
@@ -788,6 +788,14 @@ Risks with a guard each (details in the plan):
 - Plugins: package names and the plugin API reference (rebuild it).
 - The `../learnharness` paths in the phone repo, the GitHub repo names, the remotes, the claims file and the memory.
 
+Name and phase A (user and side session `local_d7c35fba`, 2026-11-23). Report: `docs/reviews/2026-11-23-rebrand-proof.md`.
+
+- The name is **OrbiTutor**. "LEARNLOOP" is a registered US trademark for educational software, so LearnLoop is rejected. Forms: `OrbiTutor` (display), `orbitutor` (code, packages), `ORBITUTOR` (constants). The new bundle id is `dev.local.orbitutormobile`. Read "LearnLoop" in the text above as "OrbiTutor".
+- Upstream sync: method (b) above (codemod on the new tag, then merge) does NOT remove the name conflicts (12 files, one more than a plain merge). Use method (b2): a renamed upstream line made with `commit-tree`, and one fork `merge -s ours` of its first commit. See the report.
+- Logo idea that the user likes: a leaf with a curved stem in orbit loops, green glow on a dark tile. The phase A files (vector logo, codemod prototype, merge simulation) are in the `orbitutor-brand/` folder of the main session's notes folder, not in a repo. Phase B makes our own vector version and checks it at 29 pt, at 16 px and on light backgrounds.
+- Domains: the user registers all OrbiTutor domains together near the launch (at least `orbitutor.com` and `orbitutor.ai`). They were free on 2026-11-23.
+- Open: keep or change the upstream links in README, SECURITY and CONTRIBUTING (phase E). The phase E data migration must keep the old folder name (the `rebrand-keep` marker).
+
 Phases (one branch and one PR each, from master):
 
 - A. The dry run of the script on a throwaway clone (count the conflicts with and without it). A name check for "LearnLoop" (App Store, trademarks).
@@ -795,7 +803,8 @@ Phases (one branch and one PR each, from master):
 - C. The palette (phone tokens, fork theme).
 - D. The logo and icons (fork `build/icon*`, `components/lh-mark.tsx`; phone `assets/` icon and splash).
 - E. The rename in the fork (script, allowlist, data copy with tests, CI check, `docs/UPSTREAM-SYNC.md`).
-- F. The rename in the phone (`app.json` name, slug, scheme, bundle id `dev.local.learnloopmobile`, texts, docs).
+- F. The rename in the phone (`app.json` name, slug, scheme, bundle id `dev.local.orbitutormobile`, texts, docs).
+- B2. A one-page static website (logo, short description, downloads, GitHub repo, AGPL source notice) in the new palette, on a static host with HTTPS.
 - G. The GitHub repos and local folders; fix the remotes and paths.
 
 ## Choppy load of a large session (bug, 2026-11-17) `todo`
