@@ -80,6 +80,7 @@
     "e2e:tabs": "sh scripts/e2e-test.sh e2e/tabs.yaml",
     "e2e:graph-open": "sh scripts/e2e-test.sh e2e/graph-open-message.yaml",
     "e2e:graph-chains": "sh scripts/e2e-test.sh e2e/graph-chains.yaml",
+    "e2e:session-stats": "sh scripts/e2e-test.sh e2e/session-stats.yaml",
     "e2e:dictation": "sh scripts/e2e-test.sh e2e/dictation.yaml",
     "e2e:dictation-settings": "sh scripts/e2e-test.sh e2e/dictation-settings.yaml",
     "islands": "node scripts/island-pages/build.cjs",

@@ -7,7 +7,8 @@
  * create the session with the first text as its title, keep that text
  * here, open the session screen, and the screen sends it as the first input.
  */
-import type { ChatListItem, LhMessage } from "./shared";
+import { chatSettingsOf, pricingOf, turnsOf } from "./session-stats";
+import type { ChatListItem, ChatSettings, LhMessage, SessionPricing, TurnUsage } from "./shared";
 import { UserFacingError, userMessage } from "./user-error";
 
 /**
@@ -116,6 +117,34 @@ export interface SessionRecord {
 	turnError?: string;
 	/** The Mac makes the history shorter now (compaction). */
 	compacting: boolean;
+	/** The session stats data (issue 08 slice E). */
+	usage: SessionUsage;
+}
+
+/**
+ * The record parts of the session stats (issue 08 slice E): the usage log,
+ * the Mac's prices for it, and the session's own model setting.
+ */
+export interface SessionUsage {
+	turns: TurnUsage[];
+	pricing?: SessionPricing;
+	settings?: ChatSettings;
+}
+
+/** The session stats data of a record body. Unknown parts stay empty. */
+export function usageOf(body: unknown): SessionUsage {
+	const b = (typeof body === "object" && body !== null ? body : {}) as {
+		turns?: unknown;
+		pricing?: unknown;
+		settings?: unknown;
+	};
+	const pricing = pricingOf(b.pricing);
+	const settings = chatSettingsOf(b.settings);
+	return {
+		turns: turnsOf(b.turns),
+		...(pricing ? { pricing } : {}),
+		...(settings ? { settings } : {}),
+	};
 }
 
 /**
@@ -148,6 +177,7 @@ export async function readSession(
 		messages: Array.isArray(body.messages) ? (body.messages as LhMessage[]) : [],
 		turnInFlight: body.turnInFlight === true,
 		compacting: body.compacting === true,
+		usage: usageOf(body),
 		...(typeof body.turnError === "string" ? { turnError: body.turnError } : {}),
 	};
 }

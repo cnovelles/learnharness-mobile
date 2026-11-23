@@ -48,6 +48,10 @@ export class FakeMac {
 			kind?: "practice";
 			turnError?: string;
 			compacting?: boolean;
+			/** The session stats parts of the record (issue 08 slice E). */
+			turns?: Rec[];
+			pricing?: Rec;
+			settings?: Rec;
 		}
 	>();
 	inputs: Rec[] = [];
@@ -224,6 +228,10 @@ export class FakeMac {
 
 	/** The Mac's dictation language (`GET /api/settings`). */
 	dictationLanguage = "en";
+	/** The strong slot model in `GET /api/settings` (issue 08 slice E). */
+	strongModel: Rec | null = null;
+	/** The `GET /api/models` entries; null answers 500. */
+	catalog: Rec[] | null = [];
 	/** The Deepgram token; null answers 503 (no key on the Mac). */
 	sttToken: string | null = null;
 
@@ -258,7 +266,16 @@ export class FakeMac {
 		if (p === "/phone/v1/ping") return this.json({ ok: true });
 		// Dictation (issue 07): the Mac's language, and the Deepgram token (503: no key).
 		if (p === "/api/settings" && method === "GET")
-			return this.json({ settings: { dictation: { language: this.dictationLanguage } } });
+			return this.json({
+				settings: {
+					dictation: { language: this.dictationLanguage },
+					...(this.strongModel ? { models: { strong: { model: this.strongModel } } } : {}),
+				},
+			});
+		if (p === "/api/models" && method === "GET")
+			return this.catalog
+				? this.json({ models: this.catalog })
+				: this.json({ error: "fake Mac: catalog failed" }, 500);
 		if (p === "/api/stt/token" && method === "GET")
 			return this.sttToken
 				? this.json({ token: this.sttToken })
@@ -371,6 +388,9 @@ export class FakeMac {
 				messages: chat.messages,
 				turnInFlight: false,
 				compacting: chat.compacting === true,
+				...(chat.turns ? { turns: chat.turns } : {}),
+				...(chat.pricing ? { pricing: chat.pricing } : {}),
+				...(chat.settings ? { settings: chat.settings } : {}),
 				...(chat.turnError ? { turnError: chat.turnError } : {}),
 			});
 		}

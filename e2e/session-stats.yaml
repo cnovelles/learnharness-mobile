@@ -1,0 +1,77 @@
+# The session stats (issue 08 slice E, user choice 3A): the line under the
+# composer and the "Session stats" sheet, on the golden teach session
+# (25 turns, 1 compaction). The test Mac prices the turns with the fork's
+# Pi catalog. The golden data has no provider key, so the catalog has no
+# limit for the model (error state 9): the line shows only the tokens.
+# It needs:
+#   1. The test Mac with the golden data: LH_E2E_GOLDEN=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:session-stats
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+# 1. Open the golden teach session. The stats line is under the composer.
+- extendedWaitUntil:
+    visible: "test session, no probing.*concepts.*"
+    timeout: 30000
+- tapOn: "test session, no probing.*concepts.*"
+- extendedWaitUntil:
+    visible: "TEACHING"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Session stats: context 36\\.9k, cost \\$0\\.0141"
+    timeout: 30000
+- takeScreenshot: session-stats-1-line
+# 2. A tap opens the sheet: the totals, the state 9 note and the turn rows.
+- tapOn:
+    id: "session-stats"
+- extendedWaitUntil:
+    visible:
+      id: "session-stats-sheet"
+    timeout: 10000
+- assertVisible: "Context \\(last call\\)"
+- assertVisible: "Total cost"
+- assertVisible: "\\$0\\.0141"
+- assertVisible: "Cache hit rate"
+- assertVisible: "81\\.9%"
+- assertVisible: "The Mac does not know the context limit of this model\\."
+- assertVisible: "#1 · deepseek-v4\\.1-flash · openrouter"
+- assertNotVisible: "Unpriced turns"
+- takeScreenshot: session-stats-2-sheet
+# 3. The sheet scrolls to the last turn. Swipe inside the sheet: a
+# scrollUntilVisible moves the transcript behind it.
+- repeat:
+    times: 12
+    while:
+      notVisible: "#25 · deepseek-v4\\.1-flash · openrouter"
+    commands:
+      - swipe:
+          start: 50%, 85%
+          end: 50%, 60%
+          duration: 300
+- assertVisible: "#25 · deepseek-v4\\.1-flash · openrouter"
+- takeScreenshot: session-stats-3-last-turn
+# 4. Close.
+- tapOn:
+    id: "session-stats-sheet-close"
+- extendedWaitUntil:
+    notVisible:
+      id: "session-stats-sheet"
+    timeout: 10000
+- assertVisible:
+    id: "session-stats"

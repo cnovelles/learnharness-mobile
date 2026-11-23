@@ -139,6 +139,8 @@ describe("readSession", () => {
 			turnInFlight: true,
 			turnError: "Rate limit",
 			compacting: true,
+			// No usage log in this record: the session stats are empty.
+			usage: { turns: [] },
 		});
 	});
 
