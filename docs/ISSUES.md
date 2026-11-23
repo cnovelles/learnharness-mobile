@@ -739,6 +739,50 @@ User decision 2026-11-18: add this issue after the walkthrough numbers. The app 
 
 Other walkthrough findings go to the issue of their screen: the native network error text is not mapped in `describeError` and a failed send does not call `monitor.check()`; the refresh spinner shows on each tab focus; small rough edges (empty session hint, plan sheet close tap, SE placeholder wraps, "Forget this Mac" blank second, "+" field focus).
 
+## 22 Rebrand: LearnHarness to LearnLoop `todo`
+
+User request 2026-11-23: after the current work, rename the app from LearnHarness to LearnLoop, with a new color scheme and a new logo. Do not start before issue 08 is done.
+
+Style references from the user (for style only; the logo and colors must be our own, not a copy):
+
+- Hello Interview: the color scheme and the logo style (the same app is the reference for issue 20).
+- Scale: the logo style.
+- The current LearnHarness logo style ("pretty cool"): keep what works.
+
+Facts to remember:
+
+- The fork and upstream are AGPL-3.0-only, and so is the phone repo. A rename is permitted, but the license and the copyright notices stay, and the source stays open.
+- The bundle id `dev.local.learnharnessmobile` and the scheme `learnharnessmobile` are in `app.json`. A new bundle id makes a new app on the iPhone: the user pairs again, and the old app stays until the user deletes it.
+- The desktop fork follows upstream LearnHarness (`docs/UPSTREAM-SYNC.md`). A rename in the fork makes each upstream merge conflict in many files.
+
+Decisions (user, 2026-11-23). Plan: `~/.claude/plans/curried-baking-mountain.md`.
+
+1. Scope: everything, in both repos, code names too (the user: "this has to be kept open source").
+2. Timing: after issue 08 (slices E, F and G).
+3. Colors: one new palette for both apps (the phone tokens and a new fork theme, made the default).
+4. iPhone: a new bundle id and URL scheme. The user pairs again and deletes the old app.
+
+Upstream sync (the user asked how to keep merges easy): the rename is a script (`scripts/rebrand.mjs` in the fork), not hand edits. For each upstream sync, run the script on the new upstream tag, commit it, and merge that commit. Both sides then have the same rename, so only real code changes can conflict. This comes from how a three-way merge works; phase A proves it with a dry run first. An allowlist keeps `LICENSE`, the copyright lines and the upstream URLs. A `--check` step in CI finds new old-name strings.
+
+Risks with a guard each (details in the plan):
+
+- The user's real data: the app name sets the `userData` folder. The first LearnLoop start COPIES the LearnHarness folder (never moves it) and keeps the old one. Back up with `ditto` before the install.
+- Credential and keychain names: copy the old entries, keep them.
+- The phone protocol (`x-learnharness-desktop`, the TLS name, the pairing check): rename all at once and raise the pairing protocol number.
+- The tool bridge name and the tool namespace: the recorded golden chats must still load.
+- Plugins: package names and the plugin API reference (rebuild it).
+- The `../learnharness` paths in the phone repo, the GitHub repo names, the remotes, the claims file and the memory.
+
+Phases (one branch and one PR each, from master):
+
+- A. The dry run of the script on a throwaway clone (count the conflicts with and without it). A name check for "LearnLoop" (App Store, trademarks).
+- B. Mockups: 3–4 logo directions and 2–3 palettes at 375 pt, light and dark, next to the references and on the desktop. WCAG AA contrast. The user chooses.
+- C. The palette (phone tokens, fork theme).
+- D. The logo and icons (fork `build/icon*`, `components/lh-mark.tsx`; phone `assets/` icon and splash).
+- E. The rename in the fork (script, allowlist, data copy with tests, CI check, `docs/UPSTREAM-SYNC.md`).
+- F. The rename in the phone (`app.json` name, slug, scheme, bundle id `dev.local.learnloopmobile`, texts, docs).
+- G. The GitHub repos and local folders; fix the remotes and paths.
+
 ## Choppy load of a large session (bug, 2026-11-17) `todo`
 
 - The user's report (iPhone 13 Pro Max, Release build of `e1b060e`): the scroll is very choppy while a large session loads.
