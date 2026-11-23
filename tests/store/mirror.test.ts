@@ -123,6 +123,16 @@ describe("session mirror", () => {
 		expect(record.messages.map((m) => m.id)).toEqual(["m1", "m2"]);
 	});
 
+	it("never takes image snapshots from the Mac's record answer", () => {
+		mirror.record("chat_a", {
+			...macRecord("chat_a"),
+			imageSnapshots: { "../x": { mimeType: "image/png", data: "AA==", width: 1, height: 1 } },
+		});
+		flush();
+		expect(store.files.names()).toEqual([]);
+		expect(store.chats.getChat("chat_a")!.imageSnapshots).toBeUndefined();
+	});
+
 	it("writes only the newest body when two come before the write", () => {
 		mirror.record("chat_a", macRecord("chat_a", [msg("m1")]));
 		mirror.record("chat_a", macRecord("chat_a", [msg("m1"), msg("m2")]));

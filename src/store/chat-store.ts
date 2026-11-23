@@ -299,7 +299,18 @@ export function createChatStore(deps: ChatStoreDeps): LocalChatStore {
 		}
 	}
 
+	/** A snapshot id is a file name: only a SHA-256 of the bytes, with a known type. */
+	function isValidImage(snapshotId: string, image: ImageSnapshot): boolean {
+		return (
+			/^[a-f0-9]{64}$/.test(snapshotId) &&
+			(image?.mimeType === "image/png" || image?.mimeType === "image/jpeg") &&
+			typeof image.data === "string" &&
+			sha256OfBase64(image.data) === snapshotId
+		);
+	}
+
 	function writeImage(id: string, snapshotId: string, image: ImageSnapshot): void {
+		if (!isValidImage(snapshotId, image)) throw new Error("Invalid image snapshot identity");
 		// The file first: a crash after it leaves a file with no row, never a row with no file.
 		files.write(imageFileName(snapshotId, image.mimeType), image.data);
 		db.run(
@@ -383,8 +394,7 @@ export function createChatStore(deps: ChatStoreDeps): LocalChatStore {
 		},
 
 		saveImageSnapshot(id, snapshotId, image) {
-			if (!/^[a-f0-9]{64}$/.test(snapshotId) || sha256OfBase64(image.data) !== snapshotId)
-				throw new Error("Invalid image snapshot identity");
+			if (!isValidImage(snapshotId, image)) throw new Error("Invalid image snapshot identity");
 			db.transaction(() => {
 				const record = mustGet(id);
 				if (record.imageSnapshots?.[snapshotId]) return;
@@ -457,7 +467,8 @@ export function createChatStore(deps: ChatStoreDeps): LocalChatStore {
 				if (record.imageSnapshots) {
 					db.run("DELETE FROM image_snapshots WHERE chat_id = ?", record.id);
 					for (const [snapshotId, image] of Object.entries(record.imageSnapshots)) {
-						writeImage(record.id, snapshotId, image);
+						// An entry with a bad id, type or hash is skipped, never written as a file.
+						if (isValidImage(snapshotId, image)) writeImage(record.id, snapshotId, image);
 					}
 				}
 				writeSummary(record, origin);

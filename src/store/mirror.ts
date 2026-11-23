@@ -61,7 +61,8 @@ export function recordFromMac(id: string, body: unknown): ChatRecord | null {
 	if (!body.messages.every((m) => isRecord(m) && typeof m.id === "string")) return null;
 	const out: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(body)) {
-		if (RECORD_FIELDS.has(key)) out[key] = value;
+		// The Mac sends no image bytes in this answer; never take them from it.
+		if (RECORD_FIELDS.has(key) && key !== "imageSnapshots") out[key] = value;
 	}
 	return out as unknown as ChatRecord;
 }

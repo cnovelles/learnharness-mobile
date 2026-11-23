@@ -149,6 +149,25 @@ describe("ChatStore on SQLite", () => {
 		expect(store.files.names()).toEqual([]);
 	});
 
+	it("never writes a file for an imported snapshot with a bad id, type or hash", () => {
+		const good = sha256OfBase64(PNG);
+		const record = {
+			id: "chat_i_1",
+			title: "T",
+			createdAt: "x",
+			updatedAt: "x",
+			messages: [],
+			imageSnapshots: {
+				"../../escape": { mimeType: "image/png", data: PNG, width: 1, height: 1 },
+				["b".repeat(64)]: { mimeType: "image/png", data: PNG, width: 1, height: 1 },
+				[good]: { mimeType: "text/html", data: PNG, width: 1, height: 1 },
+			},
+		} as unknown as ChatRecord;
+		expect(store.chats.importChat(record, "mirror")).toBe(true);
+		expect(store.files.names()).toEqual([]);
+		expect(store.chats.getChat("chat_i_1")!.imageSnapshots).toBeUndefined();
+	});
+
 	it("reads an image whose file is missing as absent", () => {
 		const { id } = store.chats.createChat("A");
 		const snapshotId = sha256OfBase64(PNG);
