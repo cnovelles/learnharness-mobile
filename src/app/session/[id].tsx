@@ -45,6 +45,7 @@ import { PlanSheet } from "@/components/plan-sheet";
 import { QuestionDock } from "@/components/question-dock";
 import { PracticeDock } from "@/components/practice-dock";
 import { RevealProvider } from "@/components/reveal";
+import { SessionStatsLine } from "@/components/session-stats";
 import { Transcript } from "@/components/transcript";
 import {
 	alpha,
@@ -80,6 +81,7 @@ import {
 	type PageWindow,
 } from "@/lib/transcript-window";
 import { COMPACTING, useSessionModel, useSessionRecord } from "@/lib/use-session";
+import { useSessionStats } from "@/lib/use-session-stats";
 import { SPACE } from "@/components/spacing";
 
 function Composer({
@@ -367,6 +369,7 @@ function SessionBody({
 	const c = usePalette();
 	const session = useSessionModel(record, macFetch);
 	const { state, pending, malformed, running, compacting, banner } = session;
+	const stats = useSessionStats(macFetch, session.usage, state.contextTokens, state.nativeMessages);
 	const rows = useMemo(
 		() =>
 			transcriptRows(state.messages, {
@@ -661,6 +664,8 @@ function SessionBody({
 							waiting={compacting}
 						/>
 					) : null}
+					{/* The session stats line (issue 08 slice E), as the desktop stats bar. */}
+					<SessionStatsLine stats={stats} />
 				</View>
 			</KeyboardAvoidingView>
 		</SafeAreaView>

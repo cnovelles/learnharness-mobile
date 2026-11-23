@@ -56,7 +56,14 @@ import { AppState } from "react-native";
 import { perf } from "./perf";
 import { useEventHub } from "./server-events-context";
 import { attachSessionEvents, syncSession, type SessionEventHooks } from "./session-events";
-import { openingPrompts, readSession, type OpeningPrompts, type SessionRecord } from "./sessions";
+import {
+	openingPrompts,
+	readSession,
+	usageOf,
+	type OpeningPrompts,
+	type SessionRecord,
+	type SessionUsage,
+} from "./sessions";
 import {
 	SessionModel,
 	activeProblemOf,
@@ -188,6 +195,12 @@ export interface SessionControls {
 	compacting: boolean;
 	/** The one error banner, or null. */
 	banner: SessionBanner | null;
+	/**
+	 * The session stats data (issue 08 slice E): the usage log, the prices
+	 * and the model setting from the newest record read. It updates after
+	 * each turn and after a compaction.
+	 */
+	usage: SessionUsage;
 	/** Do the banner's Try again. */
 	retryBanner(): Promise<void>;
 	/** Close the banner. */
@@ -235,14 +248,17 @@ export function useSessionModel(
 	const hub = useEventHub();
 	const [unsent, setUnsent] = useState<Unsent | null>(null);
 	const [compacting, setCompacting] = useState(record.compacting);
+	const [usage, setUsage] = useState(record.usage);
 	/** Errors that are not SessionModel's: a failed abort, a failed sync. */
 	const [notice, setNotice] = useState<SessionBanner | null>(null);
 	const [dismissing, setDismissing] = useState(false);
 
 	const hooks = useMemo<SessionEventHooks>(
 		() => ({
-			onSnapshot: (snapshot) =>
-				setCompacting((snapshot as { compacting?: unknown }).compacting === true),
+			onSnapshot: (snapshot) => {
+				setCompacting((snapshot as { compacting?: unknown }).compacting === true);
+				setUsage(usageOf(snapshot));
+			},
 			onSyncError: () => setNotice({ text: SYNC_FAILED, retry: "sync" }),
 			onCompaction: setCompacting,
 		}),
@@ -384,6 +400,25 @@ export function useSessionModel(
 	}, []);
 
 	const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+
+	// The session stats (issue 08 slice E): read the usage log again when a
+	// turn ends and when a compaction ends, as the desktop stats bar does.
+	// The read does not change the transcript. A failed read keeps the last
+	// figures.
+	const ended = useEndOfWork(state.status, compacting);
+	useEffect(() => {
+		if (ended === 0) return;
+		let live = true;
+		model
+			.readRecord({ adoption: "none" })
+			.then((snapshot) => {
+				if (live && snapshot) setUsage(usageOf(snapshot));
+			})
+			.catch(() => {});
+		return () => {
+			live = false;
+		};
+	}, [ended, model]);
 	const pending = useMemo(
 		// After an error the question still waits (for example, a refused answer).
 		() =>
@@ -527,6 +562,7 @@ export function useSessionModel(
 		stopTurn,
 		compacting,
 		banner,
+		usage,
 		async retryBanner() {
 			if (!banner) return;
 			if (banner.retry === "sync") {
@@ -554,4 +590,21 @@ export function useSessionModel(
 				: Promise.resolve(false),
 		clearError: () => model.clearError(),
 	};
+}
+
+/**
+ * A counter that grows when a turn ends (submitted or streaming to ready or
+ * error) or when a compaction ends. 0 until the first end.
+ */
+export function useEndOfWork(status: string, compacting: boolean): number {
+	const [count, setCount] = useState(0);
+	const last = useRef({ status, compacting });
+	useEffect(() => {
+		const was = last.current;
+		last.current = { status, compacting };
+		const busy = (s: string) => s === "submitted" || s === "streaming";
+		if ((busy(was.status) && !busy(status)) || (was.compacting && !compacting))
+			setCount((n) => n + 1);
+	}, [status, compacting]);
+	return count;
 }

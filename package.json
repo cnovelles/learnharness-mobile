@@ -71,6 +71,7 @@
     "e2e:rich": "sh scripts/e2e-test.sh e2e/rich-lesson.yaml",
     "e2e:wide": "sh scripts/e2e-test.sh e2e/wide-content.yaml",
     "e2e:open-long": "sh scripts/e2e-test.sh e2e/open-long-session.yaml",
+    "e2e:session-stats": "sh scripts/e2e-test.sh e2e/session-stats.yaml",
     "e2e:practice": "sh scripts/e2e-test.sh e2e/practice.yaml",
     "e2e:teach-shelf": "sh scripts/e2e-test.sh e2e/teach-shelf.yaml",
     "e2e:perf-open": "sh scripts/e2e-test.sh e2e/perf-open.yaml",
