@@ -1,5 +1,5 @@
 /**
- * The WebView pages of the artifacts (issue 19, D-017). Security review:
+ * The WebView pages of the artifacts (issue 19, D-018). Security review:
  * docs/reviews/2026-11-23-artifact-sandbox.md, sections 5 to 7.
  *
  * - The figure page shows the SVG as an image (`<img src="data:…">`), as the

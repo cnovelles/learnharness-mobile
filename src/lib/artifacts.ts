@@ -1,5 +1,5 @@
 /**
- * Visual and demo artifacts (issue 19, D-017). A sub-agent delivers a figure
+ * Visual and demo artifacts (issue 19, D-018). A sub-agent delivers a figure
  * (SVG) or a demo (HTML and JavaScript) as a steer message with a
  * `data-subagent-artifact` part (fork src/core/view.ts). The desktop draws it
  * in components/artifacts/steer-card.tsx.
@@ -18,7 +18,7 @@ export const MAX_ERROR_CHARS = 500;
 /** The page cuts its error text to this length; a longer message is not ours. */
 const MAX_PAGE_ERROR_CHARS = 2000;
 
-/** The hosts that a demo can load scripts, style sheets and fonts from (D-017). */
+/** The hosts that a demo can load scripts, style sheets and fonts from (D-018). */
 export const ARTIFACT_CDN_HOSTS = [
 	"cdn.jsdelivr.net",
 	"unpkg.com",

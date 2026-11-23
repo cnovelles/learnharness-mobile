@@ -1,5 +1,5 @@
 /**
- * The figure and the demo of a sub-agent in the lesson (issue 19, D-017).
+ * The figure and the demo of a sub-agent in the lesson (issue 19, D-018).
  * The desktop draws them in fork components/artifacts/visual-card.tsx and
  * demo-card.tsx. Layout B (user, 2026-11-23): the figure shows in the
  * lesson; the demo is a still card, and it runs in a sheet after a tap.
