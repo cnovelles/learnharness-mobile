@@ -4,14 +4,18 @@
  * search field ("N of M nodes", "No matching nodes."). A tap on a node opens
  * the node sheet; a session row opens the session at the node's message.
  * "Chains" next to the search field pushes the Chains screen (slice D).
- * The cost number (slice F) comes later.
+ * Under that row at the right: the pipeline cost number (a tap opens the
+ * cost sheet) and one pill for each run in progress (slice F). State 11:
+ * when the costs or status call fails, they hide and the graph still shows.
  */
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
 
+import { CostNumber, CostSheet } from "@/components/cost-sheet";
 import { GraphCanvas } from "@/components/graph-canvas";
 import { NodeSheet, type SessionTarget } from "@/components/node-sheet";
+import { RunPills } from "@/components/run-pills";
 import { SPACE } from "@/components/spacing";
 import { TabScreen } from "@/components/tab-screen";
 import { Body, Button, ErrorText, FONT, Field, TYPE, Title, usePalette } from "@/components/ui";
@@ -26,12 +30,20 @@ import {
 	type Knowledge,
 } from "@/lib/knowledge";
 import { useGraphKnowledge } from "@/lib/knowledge-context";
+import { costNumber, costSheet } from "@/lib/pipeline-cost";
 
 function GraphView({ knowledge, stale }: { knowledge: Knowledge; stale: string | null }) {
 	const c = usePalette();
 	const [query, setQuery] = useState("");
 	const [selected, setSelected] = useState<string | null>(null);
-	const { snapshot } = knowledge;
+	const [costsOpen, setCostsOpen] = useState(false);
+	const { snapshot, costs, runs } = knowledge;
+	const cost = costNumber(costs);
+	// The sheet closes when a new read has no costs (state 11).
+	const costsSheet = useMemo(
+		() => (costsOpen && cost !== null && costs ? costSheet(costs) : null),
+		[costsOpen, cost, costs],
+	);
 	const model = useMemo(() => canvasModel(snapshot), [snapshot]);
 	const search = useMemo(() => canvasSearch(snapshot, query), [snapshot, query]);
 	const visible = query.trim() ? search.visibleIds : null;
@@ -72,6 +84,8 @@ function GraphView({ knowledge, stale }: { knowledge: Knowledge; stale: string |
 						testID="open-chains"
 					/>
 				</View>
+				{cost !== null ? <CostNumber text={cost} onPress={() => setCostsOpen(true)} /> : null}
+				<RunPills runs={runs} />
 				{search.empty ? (
 					<Text style={[styles.note, { color: c.muted }]} testID="graph-search-empty">
 						{search.empty}
@@ -97,6 +111,7 @@ function GraphView({ knowledge, stale }: { knowledge: Knowledge; stale: string |
 				/>
 			</View>
 			<NodeSheet sheet={sheet} onClose={() => setSelected(null)} onOpen={open} />
+			<CostSheet sheet={costsSheet} onClose={() => setCostsOpen(false)} />
 		</View>
 	);
 }

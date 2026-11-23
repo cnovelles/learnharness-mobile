@@ -4,12 +4,14 @@
  * code (the real `GET /api/graph`, `/sources` and `/costs` bodies) and runs
  * the desktop code on them. This test sends the same bodies through the
  * phone's checks and models, and expects the same counts, order, labels,
- * dates, positions, search results and node rows.
+ * dates, positions, search results and node rows, and (slice F) the same
+ * cost number and cost sheet values as the desktop cost panel.
  */
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 import { CANVAS_SETTINGS } from "@/lib/graph-scene";
+import { costNumber, costSheet } from "@/lib/pipeline-cost";
 import { parseGraphCosts, parseGraphSnapshot, readSourceDirectory } from "@/lib/graph-api";
 import {
 	canvasModel,
@@ -56,6 +58,13 @@ interface Golden {
 		search: { query: string; visibleIds: string[] }[];
 		cards: { nodeId: string; rows: ({ file: string } | { href: string; title: string })[] }[];
 		renderSettings: Record<string, unknown> & { regions: Record<string, unknown> };
+		costPanel: {
+			now: number;
+			number: string | null;
+			header: string;
+			stages: string[];
+			runs: string[];
+		};
 	};
 }
 
@@ -192,5 +201,21 @@ describe("the Graph tab model on the golden data", () => {
 		for (const [key, value] of Object.entries(phone)) expect([key, d[key]]).toEqual([key, value]);
 		for (const [key, value] of Object.entries(regions))
 			expect([key, d.regions[key]]).toEqual([key, value]);
+	});
+
+	it("the cost number and the cost sheet show the desktop panel values (slice F)", () => {
+		const desktop = golden.desktop.costPanel;
+		expect(desktop.runs.length).toBeGreaterThan(0);
+		expect(costNumber(knowledge.costs)).toBe(desktop.number);
+		const sheet = costSheet(knowledge.costs!, desktop.now);
+		expect(`${sheet.total}${sheet.unpriced ? ` ${sheet.unpriced}` : ""}`).toBe(desktop.header);
+		expect(
+			sheet.stages.map(
+				(s) => `${s.label} ${s.cost}${s.unpriced ? ` ${s.unpriced}` : ""} · ${s.tokens}`,
+			),
+		).toEqual(desktop.stages);
+		expect(
+			sheet.runs.map((r) => `${r.age} ${r.title}${r.merged ? ` ${r.merged}` : ""} ${r.cost}`),
+		).toEqual(desktop.runs);
 	});
 });

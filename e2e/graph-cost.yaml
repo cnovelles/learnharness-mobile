@@ -1,0 +1,87 @@
+# The graph pipeline cost (issue 08 slice F, decision 4A). The Graph tab
+# shows the cost number under "Chains" and one pill for the run in
+# progress. A tap on the number opens the cost sheet: the total, the
+# extraction and audit stages, and the recent runs (the desktop
+# GraphCostPanel values from the golden data).
+# It needs:
+#   1. The test Mac with the golden data and one held run:
+#      LH_E2E_GOLDEN=1 LH_E2E_RUN=1 npm run e2e:mac
+#   2. Metro: npx expo start --clear
+#   3. The development build on the booted Simulator.
+# Run: npm run e2e:graph-cost
+appId: dev.local.learnharnessmobile
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Or paste the pairing text"
+    timeout: 120000
+- tapOn:
+    id: "pairing-text"
+- inputText: ${PAIRING}
+- tapOn: "Or paste the pairing text"
+- tapOn:
+    id: "pair"
+- extendedWaitUntil:
+    visible: "Connected · Test Mac"
+    timeout: 30000
+# 1. The Graph tab. A tab tap right after the pairing sometimes does not
+# change the tab on the SE: tap again if it did not.
+- extendedWaitUntil:
+    visible: "Graph"
+    timeout: 30000
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "open-chains"
+    commands:
+      - tapOn: "Graph"
+      - waitForAnimationToEnd
+# 2. The cost number and the pill of the held run.
+- extendedWaitUntil:
+    visible:
+      id: "graph-cost"
+    timeout: 20000
+# The button reads its VoiceOver label.
+- assertVisible: "Graph costs, \\$0\\.02"
+- extendedWaitUntil:
+    visible: "Extracting notes/pipeline run\\.md, [0-9]+s"
+    timeout: 30000
+- takeScreenshot: cost-1-number-and-pill
+# 3. The cost sheet with the desktop panel rows.
+- tapOn:
+    id: "graph-cost"
+- extendedWaitUntil:
+    visible:
+      id: "cost-sheet"
+    timeout: 10000
+- assertVisible: "Graph pipeline costs"
+- assertVisible: "Extraction, \\$0\\.013, 71\\.2k in / 80\\.9k out"
+- assertVisible: "Audit, \\$0\\.010, 111\\.7k in / 42\\.6k out"
+- assertVisible: "Recent runs"
+- takeScreenshot: cost-2-sheet
+# The runs are under the stages: scroll the sheet (a swipe inside the
+# sheet; scrollUntilVisible moves the screen behind the sheet).
+- repeat:
+    times: 5
+    while:
+      notVisible: ".*learn computer\\.md, \\+[0-9]+n, \\$0\\.001"
+    commands:
+      - swipe:
+          start: 50%, 88%
+          end: 50%, 65%
+          duration: 400
+- takeScreenshot: cost-3-sheet-runs
+- tapOn:
+    id: "cost-sheet-close"
+- extendedWaitUntil:
+    notVisible:
+      id: "cost-sheet"
+    timeout: 10000
+# 4. The pill stays while the run holds; the graph still shows.
+- assertVisible: "Extracting notes/pipeline run\\.md, [0-9]+s"
+- assertVisible:
+    id: "graph-canvas"
+- takeScreenshot: cost-4-closed

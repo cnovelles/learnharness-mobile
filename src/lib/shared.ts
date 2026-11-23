@@ -161,3 +161,15 @@ export {
 	propositionSessionHref,
 } from "@lh/src/core/session-navigation";
 export type { GraphCostSummary, RecentRun, StageCost } from "@lh/src/core/cost-summary";
+// The graph pipeline cost labels (issue 08 slice F): the cost number, the
+// cost sheet and the run pills, the same code as the desktop panel.
+export {
+	graphCostStageRows,
+	graphUsageLabel,
+	pipelineRunSeconds,
+	recentRunCostLabel,
+	runTimeAgo,
+	stageCostLabel,
+	stageTokensLabel,
+	stageUnpricedCount,
+} from "@lh/src/core/graph-cost-format";
