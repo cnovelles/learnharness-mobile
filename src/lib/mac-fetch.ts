@@ -5,6 +5,9 @@
  * or cannot reach the Mac, it uses the last address that worked, so a
  * running stream is not cut because of one failed ping.
  */
+import { mirroringFetch } from "@/store/mirror-fetch";
+import type { SessionMirror } from "@/store/mirror";
+
 import type { ConnectionMonitor } from "./connection-monitor";
 import { remoteFetch, type PinnedFetch } from "./pairing";
 import { userMessage } from "./user-error";
@@ -18,12 +21,17 @@ export class NotPairedError extends TypeError {
 	}
 }
 
+/**
+ * `mirror` (issue 09): the session mirror gets the session list and record
+ * bodies that the screens read. Null: no mirror.
+ */
 export function createMacFetch(
 	monitor: Pick<ConnectionMonitor, "state">,
 	pinned: PinnedFetch,
+	mirror: SessionMirror | null = null,
 ): typeof globalThis.fetch {
 	let last: { token: string; url: string } | null = null;
-	return ((input: RequestInfo | URL, init?: RequestInit) => {
+	const macFetch = ((input: RequestInfo | URL, init?: RequestInit) => {
 		const state = monitor.state();
 		if (!("connection" in state)) return Promise.reject(new NotPairedError());
 		const { connection } = state;
@@ -31,4 +39,5 @@ export function createMacFetch(
 		const url = last?.token === connection.token ? last.url : connection.urls[0]!;
 		return remoteFetch(url, connection, pinned)(input, init);
 	}) as typeof globalThis.fetch;
+	return mirror ? mirroringFetch(macFetch, mirror) : macFetch;
 }

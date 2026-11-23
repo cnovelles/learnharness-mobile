@@ -199,3 +199,31 @@ export {
 	stageTokensLabel,
 	stageUnpricedCount,
 } from "@lh/src/core/graph-cost-format";
+// The local store (issue 09): the storage ports, the record shapes and the
+// folds that the desktop's fs adapters run on each write. Import the files
+// directly.
+export type {
+	ChatStore,
+	CreateJobInit,
+	GraphStore,
+	JobPatch,
+	JobStore,
+	SettingsStore,
+} from "@lh/src/core/ports";
+export {
+	CURRENT_CHAT_VERSION,
+	type ChatRecord,
+	type ChatSummary,
+	type ExtractionRunUsage,
+	type ImageSnapshot,
+	type SideChatThread,
+} from "@lh/src/core/contracts/chat";
+export {
+	CURRENT_GRAPH_FORMAT_VERSION,
+	type CoverageEntry,
+	type NotesSource,
+	type SessionCheckpoint,
+} from "@lh/src/core/contracts/graph";
+export type { JobRecord } from "@lh/src/core/contracts/jobs";
+export { danglingQuestionOf, problemCountOf } from "@lh/src/core/native-messages";
+export { sanitizeUserSettings, type UserSettings } from "@lh/src/core/settings";
