@@ -13,6 +13,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { AnsweredCard } from "@/lib/answer-card";
 import { PHASE_LABEL } from "@/lib/plan";
 import { teacherText } from "@/lib/teacher-text";
+import { ArtifactRow } from "./artifact-card";
 import { PlanBlock } from "./plan-graph";
 import type { TranscriptRow } from "@/lib/transcript";
 import type { ToolRowData } from "@/lib/tool-row";
@@ -382,6 +383,8 @@ function Row({ row, onOpenPlan }: { row: TranscriptRow; onOpenPlan: () => void }
 			return <ConcludeCard id={row.id} data={row.data} />;
 		case "practice-next":
 			return <NextProblemLine id={row.id} />;
+		case "artifact":
+			return <ArtifactRow id={row.id} messageId={row.messageId} artifact={row.artifact} />;
 	}
 }
 

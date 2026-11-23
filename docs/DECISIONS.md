@@ -243,3 +243,15 @@ Status values: `proposed`, `accepted`, `done`, `reverted`, `replaced by D-NNN`.
 - Validation: adapter tests for each port on a real SQLite (`tests/store/`); the golden data reads the same through the SQLite adapters as through the desktop's fs stores, and gives the same `projectView` and `getGraph` results (`tests/store/golden-store.test.ts`). The write time on the iPhone is not measured.
 - Impact and trade-offs: the phone now writes after each session read (1 s later, and only the newest body). The AuthStore stays out of SQLite (the Keychain, issue 12). The desktop's file access guard of the settings is not ported (the phone has no file tools). The outbox stores a revision, not a content hash: the hash is made at send time in issue 10.
 - Links: `docs/ISSUES.md` issue 09.
+
+## D-018 Show visual and demo artifacts in locked WebViews; demos run after a tap (2026-11-23) `accepted`
+
+- Area: phone, fork gateway
+- Problem: a lesson can hold a figure (SVG) or an interactive demo (HTML and JavaScript) that a sub-agent wrote (issue 19). The phone showed neither. It showed the steer's text for the teacher model as a learner bubble. Both artifacts are model output, and the phone holds the device token and the pinned fetch to the Mac.
+- How we found it: a read of the fork's artifact code (2026-11-23): `components/artifacts/steer-card.tsx`, `visual-card.tsx`, `demo-card.tsx`, `src/core/view.ts`, `app/api/chats/[id]/artifact-ui/route.ts`, and the react-native-webview 14.0.1 native code. Security review: `docs/reviews/2026-11-23-artifact-sandbox.md`.
+- Options: layout (a) the demo runs inline, as on the desktop, or (b) the demo runs in a sheet after a tap; CDN libraries (a) no network or (b) 3 CDN hosts for scripts, style sheets and fonts; SVG (a) a WebView with the SVG as an image, as on the desktop, or (b) `react-native-svg`; the learner photo figure (a) a placeholder or (b) open the gateway's image route.
+- Decision and why (user, 2026-11-23, after the mockups): layout (b), so that at most one demo runs and the lesson scroll never fights a demo; CDN (b), so that demos with a library still work, with every other source blocked; SVG (a), with the WebView only near the screen (the leak facts of issue 21); photo (b), the route is read only and the token can already read every session.
+- Change: issue 19. Phone: the artifact model, the page builders with the CSP, the figure row, the demo card and sheet, the transcript rows. Fork: `GET /api/chats/:id/images/:snapshotId` in the gateway's `ROUTES`. No new native dependency.
+- Validation: the error states of issue 19, each with a test; the Simulator canary test of the review (section 8); the WebView count during a scroll.
+- Impact and trade-offs: a demo with a CDN library needs the internet, and the CDN operator sees the phone's IP address. A demo does not run until the learner taps it.
+- Links: `docs/ISSUES.md` issue 19, `docs/TRANSPORT-SECURITY.md`, D-010, D-014.

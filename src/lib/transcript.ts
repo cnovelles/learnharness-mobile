@@ -17,6 +17,7 @@
  *   the call is in a later step of the message, the divider goes at that
  *   step (teachStepIndex), after the plan text.
  */
+import { artifactOf, type Artifact } from "./artifacts";
 import { presentAnswer, type AnsweredCard } from "./answer-card";
 import { planPartTree } from "./plan";
 import {
@@ -80,6 +81,8 @@ export type TranscriptRow =
 	| { kind: "practice-next"; id: string }
 	/** Compaction: "moment" where it ran, "cut" where the kept history starts. */
 	| { kind: "compaction"; id: string; at: "moment" | "cut"; tokensBefore?: number }
+	/** A sub-agent's figure or demo (issue 19), from a steer message. */
+	| { kind: "artifact"; id: string; messageId: string; artifact: Artifact }
 	| ToolRowData;
 
 const isQuestionTool = (name: string) => (QUESTION_TOOLS as readonly string[]).includes(name);
@@ -140,6 +143,18 @@ export function transcriptRows(
 	const rows: TranscriptRow[] = [];
 	const phases = phaseTimeline(messages);
 	messages.forEach((m, mi) => {
+		// A steer message (issue 19): its text part is for the teacher model,
+		// so the row is the artifact, as on the desktop (steer-card.tsx).
+		const artifactPart = m.parts.find((p) => p.type === "data-subagent-artifact");
+		if (artifactPart) {
+			rows.push({
+				kind: "artifact",
+				id: artifactPart.id ?? `${m.id}-artifact`,
+				messageId: m.id,
+				artifact: artifactOf(artifactPart),
+			});
+			return;
+		}
 		if (m.role === "user" && m.parts.some((p) => p.type === "data-probe-handoff")) {
 			const steps = stepsAfter(messages, mi + 1);
 			rows.push({
