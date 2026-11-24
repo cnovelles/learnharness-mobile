@@ -27,6 +27,7 @@ export {
 	endsInFailedTurn,
 	derivePlanStatusesLh,
 	derivedNodeStatus,
+	embedLearnerImage,
 	emptyDockSelection,
 	malformedQuestionsOf,
 	parseProbeDoneInput,
@@ -56,6 +57,9 @@ export {
 	type QuestionAnswerData,
 	type QuestionData,
 } from "@lh/src/core";
+// The desktop's display repair for an SVG figure (issue 19): it adds the
+// SVG namespace and writes &nbsp; as a number. Pure, no imports.
+export { svgImageSource } from "@lh/lib/svg-image-source";
 // The plan graph layout (issue 05 slice 0): dagre placement and edge paths,
 // with no DOM. The desktop draws the same numbers in components/plan-block.tsx.
 export {

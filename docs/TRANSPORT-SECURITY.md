@@ -26,7 +26,8 @@ Evidence (2026-11-16): the Simulator log showed `ATS failed system trust` for th
 ## Guards (ATS no longer catches mistakes)
 
 - ESLint (`eslint.config.js`, files in `src/`): no global `fetch`, `XMLHttpRequest`, `WebSocket` or `EventSource`; no `globalThis.fetch` and the like; no import of `expo/fetch`, `expo-web-browser`, `expo-image`, or `Image` and `ImageBackground` from `react-native`.
-- WebView islands: a CSP with `default-src 'none'` and no network source, only `about:blank` loads (`allowIslandLoad`), no new windows.
+- WebView islands: a CSP with `default-src 'none'` and no network source, only `about:blank` loads in the top frame (`allowIslandLoad`), no new windows, no microphone or camera (`mediaCapturePermissionGrantType="deny"`).
+- Artifacts (issue 19, D-018, review `docs/reviews/2026-11-23-artifact-sandbox.md`): the figure page has no network source. The demo page allows scripts, style sheets and fonts only from `cdn.jsdelivr.net`, `unpkg.com` and `cdnjs.cloudflare.com` (`DEMO_CSP` in `src/lib/artifact-html.ts`); `connect-src`, frames and workers stay `'none'`. A lock script removes WebRTC and the native alert, confirm and prompt panels before the demo's scripts run. Keep `originWhitelist={["*"]}`: a URL that fails `originWhitelist` goes to `Linking.openURL`.
 - Markdown: remote images are blocked. Links open in Safari (outside the app), only `http`, `https` and `mailto`.
 - The pairing parser accepts only `https` addresses and needs the pin.
 

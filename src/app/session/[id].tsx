@@ -62,6 +62,7 @@ import {
 	StatusLine,
 	usePalette,
 } from "@/components/ui";
+import { ArtifactActionsProvider } from "@/components/artifact-card";
 import { useMacFetch } from "@/lib/connection-context";
 import { appendDictation } from "@/lib/dictation";
 import { perf } from "@/lib/perf";
@@ -490,6 +491,20 @@ function SessionBody({
 		if (end !== null) goToLatest();
 		return session.sendText(text);
 	};
+	// The figures and demos (issue 19): the switch write, the photo read and
+	// "Send to teacher".
+	const sendRef = useRef(sendText);
+	useEffect(() => {
+		sendRef.current = sendText;
+	});
+	const artifactActions = useMemo(
+		() => ({
+			chatId: record.id,
+			fetch: macFetch,
+			sendText: (text: string) => sendRef.current(text),
+		}),
+		[record.id, macFetch],
+	);
 	// The keyboard covers the screen on iOS: pad the view by its height
 	// (Expo keyboard guide). The offset is the header height.
 	const headerHeight = useHeaderHeight();
@@ -554,7 +569,9 @@ function SessionBody({
 						<EarlierLine shown={start > 0} />
 						<IslandViewportContext.Provider value={viewport}>
 							<RevealProvider onIdle={onRevealIdle} hold={false}>
-								<Transcript rows={rows} start={start} end={end} onOpenPlan={openPlan} />
+								<ArtifactActionsProvider value={artifactActions}>
+									<Transcript rows={rows} start={start} end={end} onOpenPlan={openPlan} />
+								</ArtifactActionsProvider>
 							</RevealProvider>
 						</IslandViewportContext.Provider>
 						{end !== null ? <LaterLine /> : null}

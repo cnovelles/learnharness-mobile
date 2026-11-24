@@ -10,7 +10,8 @@
  *   height, and the content scrolls inside it. A height over `maxHeight`
  *   shows `maxHeight`, and the content scrolls inside it too.
  * - 12: the page loads nothing after its own HTML (`allowIslandLoad`), opens
- *   no window, and finds no data detectors or link previews. The page CSP
+ *   no window, gets no microphone or camera, and finds no data detectors or
+ *   link previews. The page CSP
  *   has no `script-src` and no network source (scripts/island-pages).
  */
 import { useEffect, useRef, useState, type ComponentRef } from "react";
@@ -45,9 +46,13 @@ export function islandDataScript(data: object): string {
 	return `window.__lhIslandData = ${json};\ntrue;`;
 }
 
-/** The page's own HTML loads as `about:blank`. Every other load is refused. */
-export function allowIslandLoad(url: string): boolean {
-	return url === "about:blank";
+/**
+ * The page's own HTML loads as `about:blank` in the top frame. A frame may
+ * load only `about:srcdoc` (the demo's sandboxed frame, issue 19): no fetch,
+ * no network. Every other load is refused.
+ */
+export function allowIslandLoad(url: string, isTopFrame = true): boolean {
+	return isTopFrame ? url === "about:blank" : url === "about:srcdoc";
 }
 
 export type WebIslandProps = {
@@ -66,6 +71,8 @@ export type WebIslandProps = {
 	onMessage?: (message: IslandMessage) => void;
 	/** The island cannot load: show the fallback. */
 	onFail: () => void;
+	/** A message that is not an island message (issue 19: the demo's own). */
+	onOtherMessage?: (raw: string) => void;
 	/** The full-screen viewer: fill the space, scroll and zoom in the page,
 	 *  and wait for no height. */
 	fill?: boolean;
@@ -83,6 +90,7 @@ export function WebIsland({
 	onHeight,
 	onMessage,
 	onFail,
+	onOtherMessage,
 	fill = false,
 	testID,
 }: WebIslandProps) {
@@ -127,7 +135,10 @@ export function WebIsland({
 
 	const handleMessage = (event: WebViewMessageEvent) => {
 		const message = parseIslandMessage(event.nativeEvent.data);
-		if (!message) return;
+		if (!message) {
+			onOtherMessage?.(event.nativeEvent.data);
+			return;
+		}
 		if (message.type === "height") {
 			gotHeight.current = true;
 			setNoHeight(false);
@@ -168,9 +179,10 @@ export function WebIsland({
 				onError={onFail}
 				onContentProcessDidTerminate={handleStop}
 				onRenderProcessGone={handleStop}
-				onShouldStartLoadWithRequest={(request) => allowIslandLoad(request.url)}
+				onShouldStartLoadWithRequest={(request) => allowIslandLoad(request.url, request.isTopFrame)}
 				onOpenWindow={() => {}}
 				javaScriptCanOpenWindowsAutomatically={false}
+				mediaCapturePermissionGrantType="deny"
 				dataDetectorTypes="none"
 				allowsLinkPreview={false}
 				textInteractionEnabled={false}
