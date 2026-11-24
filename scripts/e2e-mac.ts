@@ -580,23 +580,51 @@ async function addShelf(url: string, headers: Record<string, string>) {
 /** LH_E2E_ARTIFACTS=1: the hits on the canary servers (GET /canary). */
 const canaryHits = { tcp: 0, udp: 0, log: [] as string[] };
 
+/** The canary tries that use a URL. Each has its own TCP port, so a hit names its try. */
+const CANARY_TRIES = [
+	"ws",
+	"from-worker",
+	"import.css",
+	"bg.png",
+	"fetch",
+	"xhr",
+	"sse",
+	"beacon",
+	"img.png",
+	"script.js",
+	"style.css",
+	"prefetch",
+	"module.js",
+	"worker.js",
+	"frame",
+	"open",
+	"blank",
+	"form",
+	"refresh",
+	"link",
+	"top",
+	"self",
+] as const;
+type CanaryPorts = { tcp: Record<string, number>; udp: number };
+
 /**
- * The canary servers on 127.0.0.1: a TCP server (each https, wss and
- * plain request opens a connection here before TLS) and a UDP socket (the
+ * The canary servers on 127.0.0.1: one TCP server for each try (an https
+ * or wss request opens a connection here before TLS) and a UDP socket (the
  * STUN server of a WebRTC test). Each hit adds to `canaryHits`.
  */
-async function startCanary(): Promise<{ tcp: number; udp: number }> {
-	const tcp = net.createServer((socket) => {
-		canaryHits.tcp += 1;
-		socket.once("data", (data) => {
-			const line = data.toString("latin1").split("\r\n")[0]!.slice(0, 120);
-			canaryHits.log.push(`tcp ${line}`);
-			console.log(`[canary] TCP hit: ${JSON.stringify(line)}`);
+async function startCanary(): Promise<CanaryPorts> {
+	const tcp: Record<string, number> = {};
+	for (const name of CANARY_TRIES) {
+		const server = net.createServer((socket) => {
+			canaryHits.tcp += 1;
+			canaryHits.log.push(`tcp ${name}`);
+			console.log(`[canary] TCP hit: ${name}`);
+			socket.on("error", () => {});
+			setTimeout(() => socket.destroy(), 1000);
 		});
-		socket.on("error", () => {});
-		setTimeout(() => socket.destroy(), 1000);
-	});
-	await new Promise<void>((resolve) => tcp.listen(0, "127.0.0.1", resolve));
+		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+		tcp[name] = (server.address() as AddressInfo).port;
+	}
 	const udp = dgram.createSocket("udp4");
 	udp.on("message", (data, from) => {
 		canaryHits.udp += 1;
@@ -604,9 +632,8 @@ async function startCanary(): Promise<{ tcp: number; udp: number }> {
 		console.log(`[canary] UDP hit from ${from.address}:${from.port}`);
 	});
 	await new Promise<void>((resolve) => udp.bind(0, "127.0.0.1", resolve));
-	const ports = { tcp: (tcp.address() as AddressInfo).port, udp: udp.address().port };
-	console.log(`[canary] TCP port ${ports.tcp}, UDP port ${ports.udp}`);
-	return ports;
+	console.log(`[canary] ${CANARY_TRIES.length} TCP ports, UDP port ${udp.address().port}`);
+	return { tcp, udp: udp.address().port };
 }
 
 /**
@@ -616,9 +643,10 @@ async function startCanary(): Promise<{ tcp: number; udp: number }> {
  * the frame sandbox and the load rule are the only guards. Pass: no hit on
  * the canary servers, no native panel, the app stays on the lesson.
  */
-function canaryDemo(ports: { tcp: number; udp: number }): string {
+function canaryDemo(ports: CanaryPorts): string {
 	const script = `
-var H = "https://127.0.0.1:${ports.tcp}";
+var P = ${JSON.stringify(ports.tcp)};
+function U(name) { return "https://127.0.0.1:" + P[name] + "/" + name; }
 var out = document.getElementById("out");
 function line(text) { var li = document.createElement("li"); li.textContent = text; out.appendChild(li); }
 function attempt(name, fn) {
@@ -631,21 +659,21 @@ function add(tag, attrs, parent) {
 	(parent || document.body).appendChild(el);
 	return el;
 }
-attempt("fetch", function () { fetch(H + "/fetch").catch(function () {}); });
-attempt("xhr", function () { var x = new XMLHttpRequest(); x.open("GET", H + "/xhr"); x.send(); });
-attempt("websocket", function () { new WebSocket("wss://127.0.0.1:${ports.tcp}/ws"); });
-attempt("eventsource", function () { new EventSource(H + "/sse"); });
-attempt("beacon", function () { return navigator.sendBeacon(H + "/beacon", "x"); });
-attempt("img", function () { add("img", { src: H + "/img.png" }); });
-attempt("script", function () { add("script", { src: H + "/script.js" }, document.head); });
-attempt("stylesheet", function () { add("link", { rel: "stylesheet", href: H + "/style.css" }, document.head); });
-attempt("prefetch", function () { add("link", { rel: "prefetch", href: H + "/prefetch" }, document.head); });
-attempt("css import", function () { add("style", {}, document.head).textContent = "@import url(" + H + "/import.css);"; });
-attempt("css url", function () { add("style", {}, document.head).textContent = "body{background-image:url(" + H + "/bg.png)}"; });
-attempt("module import", function () { var u = H + "/module.js"; Function("u", "return import(u)")(u).catch(function () {}); });
-attempt("worker", function () { new Worker(H + "/worker.js"); });
+attempt("fetch", function () { fetch(U("fetch")).catch(function () {}); });
+attempt("xhr", function () { var x = new XMLHttpRequest(); x.open("GET", U("xhr")); x.send(); });
+attempt("websocket", function () { new WebSocket("wss://127.0.0.1:" + P.ws + "/ws"); });
+attempt("eventsource", function () { new EventSource(U("sse")); });
+attempt("beacon", function () { return navigator.sendBeacon(U("beacon"), "x"); });
+attempt("img", function () { add("img", { src: U("img.png") }); });
+attempt("script", function () { add("script", { src: U("script.js") }, document.head); });
+attempt("stylesheet", function () { add("link", { rel: "stylesheet", href: U("style.css") }, document.head); });
+attempt("prefetch", function () { add("link", { rel: "prefetch", href: U("prefetch") }, document.head); });
+attempt("css import", function () { add("style", {}, document.head).textContent = "@import url(" + U("import.css") + ");"; });
+attempt("css url", function () { add("style", {}, document.head).textContent = "body{background-image:url(" + U("bg.png") + ")}"; });
+attempt("module import", function () { var u = U("module.js"); Function("u", "return import(u)")(u).catch(function () {}); });
+attempt("worker", function () { new Worker(U("worker.js")); });
 attempt("blob worker", function () {
-	var b = new Blob(["fetch('" + H + "/from-worker')"], { type: "text/javascript" });
+	var b = new Blob(["fetch('" + U("from-worker") + "')"], { type: "text/javascript" });
 	new Worker(URL.createObjectURL(b));
 });
 attempt("webrtc", function () {
@@ -657,7 +685,7 @@ attempt("media", function () { return navigator.mediaDevices.getUserMedia({ audi
 attempt("alert", function () { return alert("CANARY ALERT"); });
 attempt("confirm", function () { return confirm("CANARY CONFIRM"); });
 attempt("prompt", function () { return prompt("CANARY PROMPT"); });
-attempt("iframe src", function () { add("iframe", { src: H + "/frame" }); });
+attempt("iframe src", function () { add("iframe", { src: U("frame") }); });
 attempt("blank frame", function () {
 	var f = add("iframe", {});
 	var w = f.contentWindow;
@@ -669,19 +697,19 @@ attempt("blank frame", function () {
 		line("frame webrtc: ran");
 	} catch (e) { line("frame webrtc: threw"); }
 });
-attempt("window.open", function () { return window.open(H + "/open"); });
-attempt("blank link", function () { add("a", { href: H + "/blank", target: "_blank" }).click(); });
+attempt("window.open", function () { return window.open(U("open")); });
+attempt("blank link", function () { add("a", { href: U("blank"), target: "_blank" }).click(); });
 attempt("form", function () {
-	var f = add("form", { action: H + "/form", method: "post" });
+	var f = add("form", { action: U("form"), method: "post" });
 	add("input", { name: "x", value: "1" }, f);
 	f.submit();
 });
 // The navigations come last: a navigation that works ends the page.
 setTimeout(function () {
-	attempt("meta refresh", function () { add("meta", { "http-equiv": "refresh", content: "0;url=" + H + "/refresh" }, document.head); });
-	attempt("link tap", function () { add("a", { href: H + "/link" }).click(); });
-	attempt("top.location", function () { top.location.href = H + "/top"; });
-	attempt("location", function () { location.href = H + "/self"; });
+	attempt("meta refresh", function () { add("meta", { "http-equiv": "refresh", content: "0;url=" + U("refresh") }, document.head); });
+	attempt("link tap", function () { add("a", { href: U("link") }).click(); });
+	attempt("top.location", function () { top.location.href = U("top"); });
+	attempt("location", function () { location.href = U("self"); });
 	line("Canary finished");
 	document.getElementById("state").textContent = "Canary finished";
 }, 1500);
@@ -735,7 +763,7 @@ async function addArtifacts(
 	url: string,
 	headers: Record<string, string>,
 	chats: string,
-	ports: { tcp: number; udp: number },
+	ports: CanaryPorts,
 ) {
 	const res = await fetch(`${url}/api/chats`, {
 		method: "POST",

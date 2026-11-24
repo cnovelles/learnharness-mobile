@@ -33,9 +33,17 @@ appId: dev.local.learnharnessmobile
     timeout: 30000
 - tapOn: "Artifacts check.+"
 # 1. The figure: drawn, the invert switch saves on the Mac, the viewer opens.
+# The session opens at its last message, and a figure draws only near the
+# screen: scroll up to it.
 - extendedWaitUntil:
     visible:
+      id: "artifact-sa_steer_job_e2e_canary"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
       id: "artifact-sa_steer_job_e2e_figure-webview"
+    direction: UP
+    centerElement: true
     timeout: 30000
 - assertVisible: "FIGURE"
 - takeScreenshot: artifacts-1-figure
@@ -48,20 +56,24 @@ appId: dev.local.learnharnessmobile
     id: "artifact-sa_steer_job_e2e_figure-expand"
 - extendedWaitUntil:
     visible:
-      id: "zoom-viewer"
+      id: "artifact-sa_steer_job_e2e_figure-zoom"
     timeout: 10000
+- assertVisible:
+    id: "zoom-kind"
+    text: "FIGURE"
 - takeScreenshot: artifacts-3-figure-viewer
 - tapOn:
     id: "zoom-close"
 - extendedWaitUntil:
     notVisible:
-      id: "zoom-viewer"
+      id: "zoom-kind"
     timeout: 10000
 # 2. The slider demo runs in the sheet after a tap.
 - scrollUntilVisible:
     element:
       id: "artifact-sa_steer_job_e2e_slider-run"
     direction: DOWN
+    centerElement: true
 - tapOn:
     id: "artifact-sa_steer_job_e2e_slider-run"
 - extendedWaitUntil:
@@ -80,6 +92,7 @@ appId: dev.local.learnharnessmobile
     element:
       id: "artifact-sa_steer_job_e2e_photo-webview"
     direction: DOWN
+    centerElement: true
     timeout: 20000
 - assertNotVisible:
     id: "artifact-sa_steer_job_e2e_photo-photo-error"
@@ -89,6 +102,7 @@ appId: dev.local.learnharnessmobile
     element:
       id: "artifact-sa_steer_job_e2e_cdn-run"
     direction: DOWN
+    centerElement: true
 - tapOn:
     id: "artifact-sa_steer_job_e2e_cdn-run"
 - extendedWaitUntil:
@@ -102,15 +116,18 @@ appId: dev.local.learnharnessmobile
 - scrollUntilVisible:
     element: "This demo needs a file from the internet that the phone blocks\\. Open it on the Mac\\."
     direction: DOWN
+    centerElement: true
 - scrollUntilVisible:
     element: "The demo could not be built\\."
     direction: DOWN
+    centerElement: true
 - takeScreenshot: artifacts-7-notes
 # 6. The canary demo. No native panel shows, and the app stays on the lesson.
 - scrollUntilVisible:
     element:
       id: "artifact-sa_steer_job_e2e_canary-run"
     direction: DOWN
+    centerElement: true
 - tapOn:
     id: "artifact-sa_steer_job_e2e_canary-run"
 - extendedWaitUntil:
