@@ -40,12 +40,20 @@ beforeEach(() => {
 	globalThis.fetch = jest.fn(mac.handle) as unknown as typeof fetch;
 });
 
-/** A time `days` days before now, at the same clock time (Today, This week, Earlier). */
+/**
+ * A time `days` days before now, at the same clock time (Today, This week,
+ * Earlier), `minutes` earlier. The minutes never go back past the start of
+ * that day: shortly after midnight, "30 minutes ago" is still today (the
+ * test failed in CI at 00:07).
+ */
 function daysAgo(days: number, minutes = 0) {
 	const d = new Date();
 	d.setDate(d.getDate() - days);
-	d.setMinutes(d.getMinutes() - minutes);
-	return d.toISOString();
+	const start = new Date(d);
+	start.setHours(0, 0, 0, 0);
+	const earlier = d.getTime() - minutes * 60_000;
+	const t = earlier >= start.getTime() ? earlier : (start.getTime() + d.getTime()) / 2;
+	return new Date(t).toISOString();
 }
 
 /** A practice session with its list fields. */
