@@ -61,7 +61,8 @@ export {
 // SVG namespace and writes &nbsp; as a number. Pure, no imports.
 export { svgImageSource } from "@lh/lib/svg-image-source";
 // The plan graph layout (issue 05 slice 0): dagre placement and edge paths,
-// with no DOM. The desktop draws the same numbers in components/plan-block.tsx.
+// with no DOM. Since upstream v0.7.0 the desktop has its own layout with a
+// font measure; the fork keeps this copy for the phone (src/core/plan-layout-phone.ts).
 export {
 	ARROW_HEAD,
 	GLOW_BLUR,
@@ -79,7 +80,7 @@ export {
 	edgePathD,
 	wrapTitle,
 	type LayoutNode,
-} from "@lh/components/plan-layout";
+} from "@lh/src/core/plan-layout-phone";
 // The desktop folder order (issue 20): the Chains folders and their order.
 // Import the files directly: the src/core barrel is not needed here.
 export {
