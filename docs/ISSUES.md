@@ -810,6 +810,9 @@ Phases (one branch and one PR each, from master):
 - E. The rename in the fork (script, allowlist, data copy with tests, CI check, `docs/UPSTREAM-SYNC.md`).
 - F. The rename in the phone (`app.json` name, slug, scheme, bundle id `dev.local.orbitutormobile`, texts, docs).
 - B2. A one-page static website (logo, short description, downloads, GitHub repo, AGPL source notice) in the new palette, on a static host with HTTPS.
+  - State (2026-11-24, side session, branch `claude/feat-22-b2-website-6f6af8`, not merged): the page is in `website/` (plain HTML and CSS, no scripts, light and dark, Grove palette). Research: `docs/reviews/2026-11-24-website-research.md`. Deploy notes: `docs/WEBSITE.md`. `tests/website.test.ts` checks the local links, the absence of external loads, the AGPL notice, the LearnHarness credit and WCAG AA for both modes.
+  - User choices (2026-11-24): the mockup as shown; the logo with orbit rings in the hero now, real screenshots from the golden test data after phase D; the download cards link to the source and the setup guide ("Coming soon"); the proposed host is Cloudflare (nothing is deployed). Cloudflare tells new projects to use Workers, not Pages, so the site is an assets-only Worker (`website/wrangler.jsonc`, files in `website/public/`). The footer links to the author's page, which lists the other projects. Demo rules (screenshots and short clips from test data): `docs/WEBSITE.md`.
+  - Open: the real download targets (a notarized Mac build, TestFlight or the App Store), the domain (`orbitutor.com`), the copyright holder name in the footer ("the OrbiTutor contributors" for now), and the repo links after phase G renames the repos.
 - G. The GitHub repos and local folders; fix the remotes and paths.
 
 ## Choppy load of a large session (bug, 2026-11-17) `todo`

@@ -1,0 +1,10 @@
+// Cloudflare Workers config for the OrbiTutor website (docs/WEBSITE.md).
+// An assets-only Worker: no script, Cloudflare serves the files in public/.
+{
+	"name": "orbitutor-website",
+	"compatibility_date": "2026-11-24",
+	"assets": {
+		"directory": "./public",
+		"not_found_handling": "404-page",
+	},
+}
