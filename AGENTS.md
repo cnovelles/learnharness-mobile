@@ -51,6 +51,14 @@ Docs: https://docs.expo.dev/eas/index.md
 - Use the GitHub noreply email `278555343+cnovelles@users.noreply.github.com`. Add no AI attribution lines.
 - Run `npm run format:check`, `npx expo lint`, `npx tsc --noEmit` and `npx jest` before each commit.
 
+## The user's real data
+
+The Mac app runs on the user's real courses in `~/Library/Application Support/LearnHarness/data`. Never lose this data.
+
+- Never point a test, a test Mac or a script at the real folder. Use a temp `LH_DATA_DIR` with a copy of the golden data.
+- Before a step that can touch the real data (a fork build install, an upstream sync install, a folder migration, a store schema change), make a dated backup: copy `~/Library/Application Support/LearnHarness/` (without the Chromium cache folders) to `~/Development/learnharness-app-backups/<date>-<reason>/`. Compare the `data/` folders with `diff -rq` and parse each `.json` and `.jsonl` file.
+- Copy, never move or delete, the real folder.
+
 ## Error states
 
 Every feature handles its error states, not only the happy path.
