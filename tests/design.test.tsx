@@ -8,7 +8,7 @@ import { StyleSheet } from "react-native";
 
 import { CONFIDENCE_COLORS, confidenceColor } from "@/components/confidence-rail";
 import { Transcript } from "@/components/transcript";
-import { alpha } from "@/components/ui";
+import { alpha, PALETTES } from "@/components/ui";
 import type { AnsweredCard } from "@/lib/answer-card";
 import { TOOL_INPUT_MAX, TOOL_OUTPUT_MAX, headlineArg, outputText, toolRow } from "@/lib/tool-row";
 import type { TranscriptRow } from "@/lib/transcript";
@@ -185,7 +185,7 @@ describe("confidence rail", () => {
 				card: card(50),
 			},
 		]);
-		expect(flat("answered-option-q3-0").backgroundColor).toBe(alpha("#3f8f6b", 0.1));
+		expect(flat("answered-option-q3-0").backgroundColor).toBe(alpha(PALETTES.light.ok, 0.1));
 		expect(flat("answered-option-q3-1").backgroundColor).toBeUndefined();
 	});
 });
