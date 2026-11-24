@@ -21,9 +21,12 @@ import type { UserMessage } from "@/lib/user-error";
 import { SPACE } from "./spacing";
 
 /**
- * The desktop's colors (issue 18, user decision 2026-11-15). Dark mode is
- * the desktop's default theme (fork app/globals.css); light mode is its
- * built-in Ivory theme (fork src/core/themes.ts).
+ * The OrbiTutor colors (issue 22, palette "Grove", user decision
+ * 2026-11-23): the issue 18 neutrals with the logo green for buttons,
+ * links and the selected tab. Dark mode is the desktop's default theme
+ * "OrbiTutor"; light mode is its "OrbiTutor Light" theme (fork
+ * src/core/themes.ts). Every text pair passes WCAG AA
+ * (tests/palette.test.ts).
  */
 export interface Palette {
 	/** The page. */
@@ -59,22 +62,22 @@ export interface Palette {
 const DARK: Palette = {
 	bg: "#141414",
 	panel: "#1c1c1c",
-	line: "#434343",
+	line: "#3a3a3a",
 	lineStrong: "#e6e6e6",
 	text: "#e6e6e6",
-	muted: "#8d8d8d",
+	muted: "#9a9a9a",
 	hover: "#2a2a2a",
-	primary: "#e6e6e6",
-	onPrimary: "#141414",
-	accent: "#8d8d8d",
-	onAccent: "#141414",
-	strong: "#e6e6e6",
-	italic: "#e6e6e6",
-	code: "#e6e6e6",
+	primary: "#2fd08a",
+	onPrimary: "#0b2117",
+	accent: "#38d892",
+	onAccent: "#0b2117",
+	strong: "#f2f2f2",
+	italic: "#8fe3bb",
+	code: "#f0a37f",
 	codeBg: "#0e0e0e",
-	danger: "#ef4444",
-	ok: "#22c55e",
-	warning: "#f59e0b",
+	danger: "#f26b6b",
+	ok: "#38d892",
+	warning: "#f2b544",
 };
 const LIGHT: Palette = {
 	bg: "#faf9f5",
@@ -82,19 +85,19 @@ const LIGHT: Palette = {
 	line: "#e0ddd2",
 	lineStrong: "#3d3d3a",
 	text: "#3d3d3a",
-	muted: "#83827d",
+	muted: "#67665f",
 	hover: "#e2e0d8",
-	primary: "#3d3d3a",
-	onPrimary: "#faf9f5",
-	accent: "#d97757",
-	onAccent: "#faf9f5",
-	strong: "#3266c9",
-	italic: "#3f8f6b",
-	code: "#c4613f",
+	primary: "#0b7a4b",
+	onPrimary: "#ffffff",
+	accent: "#0b7a4b",
+	onAccent: "#ffffff",
+	strong: "#22221f",
+	italic: "#0b7a4b",
+	code: "#a8502f",
 	codeBg: "#edece8",
-	danger: "#c43d3d",
-	ok: "#3f8f6b",
-	warning: "#b8822a",
+	danger: "#b83232",
+	ok: "#0b7a4b",
+	warning: "#8a5e12",
 };
 
 /**
@@ -141,6 +144,9 @@ export function alpha(hex: string, opacity: number): string {
 	const n = parseInt(m[1], 16);
 	return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${opacity})`;
 }
+
+/** Both palettes, for the contrast test. */
+export const PALETTES: Readonly<Record<"dark" | "light", Palette>> = { dark: DARK, light: LIGHT };
 
 export function usePalette(): Palette {
 	return useColorScheme() === "dark" ? DARK : LIGHT;

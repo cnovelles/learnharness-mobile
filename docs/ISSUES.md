@@ -804,8 +804,8 @@ Name and phase A (user and side session `local_d7c35fba`, 2026-11-23). Report: `
 Phases (one branch and one PR each, from master):
 
 - A. The dry run of the script on a throwaway clone (count the conflicts with and without it). A name check for "LearnLoop" (App Store, trademarks).
-- B. Mockups: 3–4 logo directions and 2–3 palettes at 375 pt, light and dark, next to the references and on the desktop. WCAG AA contrast. The user chooses.
-- C. The palette (phone tokens, fork theme).
+- B. Mockups: 3–4 logo directions and 2–3 palettes at 375 pt, light and dark, next to the references and on the desktop. WCAG AA contrast. The user chooses. `done` (2026-11-23): mockups `issue-22-phase-b-mockups.html` in the main session's notes folder. The user chose the palette A "Grove" and the full logo mark at all sizes (no separate small mark; the fork has no menu bar icon, so 16 px is only the website favicon). D-019.
+- C. The palette (phone tokens, fork theme). `in review` (2026-11-23): phone `feat/22-c-palette` (`src/components/ui.tsx`, `tests/palette.test.ts`); fork `feat/22-c-palette` from `mobile/phone-access` (the `default` preset is now "OrbiTutor", the old palette is "Classic", a new "OrbiTutor Light", optional theme button colors). Every text pair passes WCAG AA. Not checked yet: Simulator screenshots (needs the e2e lock) and the fork window.
 - D. The logo and icons (fork `build/icon*`, `components/lh-mark.tsx`; phone `assets/` icon and splash).
 - E. The rename in the fork (script, allowlist, data copy with tests, CI check, `docs/UPSTREAM-SYNC.md`).
 - F. The rename in the phone (`app.json` name, slug, scheme, bundle id `dev.local.orbitutormobile`, texts, docs).
