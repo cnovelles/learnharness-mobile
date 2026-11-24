@@ -45,6 +45,7 @@ import {
 import { createEventHub } from "../../src/lib/server-events";
 import { attachSessionEvents } from "../../src/lib/session-events";
 import { transcriptRows } from "../../src/lib/transcript";
+import { startForkServer } from "./fork-server";
 
 const FORK = process.env.LH_FORK_DIR
 	? path.resolve(process.env.LH_FORK_DIR)
@@ -135,7 +136,7 @@ before(async () => {
 		pinned: await import(path.join(FORK, "tests/helpers/pinned-fetch.ts")),
 	};
 	fake = await helpers.fake.startFakeProvider({ models: ["fake-strong", "fake-cheap"] });
-	server = await helpers.dev.startDevServer({
+	server = await startForkServer(FORK, {
 		env: { LH_DESKTOP_SERVER: "1", LH_DESKTOP_API_SECRET: SECRET },
 		headers: DESKTOP,
 	});
