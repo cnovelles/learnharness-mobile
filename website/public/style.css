@@ -599,3 +599,44 @@ p {
 	font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 	color: var(--text);
 }
+
+/* 404 page */
+
+.not-found {
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 18px;
+	text-align: center;
+}
+
+.not-found img {
+	border-radius: 22%;
+}
+
+.not-found p {
+	color: var(--muted);
+}
+
+/* Demo media: screenshots and short clips (docs/WEBSITE.md, "Demos") */
+
+.demo {
+	margin: 0;
+}
+
+.demo img,
+.demo video {
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--panel);
+}
+
+.demo figcaption {
+	color: var(--muted);
+	font-size: 0.9rem;
+	margin-top: 10px;
+}
