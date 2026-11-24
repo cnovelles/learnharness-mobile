@@ -1130,3 +1130,122 @@ Blocked by: 05. Split from issue 05 (user decision 2026-11-14).
 | 10  | The photo of a photo figure cannot load (no connection, 404, a bad answer)            | "Loading image…" while it loads, then "The image could not be loaded."                                                                                                                           | Screen test with the fake Mac: 404, a bad `mimeType`, a bad width, a lost connection.                                                                                                                             |
 | 11  | An unknown artifact kind (a new kind on the Mac)                                      | "This result can only be shown on the Mac." The steer text does not show as a learner bubble.                                                                                                    | Unit test with `kind: "future"`.                                                                                                                                                                                  |
 | 12  | A message from the page with a bad shape or extra keys                                | Ignored.                                                                                                                                                                                         | Unit test of the message parser.                                                                                                                                                                                  |
+
+## 23 App Store release (first version of the OrbiTutor iPhone app) `todo`
+
+User request 2026-11-24: publish the iPhone app on the App Store. Build on the plan above. This issue does not change the scope or the status of any other issue. Where an issue already plans a step, this issue links to it and adds only the release note.
+
+Blocked by: 22 phases C (PR #14, fork PR #2, not merged), D (icons), E and F (rename), B2 (website, PR #16, not merged) and G (repo rename). Also blocked by the Apple Developer Program enrollment and by the decisions below (mainly R1 and R2).
+
+### User decisions (2026-11-24)
+
+- Account Holder: the GitHub Apple ID. Enroll as an individual now. Convert to an organization later, when a company exists.
+- The app signs today with the free Personal Team `52B7323R6Q` of the personal Apple ID (`app.json` `ios.appleTeamId`, `docs/SETUP.md` step 4). After the enrollment, the team id changes to the new paid team (step U2 below). Do not change it before then.
+- Do not put the user's email addresses in the repo.
+
+### Facts (checked on 2026-11-24 unless marked "from memory")
+
+Apple Developer Program and App Store Connect:
+
+- The membership costs 99 USD for each membership year. An individual needs two-factor authentication and a legal name. The legal name is the seller name on the App Store; an alias or a nickname delays the enrollment. Source: https://developer.apple.com/programs/enroll/
+- Individual to organization: Apple asks for a request ("please submit a request"). It needs a legal entity (no DBAs) and a D-U-N-S number. The page does not say that the apps stay with the account. Source: https://developer.apple.com/help/account/membership/updating-your-account-information
+- An app transfer to another account is possible only after the app has at least one version released on the App Store. TestFlight must be off first. Source: https://developer.apple.com/help/app-store-connect/transfer-an-app/app-transfer-criteria and https://developer.apple.com/help/app-store-connect/transfer-an-app/overview-of-app-transfer (both read partly as a summary)
+- The membership includes Developer ID ("receive an Apple-verified Developer ID"). Notarization is for software outside the Mac App Store. Source: https://developer.apple.com/programs/whats-included/ and https://developer.apple.com/developer-id/
+- The app name has 2 to 30 characters. Source: https://developer.apple.com/help/app-store-connect/reference/app-information/
+- A privacy policy URL is required for iOS apps. Source: the same page.
+- The bundle id cannot change after the first build upload. From memory, not found on Apple's pages on 2026-11-24 (checked: add-a-new-app, register-an-app-id). Treat it as permanent.
+- Screenshots: at least one iPhone screenshot set for the "iPhone with Dynamic Island (medium display)" size, portrait 1179 × 2556 or 1206 × 2622. The large display set is required in some cases. Source: https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/ (read as a summary; check the exact sizes on the page before the screenshots).
+- Age ratings: 4+, 9+, 13+, 16+, 18+ and Unrated. An Unrated app cannot be published. Source: https://developer.apple.com/help/app-store-connect/reference/age-ratings-values-and-definitions/
+- App privacy details: data is "collected" when it leaves the device in a way that the developer or its partners can access. Data that the app processes only on the device is not collected. Source: https://developer.apple.com/app-store/app-privacy-details/
+- Export compliance: App Store Connect asks about encryption for each build. Apple's overview lists "Standard encryption algorithms" and the operating system's crypto as cases that need a determination. Thus "HTTPS only, so exempt" is not confirmed. Source: https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/ (read as a summary). The key `ITSAppUsesNonExemptEncryption` is from memory: the Apple documentation page did not load.
+- TestFlight: up to 100 internal testers (team members) and up to 10,000 external testers. The first build for external testers needs App Review. Source: https://developer.apple.com/testflight/
+
+App Review Guidelines (https://developer.apple.com/app-store/review/guidelines/):
+
+- 2.1(a): an app with a login must include demo account information. A built-in demo mode in place of a demo account needs "prior approval by Apple". The back-end service must be live during the review.
+- "Before You Submit": give "either an active demo account or fully-featured demo mode", and any other hardware or resources that the review needs, for example "a sample QR code".
+- 4.2.3(i): "Your app should work on its own without requiring installation of another app to function." Read as a summary of the page, not verbatim: check the exact text before you rely on it.
+- 4.2.7 (remote desktop clients, summary): a client may connect only to a host device that the user owns, on a local network. OrbiTutor is not a remote desktop client, but App Review can compare it to one.
+- 5.1.1(i) (summary): the privacy policy link must be in App Store Connect and also inside the app, easy to find.
+- No guideline mentions a companion app for a Mac, a demo video for the review, open source or the GPL. The App Review page (https://developer.apple.com/app-store/review/) did not load, so it is not known if App Review accepts a demo video. From memory, a video link in the review notes is common, but it does not replace a working review path.
+
+Expo and EAS (SDK 58):
+
+- `eas build:configure` makes `eas.json` with the profiles `development`, `preview` and `production`. Source: https://docs.expo.dev/build/eas-json.md
+- An App Store build needs a paid membership. `eas build --platform ios --profile production`, then `eas submit --platform ios`. `submit.production.ios.ascAppId` in `eas.json` is the "Apple ID" of the app in App Store Connect. Source: https://docs.expo.dev/submit/ios.md and https://docs.expo.dev/deploy/build-project.md
+- EAS can make and keep the distribution certificate and the provisioning profile (sign-in with the paid membership). Source: https://docs.expo.dev/app-signing/managed-credentials.md
+- Versions: `"cli": { "appVersionSource": "remote" }` and `"autoIncrement": true` on the `production` profile is the recommended setup. Source: https://docs.expo.dev/build-reference/app-versions.md
+- `eas build --local` runs the build on this Mac (needs Xcode, fastlane and CocoaPods). Source: https://docs.expo.dev/build-reference/local-builds.md. The free plan has 15 iOS cloud builds and "up to 1" macOS build at a time. Source: https://expo.dev/pricing
+- `ios.config.usesNonExemptEncryption` sets `ITSAppUsesNonExemptEncryption`. `ios.privacyManifests` adds to `PrivacyInfo.xcprivacy`. Source: https://docs.expo.dev/versions/latest/config/app.md and https://docs.expo.dev/guides/apple-privacy.md
+- The project has a local Swift module (`modules/pinned-fetch`, `modules/dictation`). The EAS build must run the prebuild with these modules. Check this with the first `preview` build.
+
+Network calls in the app (code read on 2026-11-24, `a76325c`), for the privacy labels:
+
+- The paired Mac only, through the pinned fetch (`src/lib/pairing.ts`, `modules/pinned-fetch`). The developer has no server.
+- Deepgram (`api.deepgram.com`), only when the user picks Deepgram dictation. The Mac gives the token from the user's own key (`src/lib/dictation-deepgram.ts`). On-device dictation is the default.
+- Demo artifacts can load scripts from `cdn.jsdelivr.net`, `unpkg.com` and `cdnjs.cloudflare.com` (`src/lib/artifacts.ts`, issue 19).
+- Links open in the browser (`src/lib/open-link.ts`), for example the ChatGPT usage page.
+- No analytics, no crash reporting, no `expo-updates`, no ads, no tracking. Fonts are in the app.
+
+### Risks to settle first
+
+R1. The AGPL and the App Store. The phone app includes LearnHarness code (copyright Amos Blomqvist, AGPL-3.0-only) through `../learnharness` (`metro.config.js`, `src/lib/shared.ts`). From memory, not legal advice: many people see the App Store terms as in conflict with the GPL family. The FSF wrote in 2010 that an App Store copy of GNU Go was "not in compliance with the GNU GPL" (https://www.fsf.org/news/2010-05-app-store-compliance). VLC left the App Store in 2011 (from memory, not checked). The safe step is a written permission from Amos Blomqvist: an additional permission (AGPL section 7) for App Store and TestFlight distribution. Draft: `docs/reviews/2026-11-24-app-store-exception-request.md`. The user sends it. Code that only the user wrote can get the same permission from the user.
+
+R2. The iPhone app needs the Mac app. App Store users need an OrbiTutor Mac build that is signed with Developer ID and notarized, on GitHub Releases (today the fork build is not signed, `docs/SETUP.md` step 1). App Review has no paired Mac. Guideline 4.2.3(i) and 2.1(a) make this the largest review risk. See decision D4.
+
+### Steps for the user (Claude does not do these)
+
+- U1. Enroll in the Apple Developer Program as an individual with the GitHub Apple ID. Pay 99 USD.
+- U2. After the enrollment, give the new team id. Then a session changes `ios.appleTeamId` in `app.json`, runs `npx expo prebuild --platform ios --no-install`, and updates `docs/SETUP.md` step 4 and the "Free Apple ID" section.
+- U3. Register `orbitutor.com` and `orbitutor.ai` (issue 22, "Domains").
+- U4. Make the Cloudflare account and approve the website deploy (PR #16, `docs/WEBSITE.md` "Proposed host").
+- U5. Choose the copyright name in the website footer.
+- U6. Send the permission request to Amos Blomqvist (R1), and keep the answer.
+- U7. In App Store Connect: make the app record, fill in the agreements, tax and banking forms (from memory, a free app needs only the free apps agreement), the age rating questionnaire, the privacy labels and the export compliance answers.
+- U8. Submit the build for review.
+
+### Checklist (release work, after the decisions)
+
+1. Name and ids: the final bundle id and the URL scheme (D2) go in with issue 22 phase F. Check that the name "OrbiTutor" is free when you make the App Store Connect record (the 30-character limit is not a problem).
+2. Texts: the camera, microphone and local network texts in `app.json` still say "LearnHarness". Issue 22 phase F renames them. Release note: App Review reads these texts, so each must say why the app needs the access.
+3. Icons: issue 22 phase D. Release note: the App Store icon is 1024 × 1024 with no transparency (from memory, check before the upload).
+4. `eas.json`: run `eas build:configure`, keep the three profiles, set `appVersionSource` to `remote` and `autoIncrement` on `production`. Add `submit.production.ios.ascAppId` after U7. Set `ios.config.usesNonExemptEncryption` after D6.
+5. Privacy manifest: add `ios.privacyManifests` for the APIs that the app and its modules use (for example `UserDefaults`), and check the build's `PrivacyInfo.xcprivacy`.
+6. In-app privacy link (guideline 5.1.1): a Settings row that opens the privacy policy page. This is app code: list its error states before the code (`AGENTS.md`).
+7. Website pages (on top of PR #16): `privacy.html` (what the app sends and where, from the network list above) and `support.html` (contact, the setup guide, the Mac app download). Keep `docs/WEBSITE.md` rules: no store link before the listing exists.
+8. The Mac app (R2): a Developer ID signed and notarized OrbiTutor Mac build on GitHub Releases. This is fork work after issue 22 phase E. From memory: only the Account Holder can make a Developer ID certificate.
+9. The review path (D4): the chosen path, the review notes, and a short demo video made with test data only (`docs/WEBSITE.md` "Demos").
+10. Store listing: subtitle, description, keywords, support URL, privacy URL, category (Education), screenshots in the sizes above (Simulator, golden test data only, never the user's real courses).
+11. TestFlight: internal testers first (the user's own devices). Then external testers, which needs App Review of the first external build.
+12. App Review: submit, answer questions, release.
+
+### Decisions for the user
+
+- D1 (R1). AGPL: send the permission request to Amos Blomqvist before any TestFlight or App Store upload? Options: (a) send it and wait for a yes (recommended); (b) ship without it (legal risk, from memory); (c) keep the app off the App Store and use personal builds only (`docs/SETUP.md`). Ask a lawyer if the answer is not clear.
+- D2. The bundle id. Issue 22 plans `dev.local.orbitutormobile`. Conflict: `local` is not a domain that the user owns, and the bundle id is permanent after the first upload. A reverse domain of `orbitutor.com` (for example `com.orbitutor.app`) fits the App Store better and is free to choose until the first upload. This issue does not change issue 22. The user decides, then issue 22 phase F uses the answer.
+- D3. The URL scheme. Issue 22 plans a new scheme. Choose it together with D2 (for example `orbitutor`).
+- D4 (R2). The review path without a Mac. Options:
+  - (a) A demo mode in the app with recorded test lessons (the golden data). Guideline 2.1(a) says a demo mode in place of a demo account needs Apple's prior approval; "Before You Submit" accepts a "fully-featured demo mode". This is new app code and a new issue after this plan.
+  - (b) A review Mac that App Review can reach: issue 14 (cloud host) plans the fork in Docker behind `tailscale serve`. App Review cannot join a tailnet, so this needs a public HTTPS address and a pairing payload in the review notes. This changes the security model of D-003 and needs its own decision.
+  - (c) The review notes, a demo video and a sample QR code only. This has the highest risk of a 4.2.3(i) or 2.1 rejection.
+  - (d) Wait for issue 12 (mode 3, the engine on the phone). Then the app works alone. This is far in the plan order.
+- D5. Version 1 scope. These issues are open (status as listed above, not changed here). Which must ship in version 1?
+  - 07 Dictation `doing`
+  - 08 Graph list, cost and context `doing`
+  - 09 Local store and outbox `todo` (PR #10 is merged; the status line is not changed here)
+  - 10 Sync `todo`, 11 Mode switch `todo`, 12 Mode 3 engine `todo`, 13 Export `todo`, 14 Cloud host `todo`
+  - 16 ChatGPT sign-in test `todo`
+  - 19 Visual and demo artifacts `todo` (PR #11 is merged; the status line is not changed here)
+  - 21 Performance `todo`
+  - 22 Rebrand `todo` (phases C to G are blockers of this issue)
+  - Choppy load of a large session (bug) `todo`
+  - Desktop fork upstream v0.7.0 `doing`
+- D6. Export compliance. The app uses HTTPS (URLSession) and a SHA-256 certificate pin. No own encryption. Apple's page does not confirm an exemption for this. Answer the App Store Connect questions with the facts, and set `usesNonExemptEncryption` from that answer.
+- D7. Privacy labels. The developer gets no data. Deepgram (the user's own key, opt-in) and the CDNs of demo artifacts get data from the device. Recommended answer: "Data Not Collected", with the privacy policy naming Deepgram and the CDNs. The user confirms, because the label is the user's legal statement.
+- D8. Builds: EAS cloud builds (15 free iOS builds for each month on the free plan, from expo.dev/pricing) or local builds on this Intel Mac (`eas build --local`, or `xcodebuild` and an upload). Both need the paid team.
+- D9. iPad: the app is iPhone only today (`requireFullScreen`, no `supportsTablet`). Keep iPhone only for version 1?
+- D10. The seller name: an individual account shows the legal name on the App Store. Accept this for version 1 (the user chose the individual account)?
+
+### Error states (for the release work that changes app code)
+
+- Steps 6 and D4(a) change app code. List their error states in their own issues before the code (for example: the privacy page does not open, no browser, the demo data fails to load).
