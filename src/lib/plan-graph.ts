@@ -1,7 +1,7 @@
 /**
  * The plan graph geometry (issue 05 slice E). The placement is the
  * desktop's: the shared `blockLayout` (dagre), `wrapTitle` and `edgePathD`
- * from the fork's components/plan-layout.ts. This file only turns those
+ * from the fork's src/core/plan-layout-phone.ts. This file only turns those
  * numbers into boxes, text lines and edge paths for react-native-svg, and
  * picks the scale for the phone width.
  *
@@ -23,7 +23,7 @@ import {
 } from "./shared";
 
 /** The node title size in graph units. The shared width estimate is fitted
- *  to this size (fork plan-layout.ts, `estimateLineWidth`). */
+ *  to this size (fork src/core/plan-layout-phone.ts, `estimateLineWidth`). */
 export const NODE_FONT = 11;
 /** The smallest node text on the phone, in points. A graph that must go
  *  smaller to fit scrolls sideways instead (user decision 2026-11-15). */
