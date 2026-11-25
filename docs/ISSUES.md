@@ -1206,7 +1206,7 @@ R2. The iPhone app needs the Mac app. App Store users need an OrbiTutor Mac buil
 
 ### Checklist (release work, after the decisions)
 
-1. Name and ids: the final bundle id and the URL scheme (D2) go in with issue 22 phase F. Check that the name "OrbiTutor" is free when you make the App Store Connect record (the 30-character limit is not a problem).
+1. Name and ids: the bundle id `com.orbitutor.app` (D2) and the URL scheme (D3) go in with issue 22 phase F. Check that the name "OrbiTutor" is free when you make the App Store Connect record (the 30-character limit is not a problem).
 2. Texts: the camera, microphone and local network texts in `app.json` still say "LearnHarness". Issue 22 phase F renames them. Release note: App Review reads these texts, so each must say why the app needs the access.
 3. Icons: issue 22 phase D. Release note: the App Store icon is 1024 × 1024 with no transparency (from memory, check before the upload).
 4. `eas.json`: run `eas build:configure`, keep the three profiles, set `appVersionSource` to `remote` and `autoIncrement` on `production`. Add `submit.production.ios.ascAppId` after U7. Set `ios.config.usesNonExemptEncryption` after D6.
@@ -1222,7 +1222,7 @@ R2. The iPhone app needs the Mac app. App Store users need an OrbiTutor Mac buil
 ### Decisions for the user
 
 - D1 (R1). AGPL: send the permission request to Amos Blomqvist before any TestFlight or App Store upload? Options: (a) send it and wait for a yes (recommended); (b) ship without it (legal risk, from memory); (c) keep the app off the App Store and use personal builds only (`docs/SETUP.md`). Ask a lawyer if the answer is not clear.
-- D2. The bundle id. Issue 22 plans `dev.local.orbitutormobile`. Conflict: `local` is not a domain that the user owns, and the bundle id is permanent after the first upload. A reverse domain of `orbitutor.com` (for example `com.orbitutor.app`) fits the App Store better and is free to choose until the first upload. This issue does not change issue 22. The user decides, then issue 22 phase F uses the answer.
+- D2. The bundle id. DECIDED (user, 2026-11-25): **`com.orbitutor.app`**. Issue 22 plans `dev.local.orbitutormobile`, but `local` is not a domain that the user owns, and the bundle id is permanent after the first upload. Issue 22 is not changed here: phase F uses `com.orbitutor.app` in place of `dev.local.orbitutormobile`. The App ID is registered on the paid team after the enrollment (U1). The `docs/SETUP.md` problem row about `dev.local.learnharnessmobile` changes with phase F.
 - D3. The URL scheme. Issue 22 plans a new scheme. Choose it together with D2 (for example `orbitutor`).
 - D4 (R2). The review path without a Mac. Options:
   - (a) A demo mode in the app with recorded test lessons (the golden data). Guideline 2.1(a) says a demo mode in place of a demo account needs Apple's prior approval; "Before You Submit" accepts a "fully-featured demo mode". This is new app code and a new issue after this plan.
