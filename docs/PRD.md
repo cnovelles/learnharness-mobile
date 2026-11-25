@@ -47,6 +47,8 @@ Last update: 2026-11-23 (issue 08 in the Graph tab, D-016. Slices B and C1 are d
 
 **Issue 08 slice F (2026-11-23, side session `local_7323e6ae`):** the pipeline cost on the Graph tab is done (`d92fd30`, PR #8, merged 2026-11-23): the cost number, the cost sheet and the run pills, with the labels from the fork `src/core/graph-cost-format.ts` (fork `7a23c03`, pushed). Details in `docs/ISSUES.md` issue 08 slice F.
 
+**Issue 23 App Store release (2026-11-24, side session):** planned, not started. The plan, the facts with their sources, the risks (the AGPL, App Review without a Mac) and the decisions for the user are in `docs/ISSUES.md` issue 23. Draft permission request to the upstream author: `docs/reviews/2026-11-24-app-store-exception-request.md`.
+
 **Decisions 2026-11-14:** free path first, issue 16 (ChatGPT sign-in test on a real iPhone), issue 17 (feature flags). See Further Notes.
 
 **Decision log:** `docs/DECISIONS.md` (D-001 to D-012, user request 2026-11-18): the problem, how it was found, the options, the choice, and the validation of each big decision for the phone and the fork. Add an entry for each new big decision (AGENTS.md "Decisions").
